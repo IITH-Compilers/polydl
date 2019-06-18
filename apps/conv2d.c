@@ -136,26 +136,6 @@ void padded_conv_fp_stride_1_tiled_core(int nImg, int nIfm, int nOfm, int ifhp, 
 #pragma endscop
 }
 
-void padded_conv_fp_stride_1(
-	int nImg, int nIfm, int nOfm, int ifhp, int ifwp, int ofhp, int ofwp, int ifh, int ifw,
-	int ofh, int ofw, int pad_h, int pad_w, int pad_h_in, int pad_w_in, int pad_h_out,
-	int pad_w_out, int kh, int kw, int stride_h, int stride_w,
-	const float input[nImg][nIfm / 16][ifhp][ifwp][16], float output[nImg][nOfm / 16][ofhp][ofwp][16], const float filter[nOfm / 16][nIfm / 16][kh][kw][16][16], int tiled)
-{
-	/* declare a physcial padded buffer */
-	float pad_gemm_input[nImg][nIfm / 16][ifhp + 2 * pad_h][ifwp + 2 * pad_w][16];
-	zero_buf(pad_gemm_input, (nImg)*(nIfm / 16)*(ifhp + 2 * pad_h)*(ifwp + 2 * pad_w) * 16);
-
-	printf("Calling copy_GEMM_to_PADDED_GEMM\n");
-	copy_GEMM_to_PADDED_GEMM(nImg, ifhp, ifwp, nIfm, pad_h, pad_w, input, pad_gemm_input);
-
-	printf("padded_conv_fp_stride_1_core\n");
-	padded_conv_fp_stride_1_core(nImg, nIfm, nOfm, ifhp, ifwp, ofhp, ofwp, ifh, ifw,
-		ofh, ofw, pad_h, pad_w, pad_h_in, pad_w_in, pad_h_out,
-		pad_w_out, kh, kw, stride_h, stride_w, pad_gemm_input, output, filter);
-}
-
-
 void init_buf(float* buf, long size)
 {
 	int i;
@@ -170,6 +150,26 @@ void zero_buf(float* buf, long size) {
 		buf[i] = 0.0f;
 	}
 }
+
+void padded_conv_fp_stride_1(
+	int nImg, int nIfm, int nOfm, int ifhp, int ifwp, int ofhp, int ofwp, int ifh, int ifw,
+	int ofh, int ofw, int pad_h, int pad_w, int pad_h_in, int pad_w_in, int pad_h_out,
+	int pad_w_out, int kh, int kw, int stride_h, int stride_w,
+	const float input[nImg][nIfm / 16][ifhp][ifwp][16], float output[nImg][nOfm / 16][ofhp][ofwp][16], const float filter[nOfm / 16][nIfm / 16][kh][kw][16][16], int tiled)
+{
+	/* declare a physcial padded buffer */
+	float pad_gemm_input[nImg][nIfm / 16][ifhp + 2 * pad_h][ifwp + 2 * pad_w][16];
+	zero_buf(&pad_gemm_input[0][0][0][0][0], (nImg)*(nIfm / 16)*(ifhp + 2 * pad_h)*(ifwp + 2 * pad_w) * 16);
+
+	printf("Calling copy_GEMM_to_PADDED_GEMM\n");
+	copy_GEMM_to_PADDED_GEMM(nImg, ifhp, ifwp, nIfm, pad_h, pad_w, input, pad_gemm_input);
+
+	printf("padded_conv_fp_stride_1_core\n");
+	padded_conv_fp_stride_1_core(nImg, nIfm, nOfm, ifhp, ifwp, ofhp, ofwp, ifh, ifw,
+		ofh, ofw, pad_h, pad_w, pad_h_in, pad_w_in, pad_h_out,
+		pad_w_out, kh, kw, stride_h, stride_w, pad_gemm_input, output, filter);
+}
+
 
 void copy_GEMM_to_PADDED_GEMM(int N, int H, int W, int C, int pad_h, int pad_w,
 	const float gemm[N][C / 16][H][W][16], float pad_gemm[N][C / 16][H + 2 * pad_h][W + 2 * pad_w][16])
@@ -389,7 +389,7 @@ int main(int argc, char **argv) {
 	init_buf(&naive_filter[0][0][0][0], nOfm*nIfm*kh*kw);
 	init_buf(&gemm_filter[0][0][0][0], nOfm*nIfm*kh*kw);
 	zero_buf(&naive_output[0][0][0][0], nImg*nOfm*ofhp*ofwp);
-	zero_buf(&gemm_output[0][0][0][0], nImg*nOfm*ofhp*ofwp);
+	zero_buf(&gemm_output[0][0][0][0][0], nImg*nOfm*ofhp*ofwp);
 	zero_buf(&check_output[0][0][0][0], nImg*nOfm*ofhp*ofwp);
 
 	printf("##########################################\n");
@@ -461,3 +461,4 @@ int main(int argc, char **argv) {
 
 	return 0;
 }
+
