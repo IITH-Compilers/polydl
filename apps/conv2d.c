@@ -61,22 +61,24 @@ void naive_conv_fp_stride_1(
 void padded_conv_fp_stride_1_core(int nImg, int nIfm, int nOfm, int ifhp, int ifwp, int ofhp, int ofwp, int ifh, int ifw,
 	int ofh, int ofw, int pad_h, int pad_w, int pad_h_in, int pad_w_in, int pad_h_out,
 	int pad_w_out, int kh, int kw, int stride_h, int stride_w,
-	const float pad_gemm_input[nImg][nIfm / 16][ifhp + 2 * pad_h][ifwp + 2 * pad_w][16], float output[nImg][nOfm][ofhp][ofwp], const float filter[nOfm][nIfm][kh][kw])
+	const float pad_gemm_input[nImg][nIfm / 16][ifhp + 2 * pad_h][ifwp + 2 * pad_w][16], float output[nImg][nOfm / 16][ofhp][ofwp][16], const float filter[nOfm / 16][nIfm / 16][kh][kw][16][16])
 {
 	/* loop counters */
-	int img, ofm, ifm_tile, ifm, oj, oi, ij, ii, kj, ki;
+	int img, ofm_tile, ofm, ifm_tile, ifm, oj, oi, ij, ii, kj, ki;
 
 #pragma scop
 	for (img = 0; img < nImg; ++img) {
-		for (ofm = 0; ofm < nOfm; ++ofm) {
+		for (ofm_tile = 0; ofm_tile < nOfm / 16; ++ofm_tile) {
 			for (ifm_tile = 0; ifm_tile < nIfm / 16; ++ifm_tile) {
-				for (ifm = 0; ifm < 16; ++ifm) {
-					for (oj = 0; oj < ofh; ++oj) {
-						for (oi = 0; oi < ofw; ++oi) {
-							for (kj = 0; kj < kh; ++kj) {
-								for (ki = 0; ki < kw; ++ki) {
-									output[img][ofm][oj][oi] +=
-										filter[ofm][ifm_tile * 16 + ifm][kj][ki] * pad_gemm_input[img][ifm_tile][oj + kj][oi + ki][ifm];
+				for (oj = 0; oj < ofh; ++oj) {
+					for (oi = 0; oi < ofw; ++oi) {
+						for (kj = 0; kj < kh; ++kj) {
+							for (ki = 0; ki < kw; ++ki) {
+								for (ofm = 0; ofm < 16; ++ofm) {
+									for (ifm = 0; ifm < 16; ++ifm) {
+										output[img][ofm_tile][oj][oi][ofm] +=
+											filter[ofm_tile][ifm_tile][kj][ki][ofm][ifm] * pad_gemm_input[img][ifm_tile][oj + kj][oi + ki][ifm];
+									}
 								}
 							}
 						}
@@ -138,37 +140,19 @@ void padded_conv_fp_stride_1(
 	int nImg, int nIfm, int nOfm, int ifhp, int ifwp, int ofhp, int ofwp, int ifh, int ifw,
 	int ofh, int ofw, int pad_h, int pad_w, int pad_h_in, int pad_w_in, int pad_h_out,
 	int pad_w_out, int kh, int kw, int stride_h, int stride_w,
-	const float input[nImg][nIfm][ifhp][ifwp], float output[nImg][nOfm][ofhp][ofwp], const float filter[nOfm][nIfm][kh][kw], int tiled)
+	const float input[nImg][nIfm / 16][ifhp][ifwp][16], float output[nImg][nOfm / 16][ofhp][ofwp][16], const float filter[nOfm / 16][nIfm / 16][kh][kw][16][16], int tiled)
 {
-	/*
-	float input[nImg][nIfm][ifhp][ifwp];
-	float output[nImg][nOfm][ofhp][ofwp];
-	float filter[nOfm][nIfm][kh][kw];
-	*/
-
-	float gemm_input[nImg][nIfm / 16][ifhp][ifwp][16];
-	printf("Calling copy_NCHW_to_GEMM\n");
-	copy_NCHW_to_GEMM(nImg, ifhp, ifwp, nIfm, input, gemm_input);
-
 	/* declare a physcial padded buffer */
 	float pad_gemm_input[nImg][nIfm / 16][ifhp + 2 * pad_h][ifwp + 2 * pad_w][16];
 	zero_buf(pad_gemm_input, (nImg)*(nIfm / 16)*(ifhp + 2 * pad_h)*(ifwp + 2 * pad_w) * 16);
 
 	printf("Calling copy_GEMM_to_PADDED_GEMM\n");
-	copy_GEMM_to_PADDED_GEMM(nImg, ifhp, ifwp, nIfm, pad_h, pad_w, gemm_input, pad_gemm_input);
+	copy_GEMM_to_PADDED_GEMM(nImg, ifhp, ifwp, nIfm, pad_h, pad_w, input, pad_gemm_input);
 
-	if (tiled == 0) {
-		printf("padded_conv_fp_stride_1_core\n");
-		padded_conv_fp_stride_1_core(nImg, nIfm, nOfm, ifhp, ifwp, ofhp, ofwp, ifh, ifw,
-			ofh, ofw, pad_h, pad_w, pad_h_in, pad_w_in, pad_h_out,
-			pad_w_out, kh, kw, stride_h, stride_w, pad_gemm_input, output, filter);
-	}
-	else {
-		printf("padded_conv_fp_stride_1_tiled_core\n");
-		padded_conv_fp_stride_1_tiled_core(nImg, nIfm, nOfm, ifhp, ifwp, ofhp, ofwp, ifh, ifw,
-			ofh, ofw, pad_h, pad_w, pad_h_in, pad_w_in, pad_h_out,
-			pad_w_out, kh, kw, stride_h, stride_w, pad_gemm_input, output, filter);
-	}
+	printf("padded_conv_fp_stride_1_core\n");
+	padded_conv_fp_stride_1_core(nImg, nIfm, nOfm, ifhp, ifwp, ofhp, ofwp, ifh, ifw,
+		ofh, ofw, pad_h, pad_w, pad_h_in, pad_w_in, pad_h_out,
+		pad_w_out, kh, kw, stride_h, stride_w, pad_gemm_input, output, filter);
 }
 
 
@@ -205,6 +189,25 @@ void copy_GEMM_to_PADDED_GEMM(int N, int H, int W, int C, int pad_h, int pad_w,
 	}
 }
 
+
+void copy_GEMM_to_NCHW(int N, int H, int W, int C,
+	const float input[N][C / 16][H][W][16], float output[N][C][H][W])
+{
+	int n, h, w, c1, c2;
+
+	for (n = 0; n < N; n++) {
+		for (c1 = 0; c1 < C / 16; c1++) {
+			for (h = 0; h < H; h++) {
+				for (w = 0; w < W; w++) {
+					for (c2 = 0; c2 < 16; c2++) {
+						output[n][c1 * 16 + c2][h][w] = input[n][c1][h][w][c2];
+					}
+				}
+			}
+		}
+	}
+}
+
 void copy_NCHW_to_GEMM(int N, int H, int W, int C, const float nchw[N][C][H][W],
 	float gemm[N][C / 16][H][W][16])
 {
@@ -216,6 +219,26 @@ void copy_NCHW_to_GEMM(int N, int H, int W, int C, const float nchw[N][C][H][W],
 				for (w = 0; w < W; w++) {
 					for (c2 = 0; c2 < 16; c2++) {
 						gemm[n][c1][h][w][c2] = nchw[n][c1 * 16 + c2][h][w];
+					}
+				}
+			}
+		}
+	}
+}
+
+void copy_KCRS_to_GEMM(int R, int S, int C, int K, const float input[K][C][R][S], float output[K / 16][C / 16][R][S][16][16])
+{
+	int r, s, c1, c2, k1, k2;
+
+	for (k1 = 0; k1 < K / 16; k1++) {
+		for (c1 = 0; c1 < C / 16; c1++) {
+			for (r = 0; r < R; r++) {
+				for (s = 0; s < S; s++) {
+					for (c2 = 0; c2 < 16; c2++) {
+						for (k2 = 0; k2 < 16; k2++) {
+							output[k1][c1][r][s][c2][k2] =
+								input[k1 * 16 + k2][c1 * 16 + c2][r][s];
+						}
 					}
 				}
 			}
@@ -258,9 +281,9 @@ void compare_buf(float* ref, float* test, long size, correctness_t* norms)
 		}
 #endif
 
-		}
-	norms->l2_rel_err = sqrt(norms->l2_rel_err);
 	}
+	norms->l2_rel_err = sqrt(norms->l2_rel_err);
+}
 
 int main(int argc, char **argv) {
 	int ifhp, ifwp, ofhp, ofwp, ofh, ofw;
@@ -354,13 +377,19 @@ int main(int argc, char **argv) {
 	float naive_output[nImg][nOfm][ofhp][ofwp];
 	float naive_filter[nOfm][nIfm][kh][kw];
 
+	float gemm_input[nImg][nIfm / 16][ifhp][ifwp][16];
+	float gemm_output[nImg][nOfm / 16][ifhp][ifwp][16];
+	float gemm_filter[nOfm / 16][nIfm / 16][kh][kw][16][16];
 	float check_output[nImg][nOfm][ofhp][ofwp];
 
 	printf("Initializing data\n");
 	/* initialize data */
 	init_buf(&naive_input[0][0][0][0], nImg*nIfm*ifhp*ifwp);
+	init_buf(&gemm_input[0][0][0][0], nImg*nIfm*ifhp*ifwp);
 	init_buf(&naive_filter[0][0][0][0], nOfm*nIfm*kh*kw);
+	init_buf(&gemm_filter[0][0][0][0], nOfm*nIfm*kh*kw);
 	zero_buf(&naive_output[0][0][0][0], nImg*nOfm*ofhp*ofwp);
+	zero_buf(&gemm_output[0][0][0][0], nImg*nOfm*ofhp*ofwp);
 	zero_buf(&check_output[0][0][0][0], nImg*nOfm*ofhp*ofwp);
 
 	printf("##########################################\n");
@@ -378,19 +407,31 @@ int main(int argc, char **argv) {
 	printf("Elapsed time of naive_conv_fp_stride_1 = %f seconds\n", exec_time);
 	flops = (double)nImg * (double)nIfm * (double)nOfm * (double)ofh * (double)ofw * (double)(2 * kh * kw) * (double)iters;
 
+	printf("Calling copy_NCHW_to_GEMM\n");
+	copy_NCHW_to_GEMM(nImg, ifhp, ifwp, nIfm, naive_input, gemm_input);
+
+	printf("Calling copy_KCRS_to_GEMM\n");
+	copy_KCRS_to_GEMM(kh, kw, nIfm, nOfm, naive_filter, gemm_filter);
 	printf("Calling padded_conv_fp_stride_1\n");
 	padded_conv_fp_stride_1(nImg, nIfm, nOfm, ifhp, ifwp, ofhp, ofwp, ifh, ifw,
 		ofh, ofw, pad_h, pad_w, pad_h_in, pad_w_in, pad_h_out,
-		pad_w_out, kh, kw, stride_h, stride_w, naive_input, check_output, naive_filter, use_tiled_conv2d);
+		pad_w_out, kh, kw, stride_h, stride_w, gemm_input, gemm_output, gemm_filter, use_tiled_conv2d);
+
+	printf("Calling copy_GEMM_to_NCHW\n");
+	copy_GEMM_to_NCHW(nImg, ofhp, ofwp, nOfm, gemm_output, check_output);
 
 	printf("Printing input values\n");
 	printf("%f %f %f\n", naive_input[0][0][0][0], naive_input[nImg / 2][nIfm / 2][ifhp / 2][ifwp / 2], naive_input[nImg - 1][nIfm - 1][ifhp - 1][ifwp - 1]);
+	printf("%f %f %f\n", gemm_input[0][0][0][0][0], gemm_input[nImg / 2][(nIfm / 2) / 16][ifhp / 2][ifwp / 2][(nIfm / 2) % 16], gemm_input[nImg - 1][(nIfm - 1) / 16][ifhp - 1][ifwp - 1][(nIfm - 1) % 16]);
 	printf("Printing weight values\n");
 	printf("%f %f %f\n", naive_filter[0][0][0][0], naive_filter[nOfm / 2][nIfm / 2][kh / 2][kw / 2], naive_filter[nOfm - 1][nIfm - 1][kh - 1][kw - 1]);
+	printf("%f %f %f\n", gemm_filter[0][0][0][0][0][0], gemm_filter[(nOfm / 2) / 16][(nIfm / 2) / 16][kh / 2][kw / 2][(nOfm / 2) % 16][(nIfm / 2) % 16], gemm_filter[(nOfm - 1) / 16][(nIfm - 1) / 16][kh - 1][kw - 1][(nOfm - 1) % 16][(nIfm - 1) % 16]);
 	printf("Printing output values\n");
 	printf("%f %f %f\n", naive_output[0][0][0][0], naive_output[nImg / 2][nOfm / 2][ofhp / 2][ofwp / 2], naive_output[nImg - 1][nOfm - 1][ofhp - 1][ofwp - 1]);
 	printf("Printing check_output values\n");
 	printf("%f %f %f\n", check_output[0][0][0][0], check_output[nImg / 2][nOfm / 2][ofhp / 2][ofwp / 2], check_output[nImg - 1][nOfm - 1][ofhp - 1][ofwp - 1]);
+	printf("Printing gemm_output values\n");
+	printf("%f %f %f\n", gemm_output[0][0][0][0][0], gemm_output[nImg / 2][(nOfm / 2) / 16][ofhp / 2][ofwp / 2][(nOfm / 2) % 16], gemm_output[nImg - 1][(nOfm - 1) / 16][ofhp - 1][ofwp - 1][(nOfm - 1) % 16]);
 
 	/* compare */
 	compare_buf(naive_output, check_output, nImg*nOfm*ofhp*ofwp, &norms_fwd);
@@ -408,12 +449,12 @@ int main(int argc, char **argv) {
 	for (i = 0; i < iters; i++) {
 		padded_conv_fp_stride_1(nImg, nIfm, nOfm, ifhp, ifwp, ofhp, ofwp, ifh, ifw,
 			ofh, ofw, pad_h, pad_w, pad_h_in, pad_w_in, pad_h_out,
-			pad_w_out, kh, kw, stride_h, stride_w, naive_input, check_output, naive_filter, use_tiled_conv2d);
+			pad_w_out, kh, kw, stride_h, stride_w, gemm_input, gemm_output, gemm_filter, use_tiled_conv2d);
 	}
 
 	end = clock();
 	exec_time = (double)(end - start) / CLOCKS_PER_SEC;
-	printf("Elapsed time of padded_conv_fp_stride_1_core = %f seconds\n", exec_time);
+	printf("Elapsed time of padded_conv_fp_stride_1 = %f seconds\n", exec_time);
 	printf("GFLOP  = %.5g\n", flops*1e-9 / (double)iters);
 	printf("fp time = %.5g\n", ((double)(exec_time / iters)));
 	printf("GFLOPS  = %.5g\n", (flops*1e-9) / exec_time);
