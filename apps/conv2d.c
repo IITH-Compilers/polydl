@@ -77,7 +77,7 @@ void padded_conv_fp_stride_1_core(int nImg, int nIfm, int nOfm, int ifhp, int if
 								for (ofm = 0; ofm < 16; ++ofm) {
 									for (ifm = 0; ifm < 16; ++ifm) {
 										output[img][ofm_tile][oj][oi][ofm] +=
-											filter[ofm_tile][ifm_tile][kj][ki][ofm][ifm] * pad_gemm_input[img][ifm_tile][oj + kj][oi + ki][ifm];
+											filter[ofm_tile][ifm_tile][kj][ki][ifm][ofm] * pad_gemm_input[img][ifm_tile][oj + kj][oi + ki][ifm];
 									}
 								}
 							}
