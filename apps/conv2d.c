@@ -58,6 +58,60 @@ void naive_conv_fp_stride_1(
 }
 
 
+#define T_ofm_tile 16
+#define T_ifm_tile 16
+#define T_oj 16
+#define T_oi 16
+
+void padded_conv_fp_stride_1_tiled_core(int nImg, int nIfm, int nOfm, int ifhp, int ifwp, int ofhp, int ofwp, int ifh, int ifw,
+	int ofh, int ofw, int pad_h, int pad_w, int pad_h_in, int pad_w_in, int pad_h_out,
+	int pad_w_out, int kh, int kw, int stride_h, int stride_w,
+	const float pad_gemm_input[nImg][nIfm / 16][ifhp + 2 * pad_h][ifwp + 2 * pad_w][16], float output[nImg][nOfm / 16][ofhp][ofwp][16], const float filter[nOfm / 16][nIfm / 16][kh][kw][16][16])
+{
+	/* loop counters */
+	int img, ofm_tile, ofm, ifm_tile, ifm, oj, oi, ij, ii, kj, ki;
+	int t_ofm_tile, t_ifm_tile, t_oj, t_oi;
+
+#pragma scop
+	for (img = 0; img < nImg; ++img) {
+		// Tile loops
+		for (t_ofm_tile = 0; t_ofm_tile < nOfm / 16; t_ofm_tile += T_ofm_tile) {
+			for (t_ifm_tile = 0; t_ifm_tile < nIfm / 16; t_ifm_tile += T_ifm_tile) {
+				for (t_oj = 0; t_oj < ofh; t_oj += T_oj) {
+					for (t_oi = 0; t_oi < ofw; t_oi += T_oi) {
+
+						// Intra-tile loops
+						for (ofm_tile = t_ofm_tile;
+							ofm_tile < min(t_ofm_tile + T_ofm_tile, nOfm / 16); ++ofm_tile) {
+							for (ifm_tile = t_ifm_tile;
+								ifm_tile < min(t_ifm_tile + T_ifm_tile, nIfm / 16); ++ifm_tile) {
+								for (oj = t_oj; oj < min(t_oj + T_oj, ofh); ++oj) {
+									for (oi = t_oi; oi < min(t_oi + T_oi, ofw); ++oi) {
+
+										for (kj = 0; kj < kh; ++kj) {
+											for (ki = 0; ki < kw; ++ki) {
+
+												// GEMM
+												for (ofm = 0; ofm < 16; ++ofm) {
+													for (ifm = 0; ifm < 16; ++ifm) {
+														output[img][ofm_tile][oj][oi][ofm] +=
+															filter[ofm_tile][ifm_tile][kj][ki][ifm][ofm] * pad_gemm_input[img][ifm_tile][oj + kj][oi + ki][ifm];
+													}
+												}
+											}
+										}
+									}
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+#pragma endscop
+}
+
 void padded_conv_fp_stride_1_core(int nImg, int nIfm, int nOfm, int ifhp, int ifwp, int ofhp, int ofwp, int ifh, int ifw,
 	int ofh, int ofw, int pad_h, int pad_w, int pad_h_in, int pad_w_in, int pad_h_out,
 	int pad_w_out, int kh, int kw, int stride_h, int stride_w,
@@ -90,51 +144,7 @@ void padded_conv_fp_stride_1_core(int nImg, int nIfm, int nOfm, int ifhp, int if
 #pragma endscop
 }
 
-void padded_conv_fp_stride_1_tiled_core(int nImg, int nIfm, int nOfm, int ifhp, int ifwp, int ofhp, int ofwp, int ifh, int ifw,
-	int ofh, int ofw, int pad_h, int pad_w, int pad_h_in, int pad_w_in, int pad_h_out,
-	int pad_w_out, int kh, int kw, int stride_h, int stride_w,
-	const float pad_gemm_input[nImg][nIfm / 16][ifhp + 2 * pad_h][ifwp + 2 * pad_w][16], float output[nImg][nOfm][ofhp][ofwp], const float filter[nOfm][nIfm][kh][kw])
-{
-	/* loop counters */
-	int img, ofm, ifm_tile, ifm, oj, oi, ij, ii, kj, ki;
-	int T_ofm = 16, T_ifm_tile = 16, T_oj = 16, T_oi = 16;
-	int t_ofm, t_ifm_tile, t_oj, t_oi;
 
-#pragma scop
-	for (img = 0; img < nImg; ++img) {
-		// Loops to optimize
-		for (t_ofm = 0; t_ofm < nOfm; t_ofm += T_ofm) {
-			for (t_ifm_tile = 0; t_ifm_tile < nIfm / 16; t_ifm_tile += T_ifm_tile) {
-				for (t_oj = 0; t_oj < ofh; t_oj += T_oj) {
-					for (t_oi = 0; t_oi < ofw; t_oi += T_oi) {
-						for (oj = t_oj; oj < min(ofh, t_oj + T_oj); ++oj) {
-							for (kj = 0; kj < kh; ++kj) {
-								for (ki = 0; ki < kw; ++ki) {
-
-									// Batch-reduce-GEMM
-									for (ifm_tile = t_ifm_tile;
-										ifm_tile < min(nIfm / 16, t_ifm_tile + T_ifm_tile); ++ifm_tile) {
-										// GEMM
-										for (ofm = t_ofm; ofm < min(nOfm, t_ofm + T_ofm); ++ofm) {
-											for (oi = t_oi; oi < min(ofw, t_oi + T_oi); ++oi) {
-												for (ifm = 0; ifm < 16; ++ifm) {
-													output[img][ofm][oj][oi] +=
-														filter[ofm][ifm_tile * 16 + ifm][kj][ki]
-														* pad_gemm_input[img][ifm_tile][oj + kj][oi + ki][ifm];
-												}
-											}
-										}
-									}
-								}
-							}
-						}
-					}
-				}
-			}
-		}
-	}
-#pragma endscop
-}
 
 void init_buf(float* buf, long size)
 {
@@ -164,10 +174,18 @@ void padded_conv_fp_stride_1(
 	printf("Calling copy_GEMM_to_PADDED_GEMM\n");
 	copy_GEMM_to_PADDED_GEMM(nImg, ifhp, ifwp, nIfm, pad_h, pad_w, input, pad_gemm_input);
 
-	printf("padded_conv_fp_stride_1_core\n");
-	padded_conv_fp_stride_1_core(nImg, nIfm, nOfm, ifhp, ifwp, ofhp, ofwp, ifh, ifw,
-		ofh, ofw, pad_h, pad_w, pad_h_in, pad_w_in, pad_h_out,
-		pad_w_out, kh, kw, stride_h, stride_w, pad_gemm_input, output, filter);
+	if (tiled == 0) {
+		printf("padded_conv_fp_stride_1_core\n");
+		padded_conv_fp_stride_1_core(nImg, nIfm, nOfm, ifhp, ifwp, ofhp, ofwp, ifh, ifw,
+			ofh, ofw, pad_h, pad_w, pad_h_in, pad_w_in, pad_h_out,
+			pad_w_out, kh, kw, stride_h, stride_w, pad_gemm_input, output, filter);
+	}
+	else {
+		printf("padded_conv_fp_stride_1_tiled_core\n");
+		padded_conv_fp_stride_1_tiled_core(nImg, nIfm, nOfm, ifhp, ifwp, ofhp, ofwp, ifh, ifw,
+			ofh, ofw, pad_h, pad_w, pad_h_in, pad_w_in, pad_h_out,
+			pad_w_out, kh, kw, stride_h, stride_w, pad_gemm_input, output, filter);
+	}
 }
 
 
@@ -265,7 +283,7 @@ void compare_buf(float* ref, float* test, long size, correctness_t* norms)
 		rel_err = 0.0;
 		if (diff > 0.0) {
 			rel_err = diff / fabs((double)ref[i]);
-		}
+	}
 		if (rel_err > norms->max_rel_err) {
 			norms->max_rel_err = rel_err;
 #if 0
@@ -281,7 +299,7 @@ void compare_buf(float* ref, float* test, long size, correctness_t* norms)
 		}
 #endif
 
-	}
+}
 	norms->l2_rel_err = sqrt(norms->l2_rel_err);
 }
 
