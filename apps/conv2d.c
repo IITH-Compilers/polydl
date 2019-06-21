@@ -224,23 +224,23 @@ void padded_conv_fp_stride_1(
 	float pad_gemm_input[nImg][nIfm / 16][ifhp + 2 * pad_h][ifwp + 2 * pad_w][16];
 	zero_buf(&pad_gemm_input[0][0][0][0][0], (nImg)*(nIfm / 16)*(ifhp + 2 * pad_h)*(ifwp + 2 * pad_w) * 16);
 
-	printf("Calling copy_GEMM_to_PADDED_GEMM\n");
+	// printf("Calling copy_GEMM_to_PADDED_GEMM\n");
 	copy_GEMM_to_PADDED_GEMM(nImg, ifhp, ifwp, nIfm, pad_h, pad_w, input, pad_gemm_input);
 
 	if (version == 0) {
-		printf("padded_conv_fp_stride_1_core\n");
+		// printf("padded_conv_fp_stride_1_core\n");
 		padded_conv_fp_stride_1_core(nImg, nIfm, nOfm, ifhp, ifwp, ofhp, ofwp, ifh, ifw,
 			ofh, ofw, pad_h, pad_w, pad_h_in, pad_w_in, pad_h_out,
 			pad_w_out, kh, kw, stride_h, stride_w, pad_gemm_input, output, filter);
 	}
 	else if (version == 1) {
-		printf("padded_conv_fp_stride_1_tiled_core\n");
+		// printf("padded_conv_fp_stride_1_tiled_core\n");
 		padded_conv_fp_stride_1_tiled_core(nImg, nIfm, nOfm, ifhp, ifwp, ofhp, ofwp, ifh, ifw,
 			ofh, ofw, pad_h, pad_w, pad_h_in, pad_w_in, pad_h_out,
 			pad_w_out, kh, kw, stride_h, stride_w, pad_gemm_input, output, filter);
 	}
 	else if (version == 2) {
-		printf("padded_conv_fp_stride_1_libxsmm_core\n");
+		// printf("padded_conv_fp_stride_1_libxsmm_core\n");
 		padded_conv_fp_stride_1_libxsmm_core(nImg, nIfm, nOfm, ifhp, ifwp, ofhp, ofwp, ifh, ifw,
 			ofh, ofw, pad_h, pad_w, pad_h_in, pad_w_in, pad_h_out,
 			pad_w_out, kh, kw, stride_h, stride_w, pad_gemm_input, output, filter);
