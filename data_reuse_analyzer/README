@@ -1,0 +1,3 @@
+source /swtools/gcc/9.1.0/gcc_vars.sh
+export LD_LIBRARY_PATH=/nfs_home/stavarag/work/software/barvinok/barvinok-0.41.2_install/lib:/nfs_home/stavarag/work/software/barvinok/isl_install/lib:$LD_LIBRARY_PATH
+
