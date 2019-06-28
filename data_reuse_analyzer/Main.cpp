@@ -1,10 +1,16 @@
 #include <pet.h>
 #include <iostream>
+#include<isl/union_set.h>
+#include <isl/flow.h>
+#include <stdlib.h>
 using namespace std;
 
 void ComputeDataReuseWorkingSets(char *fileName);
-void ParseScop(isl_ctx* ctx, char *fileName);
 void PrintScop(isl_ctx* ctx, struct pet_scop *scop);
+void PrintExpressions(isl_printer *printer, pet_expr *expr);
+pet_scop* ParseScop(isl_ctx* ctx, char *fileName);
+void ComputeDataDependences(isl_ctx* ctx, pet_scop* scop);
+void PrintUnionFlow(isl_union_flow* flow);
 
 int main(int argc, char **argv) {
 	char *fileName = "../apps/padded_conv_fp_stride_1_libxsmm_core2.c";
@@ -20,22 +26,91 @@ int main(int argc, char **argv) {
 
 void ComputeDataReuseWorkingSets(char *fileName) {
 	isl_ctx* ctx = isl_ctx_alloc_with_pet_options();
-	ParseScop(ctx, fileName);
+	pet_scop *scop = ParseScop(ctx, fileName);
+	ComputeDataDependences(ctx, scop);
 	isl_ctx_free(ctx);
+	pet_scop_free(scop);
 }
 
-void ParseScop(isl_ctx* ctx, char *fileName) {
+void ComputeDataDependences(isl_ctx* ctx, pet_scop* scop) {
+	isl_schedule* schedule = pet_scop_get_schedule(scop);
+	isl_union_map *may_reads = pet_scop_get_may_reads(scop);
+	isl_union_map *may_writes = pet_scop_get_may_writes(scop);
+
+
+	// RAR dependences
+	isl_union_access_info* access_info =
+		isl_union_access_info_from_sink(isl_union_map_copy(may_reads));
+	access_info = isl_union_access_info_set_may_source(access_info,
+		isl_union_map_copy(may_reads));
+	isl_union_access_info_set_schedule(access_info,
+		isl_schedule_copy(schedule));
+
+	// Compute the RAR dependences
+	isl_union_flow *RAR =
+		isl_union_access_info_compute_flow(access_info);
+	cout << "RAR dependences are:" << endl;
+	if (RAR == NULL) {
+		cout << "No RAR dependences found" << endl;
+	}
+	else {
+		cout << "Calling PrintUnionAccessInfo" << endl;
+		PrintUnionFlow(RAR);
+	}
+
+	isl_union_map_free(may_writes);
+	isl_union_map_free(may_reads);
+	isl_schedule_free(schedule);
+	isl_union_flow_free(RAR);
+}
+
+void PrintUnionFlow(isl_union_flow* flow) {
+	cout << "Entered PrintUnionAccessInfo" << endl;
+	isl_ctx* ctx = isl_union_flow_get_ctx(flow);
+	cout << "Obtained isl_ctx" << endl;
+	isl_printer *printer = isl_printer_to_file(ctx, stdout);
+	cout << "Obtained a printer object" << endl;
+
+	if (printer == NULL) {
+		cout << "Printer is NULL. Quitting" << endl;
+		exit(0);
+	}
+
+	printer = isl_printer_set_output_format(printer, ISL_FORMAT_ISL);
+	cout << "Printing the data dependences now:" << endl;
+	printer = isl_printer_print_union_flow(printer, flow);
+	isl_printer_free(printer);
+	cout << endl << "Returning from PrintUnionFlow" << endl;
+}
+
+pet_scop* ParseScop(isl_ctx* ctx, char *fileName) {
 	pet_options_set_autodetect(ctx, 0);
 	cout << "Calling pet_scop_extract_from_C_source" << endl;
-	struct pet_scop *scop = pet_scop_extract_from_C_source(ctx, fileName, NULL);
+	pet_scop *scop = pet_scop_extract_from_C_source(ctx, fileName, NULL);
 	cout << "scop: " << scop << endl;
-	PrintScop(ctx, scop);
-	pet_scop_free(scop);
+	return scop;
 }
 
 void PrintScop(isl_ctx* ctx, struct pet_scop *scop) {
 	isl_printer *printer = isl_printer_to_file(ctx, stdout);
 	printer = isl_printer_set_output_format(printer, ISL_FORMAT_ISL);
+
+	cout << "pet_scop_get_context:" << endl;
+	isl_printer_print_set(printer, pet_scop_get_context(scop));
+	cout << endl;
+
+	cout << "pet_scop_get_schedule:" << endl;
+	isl_printer_print_schedule(printer, pet_scop_get_schedule(scop));
+	cout << endl;
+
+	cout << "pet_scop_get_instance_set:" << endl;
+	isl_printer_print_union_set(printer, pet_scop_get_instance_set(scop));
+	cout << endl;
+
+	cout << "pet_scop_get_may_reads:" << endl;
+	isl_printer_print_union_map(printer, pet_scop_get_may_reads(scop));
+	cout << endl;
+	return;
 
 	// Print Context
 	isl_set *context = scop->context;
@@ -75,7 +150,65 @@ void PrintScop(isl_ctx* ctx, struct pet_scop *scop) {
 		}
 	}
 
+	cout << "n_stmt: " << scop->n_stmt << endl;
+	for (int i = 0; i < scop->n_stmt; i++) {
+		cout << "Printing " << i << " th statement" << endl;
+		cout << "scop->stmts[i]->domain: " << endl;
+		isl_printer_print_set(printer, scop->stmts[i]->domain);
+
+		cout << "Body: " << endl;
+		pet_tree_dump(scop->stmts[i]->body);
+		cout << endl;
+		if (pet_tree_is_loop(scop->stmts[i]->body)) {
+			cout << "It is a LOOP" << endl;
+		}
+		else {
+			cout << "It is NOT a loop" << endl;
+		}
+
+		cout << "scop->stmts[i]->n_arg: " << scop->stmts[i]->n_arg << endl;
+		for (int j = 0; j < scop->stmts[i]->n_arg; i++) {
+			pet_expr_dump(scop->stmts[i]->args[i]);
+			cout << endl;
+		}
+
+		if (pet_tree_get_type(scop->stmts[i]->body) == pet_tree_expr) {
+			PrintExpressions(printer,
+				pet_tree_expr_get_expr(scop->stmts[i]->body));
+		}
+	}
+
 	isl_printer_free(printer);
+}
+
+void PrintExpressions(isl_printer *printer, pet_expr *expr) {
+	if (expr) {
+		if (pet_expr_get_type(expr) == pet_expr_access) {
+			cout << "Access relation: " << endl;
+			pet_expr_dump(expr);
+			cout << endl << "pet_expr_get_n_arg(expr): "
+				<< pet_expr_get_n_arg(expr) << endl;
+			if (/* pet_expr_is_affine(expr) && */
+				pet_expr_access_is_read(expr)) {
+				cout << "Encountered a READ expression: " << endl;
+				isl_printer_print_union_map(printer,
+					pet_expr_access_get_may_read(expr));
+			}
+			else if (/* pet_expr_is_affine(expr) && */
+				pet_expr_access_is_write(expr)) {
+				cout << "Encountered a WRITE expression: " << endl;
+				isl_printer_print_union_map(printer,
+					pet_expr_access_get_may_write(expr));
+			}
+
+			cout << endl;
+		}
+		else {
+			for (int i = 0; i < pet_expr_get_n_arg(expr); i++) {
+				PrintExpressions(printer, pet_expr_get_arg(expr, i));
+			}
+		}
+	}
 }
 
 
