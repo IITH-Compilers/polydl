@@ -9,8 +9,10 @@ void ComputeDataReuseWorkingSets(char *fileName);
 void PrintScop(isl_ctx* ctx, struct pet_scop *scop);
 void PrintExpressions(isl_printer *printer, pet_expr *expr);
 pet_scop* ParseScop(isl_ctx* ctx, char *fileName);
-void ComputeDataDependences(isl_ctx* ctx, pet_scop* scop);
+isl_union_flow* ComputeDataDependences(isl_ctx* ctx, pet_scop* scop);
 void PrintUnionFlow(isl_union_flow* flow);
+void ComputeWorkingSetSizesForDependences(isl_union_flow *flow);
+void PrintUnionMap(isl_union_map* map);
 
 int main(int argc, char **argv) {
 	char *fileName = "../apps/padded_conv_fp_stride_1_libxsmm_core2.c";
@@ -27,16 +29,33 @@ int main(int argc, char **argv) {
 void ComputeDataReuseWorkingSets(char *fileName) {
 	isl_ctx* ctx = isl_ctx_alloc_with_pet_options();
 	pet_scop *scop = ParseScop(ctx, fileName);
-	ComputeDataDependences(ctx, scop);
+	isl_union_flow* flow = ComputeDataDependences(ctx, scop);
+	ComputeWorkingSetSizesForDependences(flow);
 	isl_ctx_free(ctx);
 	pet_scop_free(scop);
+	isl_union_flow_free(flow);
 }
 
-void ComputeDataDependences(isl_ctx* ctx, pet_scop* scop) {
+void ComputeWorkingSetSizesForDependences(isl_union_flow *flow) {
+	/*TODO: The following code works for perfectly nested loops
+	only. It needs to be extended to cover data dependences that span
+	across loops*/
+
+	/* Here we assume that only may_dependences will be present because
+	ComputeDataDependences() function is specifying only may_read,
+	and may_write references */
+	isl_union_map *may_dependences = isl_union_flow_get_may_dependence(
+		flow);
+	cout << "May dependences: " << endl;
+	PrintUnionMap(may_dependences);
+
+	isl_union_map_free(may_dependences);
+}
+
+isl_union_flow* ComputeDataDependences(isl_ctx* ctx, pet_scop* scop) {
 	isl_schedule* schedule = pet_scop_get_schedule(scop);
 	isl_union_map *may_reads = pet_scop_get_may_reads(scop);
 	isl_union_map *may_writes = pet_scop_get_may_writes(scop);
-
 
 	// RAR dependences
 	isl_union_access_info* access_info =
@@ -61,26 +80,25 @@ void ComputeDataDependences(isl_ctx* ctx, pet_scop* scop) {
 	isl_union_map_free(may_writes);
 	isl_union_map_free(may_reads);
 	isl_schedule_free(schedule);
-	isl_union_flow_free(RAR);
+	return RAR;
+}
+
+void PrintUnionMap(isl_union_map* map) {
+	isl_printer *printer = isl_printer_to_file(
+		isl_union_map_get_ctx(map), stdout);
+	printer = isl_printer_set_output_format(printer, ISL_FORMAT_ISL);
+	isl_printer_print_union_map(printer, map);
+	cout << endl;
+	isl_printer_free(printer);
 }
 
 void PrintUnionFlow(isl_union_flow* flow) {
-	cout << "Entered PrintUnionAccessInfo" << endl;
 	isl_ctx* ctx = isl_union_flow_get_ctx(flow);
-	cout << "Obtained isl_ctx" << endl;
 	isl_printer *printer = isl_printer_to_file(ctx, stdout);
-	cout << "Obtained a printer object" << endl;
-
-	if (printer == NULL) {
-		cout << "Printer is NULL. Quitting" << endl;
-		exit(0);
-	}
-
 	printer = isl_printer_set_output_format(printer, ISL_FORMAT_ISL);
-	cout << "Printing the data dependences now:" << endl;
 	printer = isl_printer_print_union_flow(printer, flow);
+	cout << endl;
 	isl_printer_free(printer);
-	cout << endl << "Returning from PrintUnionFlow" << endl;
 }
 
 pet_scop* ParseScop(isl_ctx* ctx, char *fileName) {
