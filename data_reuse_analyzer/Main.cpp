@@ -10,9 +10,12 @@ void PrintScop(isl_ctx* ctx, struct pet_scop *scop);
 void PrintExpressions(isl_printer *printer, pet_expr *expr);
 pet_scop* ParseScop(isl_ctx* ctx, char *fileName);
 isl_union_flow* ComputeDataDependences(isl_ctx* ctx, pet_scop* scop);
+isl_stat ComputeWorkingSetSizesForDependence(isl_map* dep, void *user);
 void PrintUnionFlow(isl_union_flow* flow);
-void ComputeWorkingSetSizesForDependences(isl_union_flow *flow);
+void ComputeWorkingSetSizesForDependences(isl_union_flow *flow,
+	pet_scop *scop);
 void PrintUnionMap(isl_union_map* map);
+void PrintMap(isl_map* map);
 
 int main(int argc, char **argv) {
 	char *fileName = "../apps/padded_conv_fp_stride_1_libxsmm_core2.c";
@@ -30,13 +33,14 @@ void ComputeDataReuseWorkingSets(char *fileName) {
 	isl_ctx* ctx = isl_ctx_alloc_with_pet_options();
 	pet_scop *scop = ParseScop(ctx, fileName);
 	isl_union_flow* flow = ComputeDataDependences(ctx, scop);
-	ComputeWorkingSetSizesForDependences(flow);
+	ComputeWorkingSetSizesForDependences(flow, scop);
 	isl_ctx_free(ctx);
 	pet_scop_free(scop);
 	isl_union_flow_free(flow);
 }
 
-void ComputeWorkingSetSizesForDependences(isl_union_flow *flow) {
+void ComputeWorkingSetSizesForDependences(isl_union_flow *flow,
+	pet_scop *scop) {
 	/*TODO: The following code works for perfectly nested loops
 	only. It needs to be extended to cover data dependences that span
 	across loops*/
@@ -49,10 +53,22 @@ void ComputeWorkingSetSizesForDependences(isl_union_flow *flow) {
 	cout << "May dependences: " << endl;
 	PrintUnionMap(may_dependences);
 
+	isl_union_map_foreach_map(may_dependences,
+		&ComputeWorkingSetSizesForDependence, scop);
+
 	isl_union_map_free(may_dependences);
 }
 
+isl_stat ComputeWorkingSetSizesForDependence(isl_map* dep, void *user) {
+	pet_scop *scop = (pet_scop*)user;
+	cout << "Dependence: " << endl;
+	PrintMap(dep);
+	return isl_stat_ok;
+}
+
 isl_union_flow* ComputeDataDependences(isl_ctx* ctx, pet_scop* scop) {
+	/*TODO: Compute other types of depdences also - RAW, WAR, WAR
+	apart from RAR that are currently being computed*/
 	isl_schedule* schedule = pet_scop_get_schedule(scop);
 	isl_union_map *may_reads = pet_scop_get_may_reads(scop);
 	isl_union_map *may_writes = pet_scop_get_may_writes(scop);
@@ -81,6 +97,15 @@ isl_union_flow* ComputeDataDependences(isl_ctx* ctx, pet_scop* scop) {
 	isl_union_map_free(may_reads);
 	isl_schedule_free(schedule);
 	return RAR;
+}
+
+void PrintMap(isl_map* map) {
+	isl_printer *printer = isl_printer_to_file(
+		isl_map_get_ctx(map), stdout);
+	printer = isl_printer_set_output_format(printer, ISL_FORMAT_ISL);
+	isl_printer_print_map(printer, map);
+	cout << endl;
+	isl_printer_free(printer);
 }
 
 void PrintUnionMap(isl_union_map* map) {
