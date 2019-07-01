@@ -5,6 +5,7 @@
 #include <stdlib.h>
 using namespace std;
 
+/* Function header declarations */
 void ComputeDataReuseWorkingSets(char *fileName);
 void PrintScop(isl_ctx* ctx, struct pet_scop *scop);
 void PrintExpressions(isl_printer *printer, pet_expr *expr);
@@ -16,6 +17,9 @@ void ComputeWorkingSetSizesForDependences(isl_union_flow *flow,
 	pet_scop *scop);
 void PrintUnionMap(isl_union_map* map);
 void PrintMap(isl_map* map);
+isl_stat ComputeWorkingSetSizesForDependenceBasicMap(isl_basic_map* dep,
+	void *user);
+void PrintBasicMap(isl_basic_map* map);
 
 int main(int argc, char **argv) {
 	char *fileName = "../apps/padded_conv_fp_stride_1_libxsmm_core2.c";
@@ -60,9 +64,17 @@ void ComputeWorkingSetSizesForDependences(isl_union_flow *flow,
 }
 
 isl_stat ComputeWorkingSetSizesForDependence(isl_map* dep, void *user) {
+	isl_map_foreach_basic_map(dep,
+		&ComputeWorkingSetSizesForDependenceBasicMap,
+		user);
+	return isl_stat_ok;
+}
+
+isl_stat ComputeWorkingSetSizesForDependenceBasicMap(isl_basic_map* dep,
+	void *user) {
 	pet_scop *scop = (pet_scop*)user;
-	cout << "Dependence: " << endl;
-	PrintMap(dep);
+	cout << "Dependence basic_map: " << endl;
+	PrintBasicMap(dep);
 	return isl_stat_ok;
 }
 
@@ -97,6 +109,15 @@ isl_union_flow* ComputeDataDependences(isl_ctx* ctx, pet_scop* scop) {
 	isl_union_map_free(may_reads);
 	isl_schedule_free(schedule);
 	return RAR;
+}
+
+void PrintBasicMap(isl_basic_map* map) {
+	isl_printer *printer = isl_printer_to_file(
+		isl_basic_map_get_ctx(map), stdout);
+	printer = isl_printer_set_output_format(printer, ISL_FORMAT_ISL);
+	isl_printer_print_basic_map(printer, map);
+	cout << endl;
+	isl_printer_free(printer);
 }
 
 void PrintMap(isl_map* map) {
