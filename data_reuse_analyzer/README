@@ -1,1 +1,10 @@
 Please refer to "Environment_setup" file for information on setting up of environment variables.
+
+The tool has been tested with the following versions of dependencies:
+barvinok-0.41.2
+ntl-11.3.2
+PET 10.0.2
+ISL 21.0.0
+
+The tool has been compiled with:
+g++ (GCC) 9.1.0

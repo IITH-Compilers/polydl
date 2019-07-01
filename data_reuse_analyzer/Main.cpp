@@ -1,15 +1,17 @@
 #include <pet.h>
 #include <iostream>
-#include<isl/union_set.h>
+#include <isl/union_set.h>
 #include <isl/flow.h>
 #include <stdlib.h>
+#include <barvinok/isl.h>
+#include <string.h>
 using namespace std;
 
-/* Function header declarations */
-void ComputeDataReuseWorkingSets(char *fileName);
+/* Function header declarations begin */
+void ComputeDataReuseWorkingSets(const char *fileName);
 void PrintScop(isl_ctx* ctx, struct pet_scop *scop);
 void PrintExpressions(isl_printer *printer, pet_expr *expr);
-pet_scop* ParseScop(isl_ctx* ctx, char *fileName);
+pet_scop* ParseScop(isl_ctx* ctx, const char *fileName);
 isl_union_flow* ComputeDataDependences(isl_ctx* ctx, pet_scop* scop);
 isl_stat ComputeWorkingSetSizesForDependence(isl_map* dep, void *user);
 void PrintUnionFlow(isl_union_flow* flow);
@@ -20,20 +22,24 @@ void PrintMap(isl_map* map);
 isl_stat ComputeWorkingSetSizesForDependenceBasicMap(isl_basic_map* dep,
 	void *user);
 void PrintBasicMap(isl_basic_map* map);
+void PrintUnionSet(isl_union_set* set);
+void PrintSet(isl_set* set);
+void PrintUnionPwQpolynomial(isl_union_pw_qpolynomial* poly);
+/* Function header declarations end */
 
 int main(int argc, char **argv) {
-	char *fileName = "../apps/padded_conv_fp_stride_1_libxsmm_core2.c";
+	string fileName = "../apps/padded_conv_fp_stride_1_libxsmm_core2.c";
 	if (argc >= 2) {
 		fileName = argv[1];
 		cout << "file name : " << fileName << endl;
 
 	}
 
-	ComputeDataReuseWorkingSets(fileName);
+	ComputeDataReuseWorkingSets(fileName.c_str());
 	return 0;
 }
 
-void ComputeDataReuseWorkingSets(char *fileName) {
+void ComputeDataReuseWorkingSets(const char *fileName) {
 	isl_ctx* ctx = isl_ctx_alloc_with_pet_options();
 	pet_scop *scop = ParseScop(ctx, fileName);
 	isl_union_flow* flow = ComputeDataDependences(ctx, scop);
@@ -75,6 +81,72 @@ isl_stat ComputeWorkingSetSizesForDependenceBasicMap(isl_basic_map* dep,
 	pet_scop *scop = (pet_scop*)user;
 	cout << "Dependence basic_map: " << endl;
 	PrintBasicMap(dep);
+
+	isl_basic_set* sourceDomain = isl_basic_map_domain(dep);
+
+	isl_set* source = isl_basic_set_lexmin(
+		isl_basic_set_copy(sourceDomain));
+
+	isl_set* target = isl_set_lexmin(
+		isl_set_apply(isl_set_copy(source),
+			isl_map_from_basic_map(dep)));
+
+	cout << "source: " << endl;
+	PrintSet(source);
+
+	cout << "target: " << endl;
+	PrintSet(target);
+
+	/* itersUptoSourceExcludingSource := sourceDomain << source */
+	isl_union_set* itersUptoSourceExcludingSource =
+		isl_union_map_domain(
+			isl_union_set_lex_lt_union_set(
+				isl_union_set_from_basic_set(
+					isl_basic_set_copy(sourceDomain)),
+				isl_union_set_from_set(isl_set_copy(source))));
+
+	cout << "itersUptoSourceExcludingSource:" << endl;
+	PrintUnionSet(itersUptoSourceExcludingSource);
+
+	/* itersUptoTargetIncludingTarget := sourceDomain <<= target */
+	isl_union_set* itersUptoTargetIncludingTarget =
+		isl_union_map_domain(
+			isl_union_set_lex_le_union_set(
+				isl_union_set_from_basic_set(
+					isl_basic_set_copy(sourceDomain)),
+				isl_union_set_from_set(isl_set_copy(target))));
+
+	cout << "itersUptoTargetIncludingTarget:" << endl;
+	PrintUnionSet(itersUptoTargetIncludingTarget);
+
+	/* WS :=  itersUptoTargetIncludingTarget - itersUptoSourceExcludingSource */
+
+	isl_union_set* WS =
+		isl_union_set_subtract(
+			itersUptoTargetIncludingTarget,
+			itersUptoSourceExcludingSource);
+
+	cout << "Working Set Iteration space:" << endl;
+	PrintUnionSet(WS);
+
+	isl_union_map *may_reads = pet_scop_get_may_reads(scop);
+	isl_union_map *may_writes = pet_scop_get_may_writes(scop);
+
+	isl_union_set* readSet =
+		isl_union_set_apply(isl_union_set_copy(WS), may_reads);
+	isl_union_set* writeSet =
+		isl_union_set_apply(isl_union_set_copy(WS), may_writes);
+	isl_union_set* dataSet = isl_union_set_union(readSet, writeSet);
+	isl_union_pw_qpolynomial* WSSize = isl_union_set_card(dataSet);
+
+	cout << "Working Set Size:" << endl;
+	PrintUnionPwQpolynomial(WSSize);
+
+	isl_set_free(source);
+	isl_set_free(target);
+	isl_basic_set_free(sourceDomain);
+	isl_union_set_free(WS);
+	isl_union_pw_qpolynomial_free(WSSize);
 	return isl_stat_ok;
 }
 
@@ -111,6 +183,18 @@ isl_union_flow* ComputeDataDependences(isl_ctx* ctx, pet_scop* scop) {
 	return RAR;
 }
 
+void PrintUnionPwQpolynomial(isl_union_pw_qpolynomial* poly) {
+	isl_printer *printer = isl_printer_to_file(
+		isl_union_pw_qpolynomial_get_ctx(poly), stdout);
+	printer = isl_printer_set_output_format(printer, ISL_FORMAT_ISL);
+	isl_printer_print_union_pw_qpolynomial(printer, poly);
+	cout << endl;
+
+	//printer = isl_printer_set_output_format(printer, ISL_FORMAT_C);
+	//isl_printer_print_union_pw_qpolynomial(printer, poly);
+	isl_printer_free(printer);
+}
+
 void PrintBasicMap(isl_basic_map* map) {
 	isl_printer *printer = isl_printer_to_file(
 		isl_basic_map_get_ctx(map), stdout);
@@ -138,6 +222,24 @@ void PrintUnionMap(isl_union_map* map) {
 	isl_printer_free(printer);
 }
 
+void PrintSet(isl_set* set) {
+	isl_printer *printer = isl_printer_to_file(
+		isl_set_get_ctx(set), stdout);
+	printer = isl_printer_set_output_format(printer, ISL_FORMAT_ISL);
+	isl_printer_print_set(printer, set);
+	cout << endl;
+	isl_printer_free(printer);
+}
+
+void PrintUnionSet(isl_union_set* set) {
+	isl_printer *printer = isl_printer_to_file(
+		isl_union_set_get_ctx(set), stdout);
+	printer = isl_printer_set_output_format(printer, ISL_FORMAT_ISL);
+	isl_printer_print_union_set(printer, set);
+	cout << endl;
+	isl_printer_free(printer);
+}
+
 void PrintUnionFlow(isl_union_flow* flow) {
 	isl_ctx* ctx = isl_union_flow_get_ctx(flow);
 	isl_printer *printer = isl_printer_to_file(ctx, stdout);
@@ -147,7 +249,7 @@ void PrintUnionFlow(isl_union_flow* flow) {
 	isl_printer_free(printer);
 }
 
-pet_scop* ParseScop(isl_ctx* ctx, char *fileName) {
+pet_scop* ParseScop(isl_ctx* ctx, const char *fileName) {
 	pet_options_set_autodetect(ctx, 0);
 	cout << "Calling pet_scop_extract_from_C_source" << endl;
 	pet_scop *scop = pet_scop_extract_from_C_source(ctx, fileName, NULL);
