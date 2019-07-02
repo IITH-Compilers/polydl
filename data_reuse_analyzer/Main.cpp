@@ -5,9 +5,26 @@
 #include <stdlib.h>
 #include <barvinok/isl.h>
 #include <string.h>
+#include <vector>
 using namespace std;
 
 /* Function header declarations begin */
+struct WorkingSetSize {
+	isl_basic_map* dependence;
+	isl_set* source;
+	isl_set* target;
+	isl_union_pw_qpolynomial* minSize;
+	isl_union_pw_qpolynomial* maxSize;
+};
+
+typedef struct WorkingSetSize WorkingSetSize;
+struct ArgComputeWorkingSetSizesForDependence {
+	pet_scop *scop;
+	vector<WorkingSetSize*>* workingSetSizes;
+};
+
+typedef struct ArgComputeWorkingSetSizesForDependence  ArgComputeWorkingSetSizesForDependence;
+
 void ComputeDataReuseWorkingSets(const char *fileName);
 void PrintScop(isl_ctx* ctx, struct pet_scop *scop);
 void PrintExpressions(isl_printer *printer, pet_expr *expr);
@@ -15,7 +32,8 @@ pet_scop* ParseScop(isl_ctx* ctx, const char *fileName);
 isl_union_flow* ComputeDataDependences(isl_ctx* ctx, pet_scop* scop);
 isl_stat ComputeWorkingSetSizesForDependence(isl_map* dep, void *user);
 void PrintUnionFlow(isl_union_flow* flow);
-void ComputeWorkingSetSizesForDependences(isl_union_flow *flow,
+vector<WorkingSetSize*>* ComputeWorkingSetSizesForDependences(
+	isl_union_flow *flow,
 	pet_scop *scop);
 void PrintUnionMap(isl_union_map* map);
 void PrintMap(isl_map* map);
@@ -25,6 +43,12 @@ void PrintBasicMap(isl_basic_map* map);
 void PrintUnionSet(isl_union_set* set);
 void PrintSet(isl_set* set);
 void PrintUnionPwQpolynomial(isl_union_pw_qpolynomial* poly);
+isl_union_pw_qpolynomial* ComputeDataSetSize(isl_basic_set* sourceDomain,
+	isl_set* source, isl_set* target, pet_scop* scop);
+isl_union_pw_qpolynomial* ComputeDataSetSize(isl_union_set* WS,
+	isl_union_map *may_reads, isl_union_map *may_writes);
+void FreeWorkingSetSizes(vector<WorkingSetSize*>* workingSetSizes);
+void PrintWorkingSetSizes(vector<WorkingSetSize*>* workingSetSizes);
 /* Function header declarations end */
 
 int main(int argc, char **argv) {
@@ -43,13 +67,18 @@ void ComputeDataReuseWorkingSets(const char *fileName) {
 	isl_ctx* ctx = isl_ctx_alloc_with_pet_options();
 	pet_scop *scop = ParseScop(ctx, fileName);
 	isl_union_flow* flow = ComputeDataDependences(ctx, scop);
-	ComputeWorkingSetSizesForDependences(flow, scop);
-	isl_ctx_free(ctx);
+	vector<WorkingSetSize*>* workingSetSizes =
+		ComputeWorkingSetSizesForDependences(flow, scop);
+	PrintWorkingSetSizes(workingSetSizes);
+	FreeWorkingSetSizes(workingSetSizes);
 	pet_scop_free(scop);
 	isl_union_flow_free(flow);
+	isl_ctx_free(ctx);
 }
 
-void ComputeWorkingSetSizesForDependences(isl_union_flow *flow,
+
+vector<WorkingSetSize*>* ComputeWorkingSetSizesForDependences(
+	isl_union_flow *flow,
 	pet_scop *scop) {
 	/*TODO: The following code works for perfectly nested loops
 	only. It needs to be extended to cover data dependences that span
@@ -60,13 +89,20 @@ void ComputeWorkingSetSizesForDependences(isl_union_flow *flow,
 	and may_write references */
 	isl_union_map *may_dependences = isl_union_flow_get_may_dependence(
 		flow);
-	cout << "May dependences: " << endl;
 	PrintUnionMap(may_dependences);
 
+	vector<WorkingSetSize*>* workingSetSizes =
+		new vector<WorkingSetSize*>();
+	ArgComputeWorkingSetSizesForDependence* arg =
+		(ArgComputeWorkingSetSizesForDependence*)malloc(
+			sizeof(ArgComputeWorkingSetSizesForDependence));
+	arg->scop = scop;
+	arg->workingSetSizes = workingSetSizes;
 	isl_union_map_foreach_map(may_dependences,
-		&ComputeWorkingSetSizesForDependence, scop);
+		&ComputeWorkingSetSizesForDependence, arg);
 
 	isl_union_map_free(may_dependences);
+	return workingSetSizes;
 }
 
 isl_stat ComputeWorkingSetSizesForDependence(isl_map* dep, void *user) {
@@ -78,24 +114,47 @@ isl_stat ComputeWorkingSetSizesForDependence(isl_map* dep, void *user) {
 
 isl_stat ComputeWorkingSetSizesForDependenceBasicMap(isl_basic_map* dep,
 	void *user) {
-	pet_scop *scop = (pet_scop*)user;
-	cout << "Dependence basic_map: " << endl;
-	PrintBasicMap(dep);
+	ArgComputeWorkingSetSizesForDependence* arg =
+		(ArgComputeWorkingSetSizesForDependence*)user;
+	pet_scop *scop = arg->scop;
+	vector<WorkingSetSize*>* workingSetSizes = arg->workingSetSizes;
 
-	isl_basic_set* sourceDomain = isl_basic_map_domain(dep);
+	isl_basic_set* sourceDomain = isl_basic_map_domain(
+		isl_basic_map_copy(dep));
 
 	isl_set* source = isl_basic_set_lexmin(
 		isl_basic_set_copy(sourceDomain));
 
-	isl_set* target = isl_set_lexmin(
-		isl_set_apply(isl_set_copy(source),
-			isl_map_from_basic_map(dep)));
+	isl_set* target = isl_set_apply(isl_set_copy(source),
+		isl_map_from_basic_map(dep));
 
-	cout << "source: " << endl;
-	PrintSet(source);
+	isl_set* minTarget = isl_set_lexmin(isl_set_copy(target));
+	isl_set* maxTarget = isl_set_lexmax(isl_set_copy(target));
 
-	cout << "target: " << endl;
-	PrintSet(target);
+	isl_union_pw_qpolynomial* minWSSize =
+		ComputeDataSetSize(sourceDomain, source, minTarget, scop);
+
+	isl_union_pw_qpolynomial* maxWSSize =
+		ComputeDataSetSize(sourceDomain, source, maxTarget, scop);
+
+	WorkingSetSize* workingSetSize =
+		(WorkingSetSize*)malloc(sizeof(WorkingSetSize));
+	workingSetSize->dependence = dep;
+	workingSetSize->source = source;
+	workingSetSize->target = target;
+	workingSetSize->minSize = minWSSize;
+	workingSetSize->maxSize = maxWSSize;
+	workingSetSizes->push_back(workingSetSize);
+
+	isl_basic_set_free(sourceDomain);
+	isl_set_free(minTarget);
+	isl_set_free(maxTarget);
+
+	return isl_stat_ok;
+}
+
+isl_union_pw_qpolynomial* ComputeDataSetSize(isl_basic_set* sourceDomain,
+	isl_set* source, isl_set* target, pet_scop* scop) {
 
 	/* itersUptoSourceExcludingSource := sourceDomain << source */
 	isl_union_set* itersUptoSourceExcludingSource =
@@ -105,9 +164,6 @@ isl_stat ComputeWorkingSetSizesForDependenceBasicMap(isl_basic_map* dep,
 					isl_basic_set_copy(sourceDomain)),
 				isl_union_set_from_set(isl_set_copy(source))));
 
-	cout << "itersUptoSourceExcludingSource:" << endl;
-	PrintUnionSet(itersUptoSourceExcludingSource);
-
 	/* itersUptoTargetIncludingTarget := sourceDomain <<= target */
 	isl_union_set* itersUptoTargetIncludingTarget =
 		isl_union_map_domain(
@@ -116,9 +172,6 @@ isl_stat ComputeWorkingSetSizesForDependenceBasicMap(isl_basic_map* dep,
 					isl_basic_set_copy(sourceDomain)),
 				isl_union_set_from_set(isl_set_copy(target))));
 
-	cout << "itersUptoTargetIncludingTarget:" << endl;
-	PrintUnionSet(itersUptoTargetIncludingTarget);
-
 	/* WS :=  itersUptoTargetIncludingTarget - itersUptoSourceExcludingSource */
 
 	isl_union_set* WS =
@@ -126,33 +179,96 @@ isl_stat ComputeWorkingSetSizesForDependenceBasicMap(isl_basic_map* dep,
 			itersUptoTargetIncludingTarget,
 			itersUptoSourceExcludingSource);
 
-	cout << "Working Set Iteration space:" << endl;
-	PrintUnionSet(WS);
-
 	isl_union_map *may_reads = pet_scop_get_may_reads(scop);
 	isl_union_map *may_writes = pet_scop_get_may_writes(scop);
 
-	isl_union_set* readSet =
-		isl_union_set_apply(isl_union_set_copy(WS), may_reads);
-	isl_union_set* writeSet =
-		isl_union_set_apply(isl_union_set_copy(WS), may_writes);
-	isl_union_set* dataSet = isl_union_set_union(readSet, writeSet);
-	isl_union_pw_qpolynomial* WSSize = isl_union_set_card(dataSet);
-
-	cout << "Working Set Size:" << endl;
-	PrintUnionPwQpolynomial(WSSize);
-
-	isl_set_free(source);
-	isl_set_free(target);
-	isl_basic_set_free(sourceDomain);
+	isl_union_pw_qpolynomial* WSSize = ComputeDataSetSize(
+		WS, may_reads, may_writes);
 	isl_union_set_free(WS);
-	isl_union_pw_qpolynomial_free(WSSize);
-	return isl_stat_ok;
+	isl_union_map_free(may_reads);
+	isl_union_map_free(may_writes);
+	return WSSize;
+}
+
+isl_union_pw_qpolynomial* ComputeDataSetSize(isl_union_set* WS,
+	isl_union_map *may_reads, isl_union_map *may_writes) {
+	isl_union_set* readSet =
+		isl_union_set_apply(isl_union_set_copy(WS),
+			isl_union_map_copy(may_reads));
+	isl_union_set* writeSet =
+		isl_union_set_apply(isl_union_set_copy(WS),
+			isl_union_map_copy(may_writes));
+	isl_union_set* dataSet = isl_union_set_union(readSet, writeSet);
+	return isl_union_set_card(dataSet);
+}
+
+void PrintWorkingSetSizes(vector<WorkingSetSize*>* workingSetSizes) {
+	cout << "Number of working set sizes: " << workingSetSizes->size()
+		<< endl;
+	for (int i = 0; i < workingSetSizes->size(); i++) {
+		cout << "*********************************************" << endl;
+		cout << "*********************************************" << endl;
+		cout << "dependence: " << endl;
+		PrintBasicMap(workingSetSizes->at(i)->dependence);
+
+		cout << "source: " << endl;
+		PrintSet(workingSetSizes->at(i)->source);
+
+		cout << "target: " << endl;
+		PrintSet(workingSetSizes->at(i)->target);
+
+		cout << "MinSize: " << endl;
+		PrintUnionPwQpolynomial(workingSetSizes->at(i)->minSize);
+
+		cout << "MaxSize: " << endl;
+		PrintUnionPwQpolynomial(workingSetSizes->at(i)->maxSize);
+		cout << "*********************************************" << endl;
+		cout << "*********************************************" << endl;
+		cout << endl;
+	}
+}
+
+
+void FreeWorkingSetSizes(vector<WorkingSetSize*>* workingSetSizes) {
+	for (int i = 0; i < workingSetSizes->size(); i++) {
+		if (workingSetSizes->at(i) == NULL) {
+			continue;
+		}
+
+		if (workingSetSizes->at(i)->dependence) {
+			isl_basic_map_free(workingSetSizes->at(i)->dependence);
+		}
+
+		if (workingSetSizes->at(i)->source) {
+			isl_set_free(workingSetSizes->at(i)->source);
+		}
+
+		if (workingSetSizes->at(i)->target) {
+			isl_set_free(workingSetSizes->at(i)->target);
+		}
+
+		if (workingSetSizes->at(i)->minSize) {
+			isl_union_pw_qpolynomial_free(
+				workingSetSizes->at(i)->minSize);
+		}
+
+		if (workingSetSizes->at(i)->maxSize) {
+			isl_union_pw_qpolynomial_free(
+				workingSetSizes->at(i)->maxSize);
+		}
+
+		free(workingSetSizes->at(i));
+	}
+
+	delete workingSetSizes;
 }
 
 isl_union_flow* ComputeDataDependences(isl_ctx* ctx, pet_scop* scop) {
 	/*TODO: Compute other types of depdences also - RAW, WAR, WAR
 	apart from RAR that are currently being computed*/
+
+	/*TODO: Print the array because of which the dependence is formed -
+	use "full" dependence structrues*/
 	isl_schedule* schedule = pet_scop_get_schedule(scop);
 	isl_union_map *may_reads = pet_scop_get_may_reads(scop);
 	isl_union_map *may_writes = pet_scop_get_may_writes(scop);
@@ -251,9 +367,7 @@ void PrintUnionFlow(isl_union_flow* flow) {
 
 pet_scop* ParseScop(isl_ctx* ctx, const char *fileName) {
 	pet_options_set_autodetect(ctx, 0);
-	cout << "Calling pet_scop_extract_from_C_source" << endl;
 	pet_scop *scop = pet_scop_extract_from_C_source(ctx, fileName, NULL);
-	cout << "scop: " << scop << endl;
 	return scop;
 }
 
