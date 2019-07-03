@@ -6,6 +6,10 @@
 #include <barvinok/isl.h>
 #include <string.h>
 #include <vector>
+#include <isl/space.h>
+#include <unordered_map>
+#include <bits/stdc++.h>
+#include <fstream>
 using namespace std;
 
 /* Function header declarations begin */
@@ -49,6 +53,15 @@ isl_union_pw_qpolynomial* ComputeDataSetSize(isl_union_set* WS,
 	isl_union_map *may_reads, isl_union_map *may_writes);
 void FreeWorkingSetSizes(vector<WorkingSetSize*>* workingSetSizes);
 void PrintWorkingSetSizes(vector<WorkingSetSize*>* workingSetSizes);
+void SimplifyWorkingSetSizes(vector<WorkingSetSize*>* workingSetSizes,
+	string fileName);
+void PrintSpace(isl_space* space);
+string SimplifyUnionPwQpolynomial(isl_union_pw_qpolynomial* size,
+	unordered_map<string, int>* paramValues);
+unordered_map<string, int>* GetParameterValues(vector<WorkingSetSize*>* workingSetSizes);
+int findInParamsMap(unordered_map<string, int>* map, string key);
+long ExtractIntegerFromUnionPwQpolynomial(isl_union_pw_qpolynomial* poly);
+string GetParameterValuesString(unordered_map<string, int>* paramValues);
 /* Function header declarations end */
 
 int main(int argc, char **argv) {
@@ -67,9 +80,11 @@ void ComputeDataReuseWorkingSets(const char *fileName) {
 	isl_ctx* ctx = isl_ctx_alloc_with_pet_options();
 	pet_scop *scop = ParseScop(ctx, fileName);
 	isl_union_flow* flow = ComputeDataDependences(ctx, scop);
+	string fileNameStr = string(fileName);
 	vector<WorkingSetSize*>* workingSetSizes =
 		ComputeWorkingSetSizesForDependences(flow, scop);
 	PrintWorkingSetSizes(workingSetSizes);
+	SimplifyWorkingSetSizes(workingSetSizes, fileNameStr);
 	FreeWorkingSetSizes(workingSetSizes);
 	pet_scop_free(scop);
 	isl_union_flow_free(flow);
@@ -202,6 +217,207 @@ isl_union_pw_qpolynomial* ComputeDataSetSize(isl_union_set* WS,
 	return isl_union_set_card(dataSet);
 }
 
+
+void SimplifyWorkingSetSizes(vector<WorkingSetSize*>* workingSetSizes,
+	string fileName) {
+	cout << "Number of working set sizes: " << workingSetSizes->size()
+		<< endl;
+
+	string DIR = "stats";
+	string suffix = "_ws_stats.tsv";
+	ofstream file;
+	string fullFileName = /*DIR + "/" + */ fileName + suffix;
+	file.open(fullFileName);
+
+	if (file.is_open()) {
+		cout << "Writing to file " << fullFileName << endl;
+	}
+	else {
+		cout << "Could not open the file: " << fullFileName << endl;
+	}
+
+	unordered_map<string, int>* paramValues = GetParameterValues(
+		workingSetSizes);
+
+	file << "Parameters: " << GetParameterValuesString(paramValues)
+		<< endl;
+	file << "dependence \t min_WS_size \t max_WS_size\n";
+	for (int i = 0; i < workingSetSizes->size(); i++) {
+		isl_union_pw_qpolynomial* minSizePoly =
+			workingSetSizes->at(i)->minSize;
+		string minSize = SimplifyUnionPwQpolynomial(
+			minSizePoly,
+			paramValues);
+
+		isl_union_pw_qpolynomial* maxSizePoly =
+			workingSetSizes->at(i)->maxSize;
+		string maxSize = SimplifyUnionPwQpolynomial(
+			maxSizePoly,
+			paramValues);
+
+		if (!minSize.empty() || !maxSize.empty()) {
+			file << isl_basic_map_to_str(
+				workingSetSizes->at(i)->dependence)
+				<< "\t";
+			file << minSize << "\t";
+			file << maxSize << endl;
+		}
+	}
+
+	file << endl;
+
+	paramValues->clear();
+	file.close();
+	delete paramValues;
+}
+
+unordered_map<string, int>* GetParameterValues(vector<WorkingSetSize*>* workingSetSizes) {
+	unordered_map<string, int>* paramValues =
+		new unordered_map<string, int>();
+
+	if (workingSetSizes->size() > 0) {
+		isl_union_pw_qpolynomial* repPoly =
+			workingSetSizes->at(0)->minSize;
+		isl_space* space = isl_union_pw_qpolynomial_get_space(repPoly);
+		isl_size numParams =
+			isl_space_dim(space, isl_dim_param);
+
+		cout << "Enter values for the following parameters:" << endl;
+		for (int j = 0; j < numParams; j++) {
+			string name(isl_space_get_dim_name(
+				space, isl_dim_param, (unsigned)j));
+			cout << name << " ";
+		}
+
+		cout << endl;
+
+		for (int j = 0; j < numParams; j++) {
+			string name(isl_space_get_dim_name(
+				space, isl_dim_param, (unsigned)j));
+			int val;
+			cin >> val;
+			paramValues->insert({ {name, val} });
+		}
+
+		isl_space_free(space);
+	}
+
+	return paramValues;
+}
+
+string GetParameterValuesString(unordered_map<string, int>* paramValues) {
+	string params = "";
+	for (auto i : *paramValues) {
+		params += i.first + " = " + to_string(i.second) + "; ";
+	}
+
+	return params;
+}
+
+string SimplifyUnionPwQpolynomial(isl_union_pw_qpolynomial* size,
+	unordered_map<string, int>* paramValues) {
+	isl_set* context = isl_set_universe(
+		isl_union_pw_qpolynomial_get_space(size));
+
+	/*Add constraints now*/
+	isl_constraint *c;
+	isl_local_space *ls;
+	isl_space* space;
+	space = isl_set_get_space(context);
+	ls = isl_local_space_from_space(isl_space_copy(space));
+
+	isl_size numParams =
+		isl_set_dim(context, isl_dim_param);
+
+	for (int j = 0; j < numParams; j++) {
+		string name(isl_space_get_dim_name(
+			space, isl_dim_param, (unsigned)j));
+		int val = findInParamsMap(paramValues, name);
+
+		c = isl_constraint_alloc_equality(
+			isl_local_space_copy(ls));
+		c = isl_constraint_set_coefficient_si(
+			c, isl_dim_param, j, -1);
+		c = isl_constraint_set_constant_si(c, val);
+		context = isl_set_add_constraint(context, c);
+	}
+
+	isl_union_pw_qpolynomial* gistSize =
+		isl_union_pw_qpolynomial_gist_params(
+			isl_union_pw_qpolynomial_copy(size),
+			context);
+
+	long sizeInteger = ExtractIntegerFromUnionPwQpolynomial(gistSize);
+	cout << "gistSize: " << sizeInteger << endl;
+
+	string sizeString;
+	if (sizeInteger != -1) {
+		sizeString = to_string(sizeInteger);
+	}
+
+	isl_space_free(space);
+	isl_local_space_free(ls);
+	return sizeString;
+}
+
+long ExtractIntegerFromUnionPwQpolynomial(
+	isl_union_pw_qpolynomial* polynomial)
+{
+	/*The string representation typically will be of the following kind:
+	[pad_w, ifwp, pad_h, ifhp, nIfm, ofwp, ofhp, nOfm, kw, kh, nImg, ofh, ofw] -> { 290 }
+
+	This function extracts the integer -- in this case 290 from the string
+	representation such as the above.*/
+
+	long val = -1;
+	cout << "Converting: " << endl;
+	PrintUnionPwQpolynomial(polynomial);
+	string poly(isl_union_pw_qpolynomial_to_str(polynomial));
+
+	string openingBrace = "{";
+	string closingBrace = "}";
+
+	size_t begin = -1, end = -1;
+	size_t found = poly.find(openingBrace);
+	if (found != string::npos) {
+		begin = found + 1;
+	}
+
+	found = poly.find(closingBrace);
+	if (found != string::npos) {
+		end = found - 1;
+	}
+
+	if (begin != -1 && end != -1 && begin < end) {
+		string valStr = poly.substr(begin, end - begin + 1);
+		try {
+			val = stol(valStr, nullptr, 10);
+			cout << "Converted string " << valStr << " to integer "
+				<< val << endl;
+			return val;
+		}
+		catch (const invalid_argument) {
+			cerr << "Invalid argument" << endl;
+		}
+	}
+
+	return val;
+}
+
+int findInParamsMap(unordered_map<string, int>* map, string key) {
+	unordered_map<string, int>::const_iterator find =
+		map->find(key);
+
+	if (find == map->end()) {
+		cout << "Parameter value not found, exiting." << endl;
+		exit(1);
+		return -1;
+	}
+	else {
+		return find->second;
+	}
+}
+
 void PrintWorkingSetSizes(vector<WorkingSetSize*>* workingSetSizes) {
 	cout << "Number of working set sizes: " << workingSetSizes->size()
 		<< endl;
@@ -325,6 +541,15 @@ void PrintMap(isl_map* map) {
 		isl_map_get_ctx(map), stdout);
 	printer = isl_printer_set_output_format(printer, ISL_FORMAT_ISL);
 	isl_printer_print_map(printer, map);
+	cout << endl;
+	isl_printer_free(printer);
+}
+
+void PrintSpace(isl_space* space) {
+	isl_printer *printer = isl_printer_to_file(
+		isl_space_get_ctx(space), stdout);
+	printer = isl_printer_set_output_format(printer, ISL_FORMAT_ISL);
+	isl_printer_print_space(printer, space);
 	cout << endl;
 	isl_printer_free(printer);
 }
