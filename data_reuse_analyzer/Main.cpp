@@ -33,11 +33,11 @@ void ComputeDataReuseWorkingSets(const char *fileName);
 void PrintScop(isl_ctx* ctx, struct pet_scop *scop);
 void PrintExpressions(isl_printer *printer, pet_expr *expr);
 pet_scop* ParseScop(isl_ctx* ctx, const char *fileName);
-isl_union_flow* ComputeDataDependences(isl_ctx* ctx, pet_scop* scop);
+isl_union_map* ComputeDataDependences(isl_ctx* ctx, pet_scop* scop);
 isl_stat ComputeWorkingSetSizesForDependence(isl_map* dep, void *user);
 void PrintUnionFlow(isl_union_flow* flow);
 vector<WorkingSetSize*>* ComputeWorkingSetSizesForDependences(
-	isl_union_flow *flow,
+	isl_union_map *dependences,
 	pet_scop *scop);
 void PrintUnionMap(isl_union_map* map);
 void PrintMap(isl_map* map);
@@ -62,6 +62,8 @@ unordered_map<string, int>* GetParameterValues(vector<WorkingSetSize*>* workingS
 int findInParamsMap(unordered_map<string, int>* map, string key);
 long ExtractIntegerFromUnionPwQpolynomial(isl_union_pw_qpolynomial* poly);
 string GetParameterValuesString(unordered_map<string, int>* paramValues);
+isl_union_map* ComputeDataDependences(isl_union_map *source,
+	isl_union_map *target, isl_schedule* schedule);
 /* Function header declarations end */
 
 int main(int argc, char **argv) {
@@ -79,21 +81,21 @@ int main(int argc, char **argv) {
 void ComputeDataReuseWorkingSets(const char *fileName) {
 	isl_ctx* ctx = isl_ctx_alloc_with_pet_options();
 	pet_scop *scop = ParseScop(ctx, fileName);
-	isl_union_flow* flow = ComputeDataDependences(ctx, scop);
+	isl_union_map* dependences = ComputeDataDependences(ctx, scop);
 	string fileNameStr = string(fileName);
 	vector<WorkingSetSize*>* workingSetSizes =
-		ComputeWorkingSetSizesForDependences(flow, scop);
+		ComputeWorkingSetSizesForDependences(dependences, scop);
 	PrintWorkingSetSizes(workingSetSizes);
 	SimplifyWorkingSetSizes(workingSetSizes, fileNameStr);
 	FreeWorkingSetSizes(workingSetSizes);
 	pet_scop_free(scop);
-	isl_union_flow_free(flow);
+	isl_union_map_free(dependences);
 	isl_ctx_free(ctx);
 }
 
 
 vector<WorkingSetSize*>* ComputeWorkingSetSizesForDependences(
-	isl_union_flow *flow,
+	isl_union_map *dependences,
 	pet_scop *scop) {
 	/*TODO: The following code works for perfectly nested loops
 	only. It needs to be extended to cover data dependences that span
@@ -102,9 +104,7 @@ vector<WorkingSetSize*>* ComputeWorkingSetSizesForDependences(
 	/* Here we assume that only may_dependences will be present because
 	ComputeDataDependences() function is specifying only may_read,
 	and may_write references */
-	isl_union_map *may_dependences = isl_union_flow_get_may_dependence(
-		flow);
-	PrintUnionMap(may_dependences);
+	PrintUnionMap(dependences);
 
 	vector<WorkingSetSize*>* workingSetSizes =
 		new vector<WorkingSetSize*>();
@@ -113,10 +113,10 @@ vector<WorkingSetSize*>* ComputeWorkingSetSizesForDependences(
 			sizeof(ArgComputeWorkingSetSizesForDependence));
 	arg->scop = scop;
 	arg->workingSetSizes = workingSetSizes;
-	isl_union_map_foreach_map(may_dependences,
+	isl_union_map_foreach_map(dependences,
 		&ComputeWorkingSetSizesForDependence, arg);
 
-	isl_union_map_free(may_dependences);
+	isl_union_map_free(dependences);
 	return workingSetSizes;
 }
 
@@ -236,39 +236,44 @@ void SimplifyWorkingSetSizes(vector<WorkingSetSize*>* workingSetSizes,
 		cout << "Could not open the file: " << fullFileName << endl;
 	}
 
-	unordered_map<string, int>* paramValues = GetParameterValues(
-		workingSetSizes);
 
-	file << "Parameters: " << GetParameterValuesString(paramValues)
-		<< endl;
-	file << "dependence \t min_WS_size \t max_WS_size\n";
-	for (int i = 0; i < workingSetSizes->size(); i++) {
-		isl_union_pw_qpolynomial* minSizePoly =
-			workingSetSizes->at(i)->minSize;
-		string minSize = SimplifyUnionPwQpolynomial(
-			minSizePoly,
-			paramValues);
+	char answer = 'N';
+	do {
+		unordered_map<string, int>* paramValues = GetParameterValues(
+			workingSetSizes);
+		file << "Parameters: " << GetParameterValuesString(paramValues)
+			<< endl;
+		file << "dependence \t min_WS_size \t max_WS_size\n";
+		for (int i = 0; i < workingSetSizes->size(); i++) {
+			isl_union_pw_qpolynomial* minSizePoly =
+				workingSetSizes->at(i)->minSize;
+			string minSize = SimplifyUnionPwQpolynomial(
+				minSizePoly,
+				paramValues);
 
-		isl_union_pw_qpolynomial* maxSizePoly =
-			workingSetSizes->at(i)->maxSize;
-		string maxSize = SimplifyUnionPwQpolynomial(
-			maxSizePoly,
-			paramValues);
+			isl_union_pw_qpolynomial* maxSizePoly =
+				workingSetSizes->at(i)->maxSize;
+			string maxSize = SimplifyUnionPwQpolynomial(
+				maxSizePoly,
+				paramValues);
 
-		if (!minSize.empty() || !maxSize.empty()) {
-			file << isl_basic_map_to_str(
-				workingSetSizes->at(i)->dependence)
-				<< "\t";
-			file << minSize << "\t";
-			file << maxSize << endl;
+			if (!minSize.empty() || !maxSize.empty()) {
+				file << isl_basic_map_to_str(
+					workingSetSizes->at(i)->dependence)
+					<< "\t";
+				file << minSize << "\t";
+				file << maxSize << endl;
+			}
 		}
-	}
 
-	file << endl;
-
-	paramValues->clear();
+		file << endl;
+		paramValues->clear();
+		delete paramValues;
+		cout << "Would like to enter a new set of parameters? [Y/N]"
+			<< endl;
+		cin >> answer;
+	} while (answer == 'Y');
 	file.close();
-	delete paramValues;
 }
 
 unordered_map<string, int>* GetParameterValues(vector<WorkingSetSize*>* workingSetSizes) {
@@ -479,40 +484,62 @@ void FreeWorkingSetSizes(vector<WorkingSetSize*>* workingSetSizes) {
 	delete workingSetSizes;
 }
 
-isl_union_flow* ComputeDataDependences(isl_ctx* ctx, pet_scop* scop) {
-	/*TODO: Compute other types of depdences also - RAW, WAR, WAR
-	apart from RAR that are currently being computed*/
-
+isl_union_map* ComputeDataDependences(isl_ctx* ctx, pet_scop* scop) {
 	/*TODO: Print the array because of which the dependence is formed -
 	use "full" dependence structrues*/
 	isl_schedule* schedule = pet_scop_get_schedule(scop);
 	isl_union_map *may_reads = pet_scop_get_may_reads(scop);
 	isl_union_map *may_writes = pet_scop_get_may_writes(scop);
 
-	// RAR dependences
-	isl_union_access_info* access_info =
-		isl_union_access_info_from_sink(isl_union_map_copy(may_reads));
-	access_info = isl_union_access_info_set_may_source(access_info,
-		isl_union_map_copy(may_reads));
-	isl_union_access_info_set_schedule(access_info,
-		isl_schedule_copy(schedule));
+	// RAR
+	isl_union_map* RAR = ComputeDataDependences(may_reads,
+		may_reads, schedule);
 
-	// Compute the RAR dependences
-	isl_union_flow *RAR =
-		isl_union_access_info_compute_flow(access_info);
-	cout << "RAR dependences are:" << endl;
-	if (RAR == NULL) {
-		cout << "No RAR dependences found" << endl;
-	}
-	else {
-		cout << "Calling PrintUnionAccessInfo" << endl;
-		PrintUnionFlow(RAR);
-	}
+	// RAW
+	isl_union_map* RAW = ComputeDataDependences(may_writes,
+		may_reads, schedule);
+
+	// WAR
+	isl_union_map* WAR = ComputeDataDependences(may_reads,
+		may_writes, schedule);
+
+	// WAW
+	isl_union_map* WAW = ComputeDataDependences(may_writes,
+		may_writes, schedule);
 
 	isl_union_map_free(may_writes);
 	isl_union_map_free(may_reads);
 	isl_schedule_free(schedule);
-	return RAR;
+
+	return isl_union_map_union(RAR,
+		isl_union_map_union(RAW, isl_union_map_union(WAR, WAW)));
+}
+
+isl_union_map* ComputeDataDependences(isl_union_map *source,
+	isl_union_map *target, isl_schedule* schedule)
+{
+	isl_union_access_info* access_info =
+		isl_union_access_info_from_sink(isl_union_map_copy(target));
+	access_info = isl_union_access_info_set_may_source(access_info,
+		isl_union_map_copy(source));
+	isl_union_access_info_set_schedule(access_info,
+		isl_schedule_copy(schedule));
+
+	isl_union_flow *deps =
+		isl_union_access_info_compute_flow(access_info);
+	cout << "Dependences are:" << endl;
+	if (deps == NULL) {
+		cout << "No RAR dependences found" << endl;
+	}
+	else {
+		cout << "Calling PrintUnionAccessInfo" << endl;
+		PrintUnionFlow(deps);
+	}
+
+	isl_union_map *may_dependences =
+		isl_union_flow_get_may_dependence(deps);
+	isl_union_flow_free(deps);
+	return may_dependences;
 }
 
 void PrintUnionPwQpolynomial(isl_union_pw_qpolynomial* poly) {
