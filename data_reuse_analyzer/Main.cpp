@@ -12,6 +12,9 @@
 #include <fstream>
 using namespace std;
 
+
+#define IGNORE_WS_SIZE_ONE 1
+
 /* Function header declarations begin */
 struct WorkingSetSize {
 	isl_basic_map* dependence;
@@ -87,9 +90,13 @@ void ComputeDataReuseWorkingSets(const char *fileName) {
 		ComputeWorkingSetSizesForDependences(dependences, scop);
 	PrintWorkingSetSizes(workingSetSizes);
 	SimplifyWorkingSetSizes(workingSetSizes, fileNameStr);
+	cout << "Calling FreeWorkingSetSizes" << endl;
 	FreeWorkingSetSizes(workingSetSizes);
-	pet_scop_free(scop);
+	cout << "isl_union_map_free" << endl;
 	isl_union_map_free(dependences);
+	cout << "Calling pet_scop_free" << endl;
+	pet_scop_free(scop);
+	cout << "isl_ctx_free" << endl;
 	isl_ctx_free(ctx);
 }
 
@@ -116,7 +123,6 @@ vector<WorkingSetSize*>* ComputeWorkingSetSizesForDependences(
 	isl_union_map_foreach_map(dependences,
 		&ComputeWorkingSetSizesForDependence, arg);
 
-	isl_union_map_free(dependences);
 	return workingSetSizes;
 }
 
@@ -399,6 +405,11 @@ long ExtractIntegerFromUnionPwQpolynomial(
 			val = stol(valStr, nullptr, 10);
 			cout << "Converted string " << valStr << " to integer "
 				<< val << endl;
+
+			if (IGNORE_WS_SIZE_ONE && val == 1) {
+				val = -1;
+			}
+
 			return val;
 		}
 		catch (const invalid_argument) {
