@@ -504,9 +504,9 @@ void compare_buf(float* ref, float* test, long size, correctness_t* norms)
 		}
 #endif
 
-		}
+	}
 	norms->l2_rel_err = sqrt(norms->l2_rel_err);
-		}
+}
 
 int main(int argc, char **argv) {
 	int ifhp, ifwp, ofhp, ofwp, ofh, ofw;
@@ -549,6 +549,9 @@ int main(int argc, char **argv) {
 	if (argc > i) pad_w = atoi(argv[i++]);
 	if (argc > i) pad_h = atoi(argv[i++]);
 	if (argc > i) stride = atoi(argv[i++]);
+	if (argc > i) version = atoi(argv[i++]);
+
+	printf("version = %d\n", version);
 
 	if (stride != 1) {
 		printf("A non-unit stride is not supported yet\n");
