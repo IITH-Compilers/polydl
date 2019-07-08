@@ -93,6 +93,26 @@ isl_union_flow* ComputeDataDependences(isl_ctx* ctx, pet_scop* scop) {
 		PrintUnionFlow(RAR);
 	}
 
+	//WAR dependences
+	isl_union_access_info* access_info =
+		isl_union_access_info_from_sink(isl_union_map_copy(may_writes));
+	access_info = isl_union_access_info_set_may_source(access_info,
+		isl_union_map_copy(may_reads));
+	isl_union_access_info_set_schedule(access_info,
+		isl_schedule_copy(schedule));
+
+	// Compute the WAR dependences
+	isl_union_flow *WAR =
+		isl_union_access_info_compute_flow(access_info);
+	cout << "WAR dependences are:" << endl;
+	if (WAR == NULL) {
+		cout << "No WAR dependences found" << endl;
+	}
+	else {
+		cout << "Calling PrintUnionAccessInfo" << endl;
+		PrintUnionFlow(WAR);
+	}
+
 	isl_union_map_free(may_writes);
 	isl_union_map_free(may_reads);
 	isl_schedule_free(schedule);

@@ -13,7 +13,7 @@ ISL_INSTALL = /nfs_home/stavarag/work/software/barvinok/isl_install
 ###########################################################################
 
 CXX = g++
-LIBRARY_FLAGS = -L$(BARVINOK_INSTALL)/lib -L$(ISL_INSTALL)/lib -L$(PET_INSTALL)/lib -L$(NTL_INSTALL)/lib -lpet -lisl -lbarvinok  -lntl  -lgmp  -lpolylibgmp 
+LIBRARY_FLAGS = -L$(BARVINOK_INSTALL)/lib -L$(ISL_INSTALL)/lib -L$(PET_INSTALL)/lib -L$(NTL_INSTALL)/lib -lpet -lisl -lbarvinok  -lntl  -lgmp  -lpolylibgmp -lpthread
 CXXFLAGS = -O2 -I$(BARVINOK_INSTALL)/include -I$(PET_INSTALL)/include -I$(ISL_INSTALL)/include -I . 
 
 TEMP0_FILES = $(SOURCE_FILES:.cpp=.o)
@@ -35,5 +35,4 @@ $(BINARY_FILE)	:	$(OBJECT_FILES)
 clean		:
 			rm -f *.o
 			rm $(BINARY_FILE)
-
 

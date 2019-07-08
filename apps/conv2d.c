@@ -67,6 +67,79 @@ void naive_conv_fp_stride_1(
 }
 
 
+
+void naive_conv_bp(
+        int nImg, int nIfm, int nOfm, int ifhp, int ifwp, int ofhp, int ofwp, int ifh, int ifw,
+        int ofh, int ofw, int pad_h, int pad_w, int pad_h_in, int pad_w_in, int pad_h_out,
+        int pad_w_out, int kh, int kw, int stride_h, int stride_w,
+        float input[nImg][nIfm][ifhp][ifwp], const float output[nImg][nOfm][ofhp][ofwp], const float filter[nOfm][nIfm][kh][kw])
+{
+        /* loop counters */
+        int img, ofm, ifm, oj, oi, ij, ii, kj, ki;
+
+#pragma scop
+        for (img = 0; img < nImg; ++img) {
+               for (ifm = 0; ifm < nIfm; ++ifm) {
+                        for (ofm = 0; ofm < nOfm; ++ofm) {
+                                for (oj = 0; oj < ofh; ++oj) {
+                                        ij = oj - pad_h;
+                                        for (oi = 0; oi < ofw; ++oi) {
+                                                ii = oi - pad_w;
+                                                for (kj = 0; kj < kh; ++kj) {
+                                                        if (ij + kj < 0 || ij + kj >= ifh) continue;
+                                                        for (ki = 0; ki < kw; ++ki) {
+                                                                if (ii + ki < 0 || ii + ki >= ifw) continue;
+                                                                 input[img][ifm][ij + kj][ii + ki]+= output[img][ofm][oj][oi]
+                                                                        * filter[ofm][ifm][kj][ki];
+                                                        }
+                                                }
+                                        }
+                                }
+                        }
+                }
+        }
+#pragma endscop
+}
+
+
+
+
+void naive_conv_wu(
+        int nImg, int nIfm, int nOfm, int ifhp, int ifwp, int ofhp, int ofwp, int ifh, int ifw,
+        int ofh, int ofw, int pad_h, int pad_w, int pad_h_in, int pad_w_in, int pad_h_out,
+        int pad_w_out, int kh, int kw, int stride_h, int stride_w,
+        const float input[nImg][nIfm][ifhp][ifwp], const float output[nImg][nOfm][ofhp][ofwp], float filter[nOfm][nIfm][kh][kw])
+{
+        /* loop counters */
+        int img, ofm, ifm, oj, oi, ij, ii, kj, ki;
+
+#pragma scop
+        for (ofm = 0; ofm < nOfm; ++ofm) {
+                for (ifm = 0; ifm < nIfm; ++ifm) {
+                        for (img = 0; img < nImg; ++img) {
+                                for (oj = 0; oj < ofh; ++oj) {
+                                    ij = oj - pad_h;
+                                        for (oi = 0; oi < ofw; ++oi) {
+                                                ii = oi - pad_w;
+                                                for (kj = 0; kj < kh; ++kj) {
+                                                        if (ij + kj < 0 || ij + kj >= ifh) continue;
+                                                        for (ki = 0; ki < kw; ++ki) {
+                                                                if (ii + ki < 0 || ii + ki >= ifw) continue;
+                                                                filter[ofm][ifm][kj][ki] += input[img][ifm][ij + kj][ii + ki] * output[img][ofm][oj][oi];
+                                                        }
+                                                }
+                                        }
+                                }
+                        }
+                }
+        }
+#pragma endscop
+}
+
+
+
+
+
 #define T_ofm_tile 16
 #define T_ifm_tile 16
 #define T_oj 16
@@ -256,6 +329,7 @@ void padded_conv_fp_stride_1_libxsmm_core4(int nImg, int nIfm, int nOfm, int ifh
 	int img, ofm_tile, ofm, ifm_tile, ifm, oj, oi, ij, ii, kj, ki;
 
 #pragma scop
+#pragma omp parallel for private(ifm_tile, kj, ki, oj, ofm_tile)
 	for (img = 0; img < nImg; ++img) {
 		for (ifm_tile = 0; ifm_tile < nIfm / 16; ++ifm_tile) {
 			for (kj = 0; kj < kh; ++kj) {
@@ -637,6 +711,33 @@ int main(int argc, char **argv) {
 	clock_t end = clock();
 	double exec_time = (double)(end - start) / CLOCKS_PER_SEC;
 	printf("Elapsed time of naive_conv_fp_stride_1 = %f seconds\n", exec_time);
+	
+
+	printf("##########################################\n");
+	printf("Calling naive_conv_bp\n");
+	start = clock();
+
+	naive_conv_bp(nImg, nIfm, nOfm, ifhp, ifwp, ofhp, ofwp, ifh, ifw,
+		ofh, ofw, pad_h, pad_w, pad_h_in, pad_w_in, pad_h_out,
+		pad_w_out, kh, kw, stride_h, stride_w, naive_input, naive_output, naive_filter);
+
+	end = clock();
+	exec_time = (double)(end - start) / CLOCKS_PER_SEC;
+	printf("Elapsed time of naive_conv_bp = %f seconds\n", exec_time);
+	
+	
+	printf("##########################################\n");
+	printf("Calling naive_conv_wu\n");
+	start = clock();
+
+	naive_conv_wu(nImg, nIfm, nOfm, ifhp, ifwp, ofhp, ofwp, ifh, ifw,
+		ofh, ofw, pad_h, pad_w, pad_h_in, pad_w_in, pad_h_out,
+		pad_w_out, kh, kw, stride_h, stride_w, naive_input, naive_output, naive_filter);
+
+	end = clock();
+	exec_time = (double)(end - start) / CLOCKS_PER_SEC;
+	printf("Elapsed time of naive_conv_wu = %f seconds\n", exec_time);
+
 	flops = (double)nImg * (double)nIfm * (double)nOfm * (double)ofh * (double)ofw * (double)(2 * kh * kw) * (double)iters;
 
 	printf("Calling copy_NCHW_to_GEMM\n");
