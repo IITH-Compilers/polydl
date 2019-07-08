@@ -25,6 +25,30 @@ struct WorkingSetSize {
 };
 
 typedef struct WorkingSetSize WorkingSetSize;
+
+struct SystemConfig {
+	long L1; // in bytes
+	long L2; // in bytes
+	long L3; // in bytes
+};
+
+typedef struct SystemConfig SystemConfig;
+
+struct ProgramCharacteristics {
+	int L1Fit; // #working sets that fit in L1 cache
+	int L2Fit; // #working sets that fit in L2 cache
+	int L3Fit; // #working sets that fit in L3 cache
+	int datatypeSize; // size of datatype of arrays
+};
+
+typedef struct ProgramCharacteristics ProgramCharacteristics;
+
+void GetSystemAndProgramCharacteristics(SystemConfig* systemConfig,
+	ProgramCharacteristics* programChar);
+void InitializeProgramCharacteristics(ProgramCharacteristics* programChar);
+void UpdateProgramCharacteristics(string size, SystemConfig* systemConfig,
+	ProgramCharacteristics* programChar);
+
 struct ArgComputeWorkingSetSizesForDependence {
 	pet_scop *scop;
 	vector<WorkingSetSize*>* workingSetSizes;
@@ -242,9 +266,14 @@ void SimplifyWorkingSetSizes(vector<WorkingSetSize*>* workingSetSizes,
 		cout << "Could not open the file: " << fullFileName << endl;
 	}
 
+	SystemConfig* systemConfig = (SystemConfig*)malloc(sizeof(SystemConfig));
+	ProgramCharacteristics* programChar =
+		(ProgramCharacteristics*)malloc(sizeof(ProgramCharacteristics));
+	GetSystemAndProgramCharacteristics(systemConfig, programChar);
 
 	char answer = 'N';
 	do {
+		InitializeProgramCharacteristics(programChar);
 		unordered_map<string, int>* paramValues = GetParameterValues(
 			workingSetSizes);
 		file << "Parameters: " << GetParameterValuesString(paramValues)
@@ -269,10 +298,22 @@ void SimplifyWorkingSetSizes(vector<WorkingSetSize*>* workingSetSizes,
 					<< "\t";
 				file << minSize << "\t";
 				file << maxSize << endl;
+
+				if (!minSize.empty()) {
+					UpdateProgramCharacteristics(minSize, systemConfig, programChar);
+				}
+
+				if (!maxSize.empty()) {
+					UpdateProgramCharacteristics(minSize, systemConfig, programChar);
+				}
 			}
 		}
 
-		file << endl;
+		file << "#reuses in L1, L2, L3:"
+			<< "\t" << programChar->L1Fit
+			<< "\t" << programChar->L2Fit
+			<< "\t" << programChar->L3Fit << endl;
+
 		paramValues->clear();
 		delete paramValues;
 		cout << "Would like to enter a new set of parameters? [Y/N]"
@@ -280,6 +321,53 @@ void SimplifyWorkingSetSizes(vector<WorkingSetSize*>* workingSetSizes,
 		cin >> answer;
 	} while (answer == 'Y');
 	file.close();
+
+	free(systemConfig);
+	free(programChar);
+}
+
+void GetSystemAndProgramCharacteristics(SystemConfig* systemConfig,
+	ProgramCharacteristics* programChar) {
+	cout << "Enter L1, L2, L3 cache sizes (in bytes): ";
+	cin >> systemConfig->L1;
+	cin >> systemConfig->L2;
+	cin >> systemConfig->L3;
+
+	cout << "Enter the datatype size (in bytes): ";
+	cin >> programChar->datatypeSize;
+}
+
+void InitializeProgramCharacteristics(ProgramCharacteristics* programChar) {
+	programChar->L1Fit = 0;
+	programChar->L2Fit = 0;
+	programChar->L3Fit = 0;
+}
+
+void UpdateProgramCharacteristics(string sizeStr, SystemConfig* systemConfig,
+	ProgramCharacteristics* programChar) {
+	long size = -1;
+
+	try {
+		size = stol(sizeStr, nullptr, 10) * programChar->datatypeSize;
+	}
+	catch (const invalid_argument) {
+		cerr << "Invalid argument while updating" << endl;
+		return;
+	}
+
+	if (size == -1) {
+		return;
+	}
+
+	if (size <= systemConfig->L1) {
+		programChar->L1Fit += 1;
+	}
+	else if (size <= systemConfig->L2) {
+		programChar->L2Fit += 1;
+	}
+	else if (size <= systemConfig->L3) {
+		programChar->L3Fit += 1;
+	}
 }
 
 unordered_map<string, int>* GetParameterValues(vector<WorkingSetSize*>* workingSetSizes) {
