@@ -100,6 +100,8 @@ Fwd GEMM flags = 640
 	int t_ofm_tile, t_ifm_tile, t_oj, t_oi;
 
 #pragma scop
+
+#pragma omp parallel for private(img, t_ofm_tile, t_oj, oj, t_oi, ofm_tile, t_ifm_tile, ifm_tile, kj, ki)
 	for (img = 0; img < nImg; ++img) {
 		for (t_ofm_tile = 0; t_ofm_tile < nOfm / 16; t_ofm_tile += T_ofm_tile) {
 			for (t_oj = 0; t_oj < ofh; t_oj += T_oj) {
@@ -150,29 +152,32 @@ void padded_conv_fp_stride_1_libxsmm_core(int nImg, int nIfm, int nOfm, int ifhp
 	int img, ofm_tile, ofm, ifm_tile, ifm, oj, oi, ij, ii, kj, ki;
 
 #pragma scop
+#pragma omp parallel for private(img, ofm_tile, ifm_tile, oj, kj, ki)
 	for (img = 0; img < nImg; ++img) {
+		// printf("thread id = %d\n", omp_get_thread_num());
 		for (ofm_tile = 0; ofm_tile < nOfm / 16; ++ofm_tile) {
 			for (ifm_tile = 0; ifm_tile < nIfm / 16; ++ifm_tile) {
 				for (oj = 0; oj < ofh; ++oj) {
 					for (kj = 0; kj < kh; ++kj) {
 						for (ki = 0; ki < kw; ++ki) {
 
-							fwd_gemm(&filter[ofm_tile][ifm_tile][kj][ki][0][0] /*A*/,
-								&pad_gemm_input[img][ifm_tile][oj + kj][ki][0] /*B*/,
-								&output[img][ofm_tile][oj][0][0] /*C*/);
+							fwd_gemm(&filter[ofm_tile][ifm_tile][kj][ki][0][0],
+								&pad_gemm_input[img][ifm_tile][oj + kj][ki][0],
+								&output[img][ofm_tile][oj][0][0]);
+
 
 							//GEMM
-							/**
-							for (oi = 0; oi < ofw; ++oi) {
-								for (ofm = 0; ofm < 16; ++ofm) {
-									for (ifm = 0; ifm < 16; ++ifm) {
-										output[img][ofm_tile][oj][oi][ofm] +=
-											filter[ofm_tile][ifm_tile][kj][ki][ifm][ofm] * pad_gemm_input[img][ifm_tile][oj + kj][oi + ki][ifm];
-									}
+						/*
+						for (oi = 0; oi < ofw; ++oi) {
+							for (ofm = 0; ofm < 16; ++ofm) {
+								for (ifm = 0; ifm < 16; ++ifm) {
+									output[img][ofm_tile][oj][oi][ofm] +=
+										filter[ofm_tile][ifm_tile][kj][ki][ifm][ofm] * pad_gemm_input[img][ifm_tile][oj + kj][oi + ki][ifm];
 								}
 							}
+						}
+						*/
 
-							*/
 						}
 					}
 				}
@@ -522,7 +527,7 @@ void compare_buf(float* ref, float* test, long size, correctness_t* norms)
 		}
 #endif
 
-		}
+	}
 	norms->l2_rel_err = sqrt(norms->l2_rel_err);
 		}
 
