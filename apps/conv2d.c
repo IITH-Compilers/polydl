@@ -368,8 +368,15 @@ void padded_conv_fp_stride_1(
 	const float input[nImg][nIfm / 16][ifhp][ifwp][16], float output[nImg][nOfm / 16][ofhp][ofwp][16], const float filter[nOfm / 16][nIfm / 16][kh][kw][16][16], int version)
 {
 	/* declare a physcial padded buffer */
+
+	/*
 	float pad_gemm_input[nImg][nIfm / 16][ifhp + 2 * pad_h][ifwp + 2 * pad_w][16];
+	*/
+	float(*pad_gemm_input)[nIfm / 16][ifhp + 2 * pad_h][ifwp + 2 * pad_w][16] = (float*)libxsmm_aligned_malloc(nImg*nIfm*(ifhp + 2 * pad_h)*(ifwp + 2 * pad_w) * sizeof(float), 2097152);
+	// printf("pad_gemm_input = %p\n", pad_gemm_input);
 	zero_buf(&pad_gemm_input[0][0][0][0][0], (nImg)*(nIfm / 16)*(ifhp + 2 * pad_h)*(ifwp + 2 * pad_w) * 16);
+
+
 
 	// printf("Calling copy_GEMM_to_PADDED_GEMM\n");
 	copy_GEMM_to_PADDED_GEMM(nImg, ifhp, ifwp, nIfm, pad_h, pad_w, input, pad_gemm_input);
@@ -412,8 +419,9 @@ void padded_conv_fp_stride_1(
 	}
 	else {
 		printf("Incorrect version\n");
-		exit(0);
 	}
+
+	libxsmm_free(pad_gemm_input);
 }
 
 
@@ -529,7 +537,7 @@ void compare_buf(float* ref, float* test, long size, correctness_t* norms)
 
 	}
 	norms->l2_rel_err = sqrt(norms->l2_rel_err);
-		}
+}
 
 int main(int argc, char **argv) {
 	int ifhp, ifwp, ofhp, ofwp, ofh, ofw;
@@ -648,11 +656,22 @@ int main(int argc, char **argv) {
 	float naive_output[nImg][nOfm][ofhp][ofwp];
 	float naive_filter[nOfm][nIfm][kh][kw];
 
-	float gemm_input[nImg][nIfm / 16][ifhp][ifwp][16];
-	float gemm_output[nImg][nOfm / 16][ifhp][ifwp][16];
-	float gemm_filter[nOfm / 16][nIfm / 16][kh][kw][16][16];
-	float check_output[nImg][nOfm][ofhp][ofwp];
+	/*
+	float gemm_input[nImg][nIfm / 16][ifhp][ifwp][16] __attribute__((aligned(2097152)));
+	float gemm_output[nImg][nOfm / 16][ifhp][ifwp][16] __attribute__((aligned(2097152)));
+	float gemm_filter[nOfm / 16][nIfm / 16][kh][kw][16][16] __attribute__((aligned(2097152)));
+	float check_output[nImg][nOfm][ofhp][ofwp] __attribute__((aligned(2097152)));
+	*/
 
+	float(*gemm_input)[nIfm / 16][ifhp][ifwp][16] = (float*)libxsmm_aligned_malloc(nImg*nIfm*ifhp*ifwp * sizeof(float), 2097152);
+	float(*gemm_output)[nOfm / 16][ifhp][ifwp][16] = (float*)libxsmm_aligned_malloc(nImg*nOfm*ifhp*ifwp * sizeof(float), 2097152);
+	float(*gemm_filter)[nIfm / 16][kh][kw][16][16] = (float*)libxsmm_aligned_malloc(nOfm*nIfm*kh*kw * sizeof(float), 2097152);
+	float(*check_output)[nImg][nOfm][ofhp][ofwp] = (float*)libxsmm_aligned_malloc(nImg*nOfm*ofhp*ofwp * sizeof(float), 2097152);
+
+	printf("gemm_input = %p\n", gemm_input);
+	printf("gemm_output = %p\n", gemm_output);
+	printf("gemm_filter = %p\n", gemm_filter);
+	printf("check_output = %p\n", check_output);
 	printf("Initializing data\n");
 	/* initialize data */
 	srand48(100);
@@ -731,6 +750,10 @@ int main(int argc, char **argv) {
 	printf("fp time = %.5g\n", ((double)(exec_time / iters)));
 	printf("GFLOPS  = %.5g\n", (flops*1e-9) / exec_time);
 
+	libxsmm_free(gemm_input);
+	libxsmm_free(gemm_output);
+	libxsmm_free(gemm_filter);
+	libxsmm_free(check_output);
 	return 0;
 }
 
