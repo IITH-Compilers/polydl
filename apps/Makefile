@@ -1,5 +1,5 @@
 CC=icc
-CFLAGS=-O3 -I./libxsmm/include -qopenmp 
+CFLAGS=-O3 -I./libxsmm/include -qopenmp -fno-alias
 LDFLAGS=-L./libxsmm/lib -lxsmm -lxsmmext -lpthread
 
 default: conv2d
