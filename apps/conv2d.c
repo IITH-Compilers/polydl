@@ -214,7 +214,7 @@ void padded_conv_fp_stride_1_libxsmm_core(int nImg, int nIfm, int nOfm, int ifhp
 
 #pragma scop
 	for (i = 0; i < iters; i++) {
-#pragma omp parallel for private(img, ofm_tile, ifm_tile, oj, kj, ki)
+#pragma omp parallel for private(ofm_tile, ifm_tile, oj, kj, ki) shared(output) firstprivate(pad_gemm_input, filter)
 		for (img = 0; img < nImg; ++img) {
 			// printf("thread id = %d\n", omp_get_thread_num());
 			// #pragma omp parallel for private(ofm_tile, ifm_tile, oj, kj, ki)
@@ -223,6 +223,7 @@ void padded_conv_fp_stride_1_libxsmm_core(int nImg, int nIfm, int nOfm, int ifhp
 					for (oj = 0; oj < ofh; ++oj) {
 						for (kj = 0; kj < kh; ++kj) {
 							for (ki = 0; ki < kw; ++ki) {
+
 
 								fwd_gemm(&filter[ofm_tile][ifm_tile][kj][ki][0][0],
 									&pad_gemm_input[img][ifm_tile][oj + kj][ki][0],
@@ -776,7 +777,7 @@ int main(int argc, char **argv) {
 
 	clock_t end = clock();
 	double exec_time = (double)(end - start) / CLOCKS_PER_SEC;
-	printf("Elapsed time of naive_conv_fp_stride_1 = %f seconds\n", exec_time);
+	printf("Total time of naive_conv_fp_stride_1 = %f seconds\n", exec_time);
 	flops = (double)nImg * (double)nIfm * (double)nOfm * (double)ofh * (double)ofw * (double)(2 * kh * kw) * (double)iters;
 
 	printf("Calling copy_NCHW_to_GEMM\n");
@@ -818,18 +819,21 @@ int main(int argc, char **argv) {
 	printf("##########################################\n");
 
 	start = clock();
+	l_start = libxsmm_timer_tick();
 
 	padded_conv_fp_stride_1(nImg, nIfm, nOfm, ifhp, ifwp, ofhp, ofwp, ifh, ifw,
 		ofh, ofw, pad_h, pad_w, pad_h_in, pad_w_in, pad_h_out,
 		pad_w_out, kh, kw, stride_h, stride_w, gemm_input, gemm_output, gemm_filter, version, iters);
 
-
+	l_end = libxsmm_timer_tick();
+	l_total = libxsmm_timer_duration(l_start, l_end);
 	end = clock();
 	exec_time = (double)(end - start) / CLOCKS_PER_SEC;
-	printf("Elapsed time of padded_conv_fp_stride_1 = %f seconds\n", exec_time);
+	printf("Total consumed time of padded_conv_fp_stride_1 = %f seconds\n", exec_time);
+	printf("Elapsed time of padded_conv_fp_stride_1 = %f seconds\n", l_total);
 	printf("GFLOP  = %.5g\n", flops*1e-9 / (double)iters);
-	printf("fp time = %.5g\n", ((double)(exec_time / iters)));
-	printf("GFLOPS  = %.5g\n", (flops*1e-9) / exec_time);
+	printf("fp time = %.5g\n", ((double)(l_total / iters)));
+	printf("GFLOPS  = %.5g\n", (flops*1e-9) / l_total);
 
 	libxsmm_free(gemm_input);
 	libxsmm_free(gemm_output);
