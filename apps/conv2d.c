@@ -214,7 +214,7 @@ void padded_conv_fp_stride_1_libxsmm_core(int nImg, int nIfm, int nOfm, int ifhp
 
 #pragma scop
 	for (i = 0; i < iters; i++) {
-#pragma omp parallel for private(ofm_tile, ifm_tile, oj, kj, ki) shared(output) firstprivate(pad_gemm_input, filter)
+#pragma omp parallel for private(ofm_tile, ifm_tile, oj, kj, ki)
 		for (img = 0; img < nImg; ++img) {
 			// printf("thread id = %d\n", omp_get_thread_num());
 			// #pragma omp parallel for private(ofm_tile, ifm_tile, oj, kj, ki)
@@ -262,6 +262,7 @@ void padded_conv_fp_stride_1_libxsmm_core2(int nImg, int nIfm, int nOfm, int ifh
 
 #pragma scop
 	for (i = 0; i < iters; i++) {
+#pragma omp parallel for private(ofm_tile, ifm_tile, oj, kj, ki)
 		for (img = 0; img < nImg; ++img) {
 			for (oj = 0; oj < ofh; ++oj) {
 				for (kj = 0; kj < kh; ++kj) {
@@ -306,6 +307,7 @@ void padded_conv_fp_stride_1_libxsmm_core3(int nImg, int nIfm, int nOfm, int ifh
 
 #pragma scop
 	for (i = 0; i < iters; i++) {
+#pragma omp parallel for private(ofm_tile, ifm_tile, oj, kj, ki)
 		for (img = 0; img < nImg; ++img) {
 			for (ofm_tile = 0; ofm_tile < nOfm / GEMM_BLOCK; ++ofm_tile) {
 				for (kj = 0; kj < kh; ++kj) {
@@ -349,6 +351,7 @@ void padded_conv_fp_stride_1_libxsmm_core4(int nImg, int nIfm, int nOfm, int ifh
 
 #pragma scop
 	for (i = 0; i < iters; i++) {
+#pragma omp parallel for private(ofm_tile, ifm_tile, oj, kj, ki)
 		for (img = 0; img < nImg; ++img) {
 			for (ifm_tile = 0; ifm_tile < nIfm / GEMM_BLOCK; ++ifm_tile) {
 				for (kj = 0; kj < kh; ++kj) {
@@ -652,7 +655,6 @@ int main(int argc, char **argv) {
 	if (argc > i) iters = atoi(argv[i++]);
 	if (argc > i) ifw = atoi(argv[i++]);
 	if (argc > i) ifh = atoi(argv[i++]);
-	if (argc > i) nImg = atoi(argv[i++]);
 	if (argc > i) nIfm = atoi(argv[i++]);
 	if (argc > i) nOfm = atoi(argv[i++]);
 	if (argc > i) kw = atoi(argv[i++]);
@@ -660,6 +662,7 @@ int main(int argc, char **argv) {
 	if (argc > i) pad_w = atoi(argv[i++]);
 	if (argc > i) pad_h = atoi(argv[i++]);
 	if (argc > i) stride = atoi(argv[i++]);
+	if (argc > i) nImg = atoi(argv[i++]);
 	if (argc > i) version = atoi(argv[i++]);
 
 	printf("version = %d\n", version);
@@ -833,7 +836,7 @@ int main(int argc, char **argv) {
 	printf("Elapsed time of padded_conv_fp_stride_1 = %f seconds\n", l_total);
 	printf("GFLOP  = %.5g\n", flops*1e-9 / (double)iters);
 	printf("fp time = %.5g\n", ((double)(l_total / iters)));
-	printf("GFLOPS  = %.5g\n", (flops*1e-9) / l_total);
+	printf("GFLOPS =%.5g\n", (flops*1e-9) / l_total);
 
 	libxsmm_free(gemm_input);
 	libxsmm_free(gemm_output);
