@@ -604,7 +604,7 @@ void compare_buf(float* ref, float* test, long size, correctness_t* norms)
 #if 0
 			printf("MISMATCH@ %3d: A=%12.8g  B=%12.8g (E:%12.4e) (R:%12.4e)\n", i, ref[i], test[i], diff, rel_err);
 #endif
-	}
+		}
 		if (diff > norms->max_abs_err) {
 			norms->max_abs_err = diff;
 		}
@@ -614,7 +614,7 @@ void compare_buf(float* ref, float* test, long size, correctness_t* norms)
 		}
 #endif
 
-}
+	}
 	norms->l2_rel_err = sqrt(norms->l2_rel_err);
 }
 
@@ -818,11 +818,11 @@ int main(int argc, char **argv) {
 	printf("##########################################\n");
 
 	start = clock();
-	/* for (i = 0; i < iters; i++) */ {
-		padded_conv_fp_stride_1(nImg, nIfm, nOfm, ifhp, ifwp, ofhp, ofwp, ifh, ifw,
-			ofh, ofw, pad_h, pad_w, pad_h_in, pad_w_in, pad_h_out,
-			pad_w_out, kh, kw, stride_h, stride_w, gemm_input, gemm_output, gemm_filter, version, iters);
-	}
+
+	padded_conv_fp_stride_1(nImg, nIfm, nOfm, ifhp, ifwp, ofhp, ofwp, ifh, ifw,
+		ofh, ofw, pad_h, pad_w, pad_h_in, pad_w_in, pad_h_out,
+		pad_w_out, kh, kw, stride_h, stride_w, gemm_input, gemm_output, gemm_filter, version, iters);
+
 
 	end = clock();
 	exec_time = (double)(end - start) / CLOCKS_PER_SEC;
