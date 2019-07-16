@@ -6,6 +6,7 @@
 struct UserInput {
 	std::string inputFile;
 	std::string configFile;
+	bool interactive;
 };
 
 typedef struct UserInput UserInput;

@@ -107,7 +107,7 @@ void ReadParams(ifstream& inFile, Config* config) {
 				break;
 			}
 
-			map<std::string, int>* params = new map<std::string, int>();
+			unordered_map<std::string, int>* params = new unordered_map<std::string, int>();
 			istringstream iss(line);
 			string valueStr;
 			int i = 0;
@@ -156,7 +156,7 @@ void ReadDataTypeConfig(ifstream& inFile, Config* config) {
 
 void InitializeConfig(Config* config) {
 	config->systemConfig = new SystemConfig;
-	config->programParameterVector = new vector<map<string, int>*>();
+	config->programParameterVector = new vector<unordered_map<string, int>*>();
 	config->datatypeSize = 0;
 	config->systemConfig->L1 = 0;
 	config->systemConfig->L2 = 0;
@@ -193,7 +193,7 @@ void PrintConfig(Config* config) {
 
 	cout << "Program parameters:" << endl;
 	for (int i = 0; i < config->programParameterVector->size(); i++) {
-		map<string, int>* params = config->programParameterVector->at(i);
+		unordered_map<string, int>* params = config->programParameterVector->at(i);
 		for (auto it = params->begin(); it != params->end(); it++) {
 			cout << it->first << ": " << it->second << " ";
 		}

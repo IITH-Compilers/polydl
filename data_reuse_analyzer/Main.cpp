@@ -18,7 +18,6 @@ using namespace std;
 
 #define IGNORE_WS_SIZE_ONE 1
 #define DEBUG 1
-#define INTERACTIVE 0
 
 /* Function header declarations begin */
 struct WorkingSetSize {
@@ -53,7 +52,7 @@ struct ArgComputeWorkingSetSizesForDependence {
 
 typedef struct ArgComputeWorkingSetSizesForDependence  ArgComputeWorkingSetSizesForDependence;
 
-void ComputeDataReuseWorkingSets(const char *fileName);
+void ComputeDataReuseWorkingSets(UserInput *userInput, Config *config);
 pet_scop* ParseScop(isl_ctx* ctx, const char *fileName);
 isl_union_map* ComputeDataDependences(isl_ctx* ctx, pet_scop* scop);
 isl_stat ComputeWorkingSetSizesForDependence(isl_map* dep, void *user);
@@ -68,8 +67,10 @@ isl_union_pw_qpolynomial* ComputeDataSetSize(isl_union_set* WS,
 	isl_union_map *may_reads, isl_union_map *may_writes);
 void FreeWorkingSetSizes(vector<WorkingSetSize*>* workingSetSizes);
 void PrintWorkingSetSizes(vector<WorkingSetSize*>* workingSetSizes);
-void SimplifyWorkingSetSizes(vector<WorkingSetSize*>* workingSetSizes,
+void SimplifyWorkingSetSizesInteractively(vector<WorkingSetSize*>* workingSetSizes,
 	string fileName);
+void SimplifyWorkingSetSizes(vector<WorkingSetSize*>* workingSetSizes,
+	UserInput *userInput, Config *config);
 string SimplifyUnionPwQpolynomial(isl_union_pw_qpolynomial* size,
 	unordered_map<string, int>* paramValues);
 unordered_map<string, int>* GetParameterValues(vector<WorkingSetSize*>* workingSetSizes);
@@ -92,36 +93,46 @@ void OrchestrateDataReuseComputation(int argc, char **argv) {
 	UserInput *userInput = new UserInput;
 	ReadUserInput(argc, argv, userInput);
 
-	Config *config = new Config;
-	ReadConfig(userInput->configFile, config);
-	if (DEBUG) {
-		PrintConfig(config);
+	Config *config = NULL;
+
+	if (!userInput->interactive) {
+		config = new Config;
+		ReadConfig(userInput->configFile, config);
+		if (DEBUG) {
+			PrintConfig(config);
+		}
 	}
 
 
-	ComputeDataReuseWorkingSets(userInput->inputFile.c_str());
+	ComputeDataReuseWorkingSets(userInput, config);
 
-	FreeConfig(config);
+	if (!userInput->interactive) {
+		FreeConfig(config);
+	}
+
 	delete userInput;
 }
 
 
-void ComputeDataReuseWorkingSets(const char *fileName) {
+void ComputeDataReuseWorkingSets(UserInput *userInput, Config *config) {
 	isl_ctx* ctx = isl_ctx_alloc_with_pet_options();
-	pet_scop *scop = ParseScop(ctx, fileName);
+	pet_scop *scop = ParseScop(ctx, userInput->inputFile.c_str());
 	isl_union_map* dependences = ComputeDataDependences(ctx, scop);
-	string fileNameStr = string(fileName);
+
 	vector<WorkingSetSize*>* workingSetSizes =
 		ComputeWorkingSetSizesForDependences(dependences, scop);
 	PrintWorkingSetSizes(workingSetSizes);
-	SimplifyWorkingSetSizes(workingSetSizes, fileNameStr);
-	cout << "Calling FreeWorkingSetSizes" << endl;
+
+	if (userInput->interactive) {
+		SimplifyWorkingSetSizesInteractively(workingSetSizes, userInput->inputFile);
+	}
+	else {
+		SimplifyWorkingSetSizes(workingSetSizes, userInput, config);
+	}
+
 	FreeWorkingSetSizes(workingSetSizes);
-	cout << "isl_union_map_free" << endl;
 	isl_union_map_free(dependences);
-	cout << "Calling pet_scop_free" << endl;
 	pet_scop_free(scop);
-	cout << "isl_ctx_free" << endl;
 	isl_ctx_free(ctx);
 }
 
@@ -248,8 +259,64 @@ isl_union_pw_qpolynomial* ComputeDataSetSize(isl_union_set* WS,
 	return isl_union_set_card(dataSet);
 }
 
-
 void SimplifyWorkingSetSizes(vector<WorkingSetSize*>* workingSetSizes,
+	UserInput *userInput, Config *config) {
+	string suffix = "_ws_stats.csv";
+	ofstream file;
+	string fullFileName = userInput->inputFile + suffix;
+	file.open(fullFileName);
+
+	if (file.is_open()) {
+		cout << "Writing to file " << fullFileName << endl;
+	}
+	else {
+		cout << "Could not open the file: " << fullFileName << endl;
+		exit(1);
+	}
+
+	ProgramCharacteristics* programChar = new ProgramCharacteristics;
+	programChar->datatypeSize = config->datatypeSize;
+	file << "params,L1,L2,L3" << endl;
+	for (int i = 0; i < config->programParameterVector->size(); i++) {
+		InitializeProgramCharacteristics(programChar);
+		unordered_map<string, int>* paramValues =
+			config->programParameterVector->at(i);
+		file << GetParameterValuesString(paramValues) << ",";
+
+		for (int i = 0; i < workingSetSizes->size(); i++) {
+			isl_union_pw_qpolynomial* minSizePoly =
+				workingSetSizes->at(i)->minSize;
+			string minSize = SimplifyUnionPwQpolynomial(
+				minSizePoly,
+				paramValues);
+
+			isl_union_pw_qpolynomial* maxSizePoly =
+				workingSetSizes->at(i)->maxSize;
+			string maxSize = SimplifyUnionPwQpolynomial(
+				maxSizePoly,
+				paramValues);
+
+
+			if (!minSize.empty()) {
+				UpdateProgramCharacteristics(minSize, config->systemConfig, programChar);
+			}
+
+			if (!maxSize.empty()) {
+				UpdateProgramCharacteristics(minSize, config->systemConfig, programChar);
+			}
+
+		}
+
+		file << programChar->L1Fit << "," << programChar->L2Fit << ","
+			<< programChar->L3Fit << endl;
+	}
+
+	file.close();
+
+	delete programChar;
+}
+
+void SimplifyWorkingSetSizesInteractively(vector<WorkingSetSize*>* workingSetSizes,
 	string fileName) {
 	cout << "Number of working set sizes: " << workingSetSizes->size()
 		<< endl;
@@ -408,7 +475,7 @@ unordered_map<string, int>* GetParameterValues(vector<WorkingSetSize*>* workingS
 string GetParameterValuesString(unordered_map<string, int>* paramValues) {
 	string params = "";
 	for (auto i : *paramValues) {
-		params += i.first + " = " + to_string(i.second) + "; ";
+		params += i.first + " = " + to_string(i.second) + " ";
 	}
 
 	return params;

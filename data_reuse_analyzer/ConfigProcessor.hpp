@@ -3,7 +3,7 @@
 
 #include<string.h>
 #include<vector>
-#include <map>
+#include <unordered_map>
 
 struct SystemConfig {
 	long L1; // in bytes
@@ -15,7 +15,7 @@ typedef struct SystemConfig SystemConfig;
 
 struct Config {
 	SystemConfig *systemConfig;
-	std::vector<std::map<std::string, int>*> *programParameterVector;
+	std::vector<std::unordered_map<std::string, int>*> *programParameterVector;
 	int datatypeSize;
 };
 

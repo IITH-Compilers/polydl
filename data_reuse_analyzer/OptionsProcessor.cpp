@@ -12,6 +12,9 @@ void ReadUserInput(int argc, char **argv, UserInput *userInput) {
 	*/
 	string inputPrefix = "--input";
 	string configPrefix = "--config";
+	string interactive = "--interactive";
+
+	userInput->interactive = false;
 	for (i = 1; i < argc;) {
 		if (argv[i] == inputPrefix) {
 			userInput->inputFile = argv[i + 1];
@@ -20,6 +23,10 @@ void ReadUserInput(int argc, char **argv, UserInput *userInput) {
 		else if (argv[i] == configPrefix) {
 			userInput->configFile = argv[i + 1];
 			i += 2;
+		}
+		else if (argv[i] == interactive) {
+			userInput->interactive = true;
+			i++;
 		}
 		else {
 			printf("Unexpected command line input: %s. Exiting\n", argv[i]);
@@ -35,7 +42,7 @@ void ReadUserInput(int argc, char **argv, UserInput *userInput) {
 		cout << "Input file: " << userInput->inputFile << endl;
 	}
 
-	if (userInput->configFile.empty()) {
+	if (userInput->configFile.empty() && !userInput->interactive) {
 		printf("Config file not specified. Exiting\n");
 		exit(1);
 	}
