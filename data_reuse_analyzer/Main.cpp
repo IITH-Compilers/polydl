@@ -123,6 +123,7 @@ void ComputeDataReuseWorkingSets(UserInput *userInput, Config *config) {
 		ComputeWorkingSetSizesForDependences(dependences, scop);
 	PrintWorkingSetSizes(workingSetSizes);
 
+	/*TODO: Deduplicate results*/
 	if (userInput->interactive) {
 		SimplifyWorkingSetSizesInteractively(workingSetSizes, userInput->inputFile);
 	}
@@ -581,7 +582,7 @@ int findInParamsMap(unordered_map<string, int>* map, string key) {
 		map->find(key);
 
 	if (find == map->end()) {
-		cout << "Parameter value not found, exiting." << endl;
+		cout << "Parameter value not found for " << key << endl;
 		exit(1);
 		return -1;
 	}
