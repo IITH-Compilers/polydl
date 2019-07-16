@@ -1,5 +1,5 @@
 SOURCE_FILES	=	\
-			Main.cpp 
+			Main.cpp OptionsProcessor.cpp ConfigProcessor.cpp
 
 BINARY_FILE	=	polyscientist
 

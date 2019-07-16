@@ -10,10 +10,13 @@
 #include <unordered_map>
 #include <bits/stdc++.h>
 #include <fstream>
+#include <ConfigProcessor.hpp>
+#include <OptionsProcessor.hpp>
 using namespace std;
 
 
 #define IGNORE_WS_SIZE_ONE 1
+#define DEBUG 1
 
 /* Function header declarations begin */
 struct WorkingSetSize {
@@ -26,13 +29,6 @@ struct WorkingSetSize {
 
 typedef struct WorkingSetSize WorkingSetSize;
 
-struct SystemConfig {
-	long L1; // in bytes
-	long L2; // in bytes
-	long L3; // in bytes
-};
-
-typedef struct SystemConfig SystemConfig;
 
 struct ProgramCharacteristics {
 	int L1Fit; // #working sets that fit in L1 cache
@@ -93,15 +89,27 @@ isl_union_map* ComputeDataDependences(isl_union_map *source,
 	isl_union_map *target, isl_schedule* schedule);
 /* Function header declarations end */
 
-int main(int argc, char **argv) {
+void OrchestrateDataReuseComputation(int argc, char **argv) {
 	string fileName = "../apps/padded_conv_fp_stride_1_libxsmm_core2.c";
-	if (argc >= 2) {
-		fileName = argv[1];
-		cout << "file name : " << fileName << endl;
 
+	UserInput *userInput = new UserInput;
+	ReadUserInput(argc, argv, userInput);
+
+	Config *config = new Config;
+	ReadConfig(userInput->configFile, config);
+	if (DEBUG) {
+		PrintConfig(config);
 	}
 
-	ComputeDataReuseWorkingSets(fileName.c_str());
+
+	ComputeDataReuseWorkingSets(userInput->inputFile.c_str());
+
+	FreeConfig(config);
+	delete userInput;
+}
+
+int main(int argc, char **argv) {
+	OrchestrateDataReuseComputation(argc, argv);
 	return 0;
 }
 
