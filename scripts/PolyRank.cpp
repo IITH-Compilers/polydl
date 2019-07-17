@@ -46,6 +46,8 @@ void AssignPolyRanksBasedOnUserDefinedCost(
 	vector<ProgramVariant*> *programVariants);
 bool compareByUserDefinedCost(const ProgramVariant* a,
 	const ProgramVariant* b);
+void WriteRanksToFile(vector<ProgramVariant*> *programVariants,
+	ofstream& outFile);
 /* Function declarations end */
 
 
@@ -71,6 +73,20 @@ void OrchestrateProgramVariantsRanking(int argc, char **argv) {
 		exit(1);
 	}
 
+
+	string suffix = "_ranks.csv";
+	ofstream outFile;
+	string outputFile = inputFile + suffix;
+	outFile.open(outputFile);
+
+	if (outFile.is_open()) {
+		cout << "Writing to file " << outputFile << endl;
+	}
+	else {
+		cout << "Could not open the file: " << outputFile << endl;
+		exit(1);
+	}
+
 	vector<ProgramVariant*> *programVariants = new vector<ProgramVariant*>();
 
 	/* Each line holds performance data on multiple variants of the program.
@@ -87,13 +103,33 @@ void OrchestrateProgramVariantsRanking(int argc, char **argv) {
 
 		ReadProgramVariants(line, programVariants);
 		RankProgramVariants(programVariants);
+		WriteRanksToFile(programVariants, outFile);
 		FreeProgramVariants(programVariants);
 	}
 
 	delete programVariants;
 
-
 	inFile.close();
+	outFile.close();
+}
+
+void WriteRanksToFile(vector<ProgramVariant*> *programVariants,
+	ofstream& outFile) {
+	if (programVariants->size() >= 0) {
+		outFile << programVariants->at(0)->config << endl;
+	}
+
+	outFile << "ActualRank,PolyRank,GFLOPS,Version" << endl;
+	sort(programVariants->begin(), programVariants->end(),
+		compareBygflops);
+	for (int i = 0; i < programVariants->size(); i++) {
+		outFile << programVariants->at(i)->actualRank << ","
+			<< programVariants->at(i)->polyRank << ","
+			<< programVariants->at(i)->gflops << ","
+			<< programVariants->at(i)->version << endl;
+	}
+
+	outFile << endl;
 }
 
 bool compareBygflops(const ProgramVariant* a, const ProgramVariant* b) {
