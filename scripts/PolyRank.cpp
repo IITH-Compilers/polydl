@@ -8,9 +8,11 @@
 using namespace std;
 
 #define DEBUG 1
+#define TOP_K 1
 
 #define min(X, Y) (((X) < (Y)) ? (X) : (Y))
 #define max(X, Y) (((X) > (Y)) ? (X) : (Y))
+
 
 /*
 #define L1Cost 3
@@ -56,6 +58,8 @@ bool compareByUserDefinedCost(const ProgramVariant* a,
 	const ProgramVariant* b);
 void WriteRanksToFile(vector<ProgramVariant*> *programVariants,
 	ofstream& outFile);
+void WritePerfToFile(vector<ProgramVariant*> *programVariants,
+	ofstream& outFile);
 /* Function declarations end */
 
 
@@ -95,7 +99,21 @@ void OrchestrateProgramVariantsRanking(int argc, char **argv) {
 		exit(1);
 	}
 
-	vector<ProgramVariant*> *programVariants = new vector<ProgramVariant*>();
+	string suffix2 = "_top" + to_string(TOP_K) + "_perf.csv";
+	ofstream outFile2;
+	string outputFile2 = inputFile + suffix2;
+	outFile2.open(outputFile2);
+
+	if (outFile2.is_open()) {
+		cout << "Writing to file " << outputFile2 << endl;
+	}
+	else {
+		cout << "Could not open the file: " << outputFile2 << endl;
+		exit(1);
+	}
+
+	vector<ProgramVariant*> *programVariants =
+		new vector<ProgramVariant*>();
 
 	/* Each line holds performance data on multiple variants of the program.
 	Therefore, we perform rank ordering on each line of the CSV file*/
@@ -112,6 +130,7 @@ void OrchestrateProgramVariantsRanking(int argc, char **argv) {
 		ReadProgramVariants(line, programVariants);
 		RankProgramVariants(programVariants);
 		WriteRanksToFile(programVariants, outFile);
+		WritePerfToFile(programVariants, outFile2);
 		FreeProgramVariants(programVariants);
 	}
 
@@ -140,6 +159,28 @@ void WriteRanksToFile(vector<ProgramVariant*> *programVariants,
 	outFile << endl;
 }
 
+void WritePerfToFile(vector<ProgramVariant*> *programVariants,
+	ofstream& outFile) {
+	outFile << "Config,Max_GFLOPS,Poly_Top_" + to_string(TOP_K)
+		+ "GFLOPS" << endl;
+	double maxGflops = 0;
+	double maxPolyKFlops = 0;
+
+	for (int i = 0; i < programVariants->size(); i++) {
+		maxGflops = max(maxGflops, programVariants->at(i)->gflops);
+
+		if (programVariants->at(i)->polyRank <= TOP_K) {
+			maxPolyKFlops = max(maxPolyKFlops,
+				programVariants->at(i)->gflops);
+		}
+	}
+
+	if (programVariants->size() >= 0) {
+		outFile << programVariants->at(0)->config << ","
+			<< maxGflops << "," << maxPolyKFlops << endl;
+	}
+}
+
 bool compareBygflops(const ProgramVariant* a, const ProgramVariant* b) {
 	return a->gflops > b->gflops;
 }
@@ -162,8 +203,6 @@ void AssignPolyRanks(vector<ProgramVariant*> *programVariants) {
 	/*LOGIC to rank the program variants based on thier data reuse
 	patterns in cache resides here*/
 
-	/*TODO: Compute fractions of L1, L2, L3 reuses and compute
-	the overall cost*/
 	for (int i = 0; i < programVariants->size(); i++) {
 		double totalReuses = programVariants->at(i)->L1 +
 			programVariants->at(i)->L2 +
