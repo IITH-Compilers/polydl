@@ -34,6 +34,7 @@ struct ProgramCharacteristics {
 	int L1Fit; // #working sets that fit in L1 cache
 	int L2Fit; // #working sets that fit in L2 cache
 	int L3Fit; // #working sets that fit in L3 cache
+	int MemFit;
 	int datatypeSize; // size of datatype of arrays
 };
 
@@ -264,7 +265,17 @@ void SimplifyWorkingSetSizes(vector<WorkingSetSize*>* workingSetSizes,
 	UserInput *userInput, Config *config) {
 	string suffix = "_ws_stats.csv";
 	ofstream file;
-	string fullFileName = userInput->inputFile + suffix;
+	size_t found = userInput->configFile.find_last_of("/\\");
+	string configFileName;
+	if (found == string::npos) {
+		configFileName = userInput->configFile;
+	}
+	else {
+		configFileName = userInput->configFile.substr(found + 1);
+	}
+
+	string fullFileName = userInput->inputFile + configFileName
+		+ suffix;
 	file.open(fullFileName);
 
 	if (file.is_open()) {
@@ -277,7 +288,7 @@ void SimplifyWorkingSetSizes(vector<WorkingSetSize*>* workingSetSizes,
 
 	ProgramCharacteristics* programChar = new ProgramCharacteristics;
 	programChar->datatypeSize = config->datatypeSize;
-	file << "params,L1,L2,L3" << endl;
+	file << "params,L1,L2,L3,Mem" << endl;
 	for (int i = 0; i < config->programParameterVector->size(); i++) {
 		InitializeProgramCharacteristics(programChar);
 		unordered_map<string, int>* paramValues =
@@ -309,7 +320,7 @@ void SimplifyWorkingSetSizes(vector<WorkingSetSize*>* workingSetSizes,
 		}
 
 		file << programChar->L1Fit << "," << programChar->L2Fit << ","
-			<< programChar->L3Fit << endl;
+			<< programChar->L3Fit << "," << programChar->MemFit << endl;
 	}
 
 	file.close();
@@ -381,7 +392,8 @@ void SimplifyWorkingSetSizesInteractively(vector<WorkingSetSize*>* workingSetSiz
 		file << "#reuses in L1, L2, L3:"
 			<< "\t" << programChar->L1Fit
 			<< "\t" << programChar->L2Fit
-			<< "\t" << programChar->L3Fit << endl;
+			<< "\t" << programChar->L3Fit
+			<< "\t" << programChar->MemFit << endl;
 
 		paramValues->clear();
 		delete paramValues;
@@ -410,6 +422,7 @@ void InitializeProgramCharacteristics(ProgramCharacteristics* programChar) {
 	programChar->L1Fit = 0;
 	programChar->L2Fit = 0;
 	programChar->L3Fit = 0;
+	programChar->MemFit = 0;
 }
 
 void UpdateProgramCharacteristics(string sizeStr, SystemConfig* systemConfig,
@@ -436,6 +449,9 @@ void UpdateProgramCharacteristics(string sizeStr, SystemConfig* systemConfig,
 	}
 	else if (size <= systemConfig->L3) {
 		programChar->L3Fit += 1;
+	}
+	else {
+		programChar->MemFit += 1;
 	}
 }
 

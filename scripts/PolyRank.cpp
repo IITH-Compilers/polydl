@@ -12,17 +12,25 @@ using namespace std;
 #define min(X, Y) (((X) < (Y)) ? (X) : (Y))
 #define max(X, Y) (((X) > (Y)) ? (X) : (Y))
 
-#define L1Cost 32768
-#define L2Cost 1048576
-#define L3Cost 40370176
+/*
+#define L1Cost 3
+#define L2Cost 17
+#define L3Cost 60
+*/
+
+#define L1Cost 4
+#define L2Cost 12
+#define L3Cost 42
+#define MemCost 84
+
 
 struct ProgramVariant {
 	string config;
 	int version;
 	double gflops;
-	int L1, L2, L3;
+	int L1, L2, L3, Mem;
 	int polyRank, actualRank;
-	int userDefinedCost;
+	double userDefinedCost;
 };
 
 typedef struct ProgramVariant ProgramVariant;
@@ -154,11 +162,19 @@ void AssignPolyRanks(vector<ProgramVariant*> *programVariants) {
 	/*LOGIC to rank the program variants based on thier data reuse
 	patterns in cache resides here*/
 
+	/*TODO: Compute fractions of L1, L2, L3 reuses and compute
+	the overall cost*/
 	for (int i = 0; i < programVariants->size(); i++) {
+		double totalReuses = programVariants->at(i)->L1 +
+			programVariants->at(i)->L2 +
+			programVariants->at(i)->L3 +
+			programVariants->at(i)->Mem;
+
 		programVariants->at(i)->userDefinedCost =
-			programVariants->at(i)->L1 * L1Cost +
-			programVariants->at(i)->L2 * L2Cost +
-			programVariants->at(i)->L3 * L3Cost;
+			(programVariants->at(i)->L1 / totalReuses) * L1Cost +
+			(programVariants->at(i)->L2 / totalReuses) * L2Cost +
+			(programVariants->at(i)->L3 / totalReuses) * L3Cost +
+			(programVariants->at(i)->Mem / totalReuses) * MemCost;
 	}
 
 	AssignPolyRanksBasedOnUserDefinedCost(programVariants);
@@ -176,7 +192,7 @@ void AssignPolyRanksBasedOnUserDefinedCost(
 
 	if (programVariants->size() > 0) {
 		int currentRank = 1;
-		int currentUserDefinedCost =
+		double currentUserDefinedCost =
 			programVariants->at(0)->userDefinedCost;
 		programVariants->at(0)->polyRank = currentRank;
 
@@ -227,7 +243,7 @@ void InitializeRanks(ProgramVariant *programVariant) {
 
 void ReadProgramVariants(string line, vector<ProgramVariant*> *programVariants) {
 	/* The columns are assumed to be the following:
-	Config	<Version	GFLOPS	L1	L2	L3> <Version	GFLOPS	L1	L2	L3> ...
+	Config	<Version	GFLOPS	L1	L2	L3 Mem> <Version	GFLOPS	L1	L2	L3 Mem> ...
 	*/
 
 	istringstream iss(line);
@@ -240,12 +256,13 @@ void ReadProgramVariants(string line, vector<ProgramVariant*> *programVariants) 
 
 	cout << "config: " << config << endl;
 
-	string version, gflops, L1, L2, L3;
+	string version, gflops, L1, L2, L3, Mem;
 	while (getline(iss, version, ',') &&
 		getline(iss, gflops, ',') &&
 		getline(iss, L1, ',') &&
 		getline(iss, L2, ',') &&
-		getline(iss, L3, ',')) {
+		getline(iss, L3, ',') &&
+		getline(iss, Mem, ',')) {
 		ProgramVariant* var = new ProgramVariant;
 		var->config = config;
 		var->version = stoi(version);
@@ -253,6 +270,7 @@ void ReadProgramVariants(string line, vector<ProgramVariant*> *programVariants) 
 		var->L1 = stoi(L1);
 		var->L2 = stoi(L2);
 		var->L3 = stoi(L3);
+		var->Mem = stoi(Mem);
 		InitializeRanks(var);
 		programVariants->push_back(var);
 	}
@@ -265,6 +283,7 @@ void PrintProgramVariant(ProgramVariant *var) {
 	cout << "L1: " << var->L1 << endl;
 	cout << "L2: " << var->L2 << endl;
 	cout << "L3: " << var->L3 << endl;
+	cout << "Mem: " << var->Mem << endl;
 	cout << "polyRank: " << var->polyRank << endl;
 	cout << "actualRank: " << var->actualRank << endl;
 }
