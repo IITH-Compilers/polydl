@@ -2,7 +2,7 @@ OUT=perf.csv
 rm ${OUT}
 
 config1='g1mb50ic64ih56iw56oc256oh56ow56kh1kw1sh1sw1ph0pw0n'
-config2='g1mb50ic64ih56iw56o64oh56ow56kh1kw1sh1sw1ph0pw0n'
+config2='g1mb50ic64ih56iw56oc64oh56ow56kh1kw1sh1sw1ph0pw0n'
 config3='g1mb50ic64ih56iw56oc64oh56ow56kh3kw3sh1sw1ph1pw1n'
 config4='g1mb50ic256ih56iw56oc64oh56ow56kh1kw1sh1sw1ph0pw0n'
 config5='g1mb50ic256ih28iw28oc512oh28ow28kh1kw1sh1sw1ph0pw0n'
@@ -25,6 +25,6 @@ for config in "$config1" "$config2" "$config3" "$config4" "$config5" "$config6" 
 do
 #echo -n $config, >> ${OUT}
 GFLOPS=`./benchdnn --conv --mode=p --dir=FWD_D --cfg=f32 $config"resnet_50:conv1" | grep "nresnet_50:conv1"| cut -d"," -f10`
-echo -n "${GFLOPS}," >> ${OUT}
+echo -n "${GFLOPS}\n" >> ${OUT}
 done
 echo >> ${OUT}
