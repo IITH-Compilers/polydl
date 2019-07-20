@@ -25,6 +25,7 @@ for config in "$config1" "$config2" "$config3" "$config4" "$config5" "$config6" 
 do
 #echo -n $config, >> ${OUT}
 GFLOPS=`./benchdnn --conv --mode=p --dir=FWD_D --cfg=f32 $config"resnet_50:conv1" | grep "nresnet_50:conv1"| cut -d"," -f10`
-echo -n "${GFLOPS}\n" >> ${OUT}
+echo -n $GFLOPS >> ${OUT}
+printf "/n" >> ${OUT}
 done
 echo >> ${OUT}
