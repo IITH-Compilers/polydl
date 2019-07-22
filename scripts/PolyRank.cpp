@@ -112,6 +112,9 @@ void OrchestrateProgramVariantsRanking(int argc, char **argv) {
 		exit(1);
 	}
 
+	outFile2 << "Config,Max_GFLOPS,Poly_Top_" + to_string(TOP_K)
+		+ "GFLOPS" << endl;
+
 	vector<ProgramVariant*> *programVariants =
 		new vector<ProgramVariant*>();
 
@@ -161,8 +164,6 @@ void WriteRanksToFile(vector<ProgramVariant*> *programVariants,
 
 void WritePerfToFile(vector<ProgramVariant*> *programVariants,
 	ofstream& outFile) {
-	outFile << "Config,Max_GFLOPS,Poly_Top_" + to_string(TOP_K)
-		+ "GFLOPS" << endl;
 	double maxGflops = 0;
 	double maxPolyKFlops = 0;
 
@@ -202,6 +203,13 @@ void RankProgramVariants(vector<ProgramVariant*> *programVariants) {
 void AssignPolyRanks(vector<ProgramVariant*> *programVariants) {
 	/*LOGIC to rank the program variants based on thier data reuse
 	patterns in cache resides here*/
+
+	/*TODO: Assign weights to reuses. Idea: Take the intersection of
+source and target iteration data sets and compute its cardinality.
+The cardinality can be the weight of the reuse*/
+
+/*TODO: De-duplicate data reuses.*/
+
 
 	for (int i = 0; i < programVariants->size(); i++) {
 		double totalReuses = programVariants->at(i)->L1 +
