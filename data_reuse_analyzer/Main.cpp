@@ -24,6 +24,8 @@ struct WorkingSetSize {
 	isl_basic_map* dependence;
 	isl_set* source;
 	isl_set* target;
+	isl_set *minTarget;
+	isl_set *maxTarget;
 	isl_union_pw_qpolynomial* minSize;
 	isl_union_pw_qpolynomial* maxSize;
 };
@@ -201,14 +203,13 @@ isl_stat ComputeWorkingSetSizesForDependenceBasicMap(isl_basic_map* dep,
 	workingSetSize->dependence = dep;
 	workingSetSize->source = source;
 	workingSetSize->target = target;
+	workingSetSize->minTarget = minTarget;
+	workingSetSize->maxTarget = maxTarget;
 	workingSetSize->minSize = minWSSize;
 	workingSetSize->maxSize = maxWSSize;
 	workingSetSizes->push_back(workingSetSize);
 
 	isl_basic_set_free(sourceDomain);
-	isl_set_free(minTarget);
-	isl_set_free(maxTarget);
-
 	return isl_stat_ok;
 }
 
@@ -314,7 +315,7 @@ void SimplifyWorkingSetSizes(vector<WorkingSetSize*>* workingSetSizes,
 			}
 
 			if (!maxSize.empty()) {
-				UpdateProgramCharacteristics(minSize, config->systemConfig, programChar);
+				UpdateProgramCharacteristics(maxSize, config->systemConfig, programChar);
 			}
 
 		}
@@ -358,7 +359,7 @@ void SimplifyWorkingSetSizesInteractively(vector<WorkingSetSize*>* workingSetSiz
 			workingSetSizes);
 		file << "Parameters: " << GetParameterValuesString(paramValues)
 			<< endl;
-		file << "dependence \t min_WS_size \t max_WS_size\n";
+		file << "dependence \t source \t min_target \t max_target \t min_WS_size \t max_WS_size\n";
 		for (int i = 0; i < workingSetSizes->size(); i++) {
 			isl_union_pw_qpolynomial* minSizePoly =
 				workingSetSizes->at(i)->minSize;
@@ -376,6 +377,12 @@ void SimplifyWorkingSetSizesInteractively(vector<WorkingSetSize*>* workingSetSiz
 				file << isl_basic_map_to_str(
 					workingSetSizes->at(i)->dependence)
 					<< "\t";
+				file << isl_set_to_str(workingSetSizes->at(i)->source)
+					<< "\t";
+				file << isl_set_to_str(workingSetSizes->at(i)->minTarget)
+					<< "\t";
+				file << isl_set_to_str(workingSetSizes->at(i)->maxTarget)
+					<< "\t";
 				file << minSize << "\t";
 				file << maxSize << endl;
 
@@ -384,7 +391,7 @@ void SimplifyWorkingSetSizesInteractively(vector<WorkingSetSize*>* workingSetSiz
 				}
 
 				if (!maxSize.empty()) {
-					UpdateProgramCharacteristics(minSize, systemConfig, programChar);
+					UpdateProgramCharacteristics(maxSize, systemConfig, programChar);
 				}
 			}
 		}
@@ -650,6 +657,14 @@ void FreeWorkingSetSizes(vector<WorkingSetSize*>* workingSetSizes) {
 
 		if (workingSetSizes->at(i)->target) {
 			isl_set_free(workingSetSizes->at(i)->target);
+		}
+
+		if (workingSetSizes->at(i)->minTarget) {
+			isl_set_free(workingSetSizes->at(i)->minTarget);
+		}
+
+		if (workingSetSizes->at(i)->maxTarget) {
+			isl_set_free(workingSetSizes->at(i)->maxTarget);
 		}
 
 		if (workingSetSizes->at(i)->minSize) {
