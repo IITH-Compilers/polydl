@@ -71,7 +71,7 @@ isl_union_pw_qpolynomial* ComputeDataSetSize(isl_union_set* WS,
 void FreeWorkingSetSizes(vector<WorkingSetSize*>* workingSetSizes);
 void PrintWorkingSetSizes(vector<WorkingSetSize*>* workingSetSizes);
 void SimplifyWorkingSetSizesInteractively(vector<WorkingSetSize*>* workingSetSizes,
-	string fileName);
+	UserInput *userInput, Config *config);
 void SimplifyWorkingSetSizes(vector<WorkingSetSize*>* workingSetSizes,
 	UserInput *userInput, Config *config);
 string SimplifyUnionPwQpolynomial(isl_union_pw_qpolynomial* size,
@@ -83,6 +83,7 @@ string GetParameterValuesString(unordered_map<string, int>* paramValues);
 isl_union_map* ComputeDataDependences(isl_union_map *source,
 	isl_union_map *target, isl_schedule* schedule);
 void OrchestrateDataReuseComputation(int argc, char **argv);
+string ExtractFileName(string fileName);
 /* Function header declarations end */
 
 int main(int argc, char **argv) {
@@ -98,7 +99,7 @@ void OrchestrateDataReuseComputation(int argc, char **argv) {
 
 	Config *config = NULL;
 
-	if (!userInput->interactive) {
+	if (!userInput->configFile.empty()) {
 		config = new Config;
 		ReadConfig(userInput->configFile, config);
 		if (DEBUG) {
@@ -128,7 +129,8 @@ void ComputeDataReuseWorkingSets(UserInput *userInput, Config *config) {
 
 	/*TODO: Deduplicate results*/
 	if (userInput->interactive) {
-		SimplifyWorkingSetSizesInteractively(workingSetSizes, userInput->inputFile);
+		SimplifyWorkingSetSizesInteractively(workingSetSizes,
+			userInput, config);
 	}
 	else {
 		SimplifyWorkingSetSizes(workingSetSizes, userInput, config);
@@ -262,19 +264,23 @@ isl_union_pw_qpolynomial* ComputeDataSetSize(isl_union_set* WS,
 	return isl_union_set_card(dataSet);
 }
 
+string ExtractFileName(string fileName) {
+	string returnFileName;
+	size_t found = fileName.find_last_of("/\\");
+	if (found == string::npos) {
+		returnFileName = fileName;
+	}
+	else {
+		returnFileName = fileName.substr(found + 1);
+	}
+
+	return returnFileName;
+}
 void SimplifyWorkingSetSizes(vector<WorkingSetSize*>* workingSetSizes,
 	UserInput *userInput, Config *config) {
 	string suffix = "_ws_stats.csv";
 	ofstream file;
-	size_t found = userInput->configFile.find_last_of("/\\");
-	string configFileName;
-	if (found == string::npos) {
-		configFileName = userInput->configFile;
-	}
-	else {
-		configFileName = userInput->configFile.substr(found + 1);
-	}
-
+	string configFileName = ExtractFileName(userInput->configFile);
 	string fullFileName = userInput->inputFile + configFileName
 		+ suffix;
 	file.open(fullFileName);
@@ -330,14 +336,23 @@ void SimplifyWorkingSetSizes(vector<WorkingSetSize*>* workingSetSizes,
 }
 
 void SimplifyWorkingSetSizesInteractively(vector<WorkingSetSize*>* workingSetSizes,
-	string fileName) {
+	UserInput *userInput, Config *config) {
+	string fileName = userInput->inputFile;
 	cout << "Number of working set sizes: " << workingSetSizes->size()
 		<< endl;
 
 	string DIR = "stats";
-	string suffix = "_ws_stats.tsv";
+	string suffix;
+
+	if (config == NULL) {
+		suffix = "_ws_stats.tsv";
+	}
+	else {
+		suffix = ExtractFileName(userInput->configFile) + "_ws_stats.tsv";
+	}
+
 	ofstream file;
-	string fullFileName = /*DIR + "/" + */ fileName + suffix;
+	string fullFileName = fileName + suffix;
 	file.open(fullFileName);
 
 	if (file.is_open()) {
@@ -347,16 +362,43 @@ void SimplifyWorkingSetSizesInteractively(vector<WorkingSetSize*>* workingSetSiz
 		cout << "Could not open the file: " << fullFileName << endl;
 	}
 
-	SystemConfig* systemConfig = (SystemConfig*)malloc(sizeof(SystemConfig));
+	SystemConfig* systemConfig;
+
+	if (config == NULL) {
+		systemConfig = (SystemConfig*)malloc(sizeof(SystemConfig));
+	}
+	else {
+		systemConfig = config->systemConfig;
+	}
+
 	ProgramCharacteristics* programChar =
 		(ProgramCharacteristics*)malloc(sizeof(ProgramCharacteristics));
-	GetSystemAndProgramCharacteristics(systemConfig, programChar);
 
-	char answer = 'N';
-	do {
+	if (config == NULL) {
+		GetSystemAndProgramCharacteristics(systemConfig, programChar);
+	}
+	else {
+		programChar->datatypeSize = config->datatypeSize;
+	}
+
+	char answer = 'Y';
+	int count = 0;
+	int size = 0;
+	if (config) {
+		size = config->programParameterVector->size();
+	}
+
+	while ((config == NULL && answer == 'Y') || (config && count < size)) {
 		InitializeProgramCharacteristics(programChar);
-		unordered_map<string, int>* paramValues = GetParameterValues(
-			workingSetSizes);
+		unordered_map<string, int>* paramValues;
+
+		if (config == NULL) {
+			paramValues = GetParameterValues(workingSetSizes);
+		}
+		else {
+			paramValues = config->programParameterVector->at(count);
+		}
+
 		file << "Parameters: " << GetParameterValuesString(paramValues)
 			<< endl;
 		file << "dependence \t source \t min_target \t max_target \t min_WS_size \t max_WS_size\n";
@@ -402,15 +444,23 @@ void SimplifyWorkingSetSizesInteractively(vector<WorkingSetSize*>* workingSetSiz
 			<< "\t" << programChar->L3Fit
 			<< "\t" << programChar->MemFit << endl;
 
-		paramValues->clear();
-		delete paramValues;
-		cout << "Would like to enter a new set of parameters? [Y/N]"
-			<< endl;
-		cin >> answer;
-	} while (answer == 'Y');
+		if (config == NULL) {
+			paramValues->clear();
+			delete paramValues;
+			cout << "Would like to enter a new set of parameters? [Y/N]"
+				<< endl;
+			cin >> answer;
+		}
+		else {
+			count++;
+		}
+	}
 	file.close();
 
-	free(systemConfig);
+	if (config == NULL) {
+		free(systemConfig);
+	}
+
 	free(programChar);
 }
 
