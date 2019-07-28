@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <omp.h>
+#include <padded_conv_fp_stride_1_libxsmm_core.pluto.c>
 
 #define USE_LIBXSMM
 
@@ -493,6 +494,11 @@ void padded_conv_fp_stride_1(
 	}
 	else if (version == 6) {
 		padded_conv_fp_stride_1_core(nImg, nIfm, nOfm, ifhp, ifwp, ofhp, ofwp, ifh, ifw,
+			ofh, ofw, pad_h, pad_w, pad_h_in, pad_w_in, pad_h_out,
+			pad_w_out, kh, kw, stride_h, stride_w, pad_gemm_input, output, filter, iters);
+	}
+	else if (version ==7){	
+		padded_conv_fp_stride_1_libxsmm_core_pluto(nImg, nIfm, nOfm, ifhp, ifwp, ofhp, ofwp, ifh, ifw,
 			ofh, ofw, pad_h, pad_w, pad_h_in, pad_w_in, pad_h_out,
 			pad_w_out, kh, kw, stride_h, stride_w, pad_gemm_input, output, filter, iters);
 	}

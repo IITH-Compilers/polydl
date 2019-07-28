@@ -1,24 +1,3 @@
-<<<<<<< HEAD
-./conv2d 100  56  56  1  64   256 1 1 0 0 1
-./conv2d 100  56  56  1  64    64 1 1 0 0 1
-./conv2d 100  56  56  1  64    64 3 3 1 1 1
-./conv2d 100  56  56  1  256   64 1 1 0 0 1
-./conv2d 100  28  28  1  256   512 1 1 0 0 1
-./conv2d 100  28  28  1  256   128 1 1 0 0 1
-./conv2d 100  28  28  1  128   128 3 3 1 1 1
-./conv2d 100  28  28  1  128   512 1 1 0 0 1
-./conv2d 100  28  28  1  512   128 1 1 0 0 1
-./conv2d 100  14  14  1  512  1024 1 1 0 0 1
-./conv2d 100  14  14  1  512   256 1 1 0 0 1
-./conv2d 100  14  14  1  256   256 3 3 1 1 1
-./conv2d 100  14  14  1  256  1024 1 1 0 0 1
-./conv2d 100  14  14  1 1024   256 1 1 0 0 1
-./conv2d 100  7   7   1 1024  2048 1 1 0 0 1
-./conv2d 100  7   7   1 1024   512 1 1 0 0 1
-./conv2d 100  7   7   1  512   512 3 3 1 1 1
-./conv2d 100  7   7   1  512  2048 1 1 0 0 1
-./conv2d 100  7   7   1 2048   512 1 1 0 0 1
-=======
 export KMP_AFFINITY=granularity=fine,compact,1,0
 OUT=perf.csv
 rm ${OUT}
@@ -50,7 +29,7 @@ for images in 1 28
 do
 echo -n ${images}, >> ${OUT}
 export OMP_NUM_THREADS=${images}
-for version in 0 1 2 3 4 5
+for version in 0 1 2 3 4 5 7
 do
 echo "Config: " $config ${images} ${version}
 GFLOPS=`./conv2d $config ${images} ${version} |  grep GFLOPS |  cut -d= -f2`
@@ -61,7 +40,4 @@ done
 done
 echo >> ${OUT}
 done
-
-
->>>>>>> origin/master
 
