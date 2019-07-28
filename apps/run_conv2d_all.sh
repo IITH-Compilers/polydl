@@ -24,7 +24,7 @@ config18='100  7   7   512  2048 1 1 0 0 1'
 config19='100  7   7   2048   512 1 1 0 0 1'
 
 #Mobilenet
-config20='100  224 224 3 32 3 3 1 1 2'
+#config20='100  224 224 3 32 3 3 1 1 2'
 config21='100  112 112 32 64 1 1 0 0 1'
 config22='100  56 56  64 128 1 1 0 0 1'
 config23='100  56 56  128 128 1 1 0 0 1'
@@ -37,13 +37,13 @@ config29='100  7 7 1024 1024 1 1 0 0 1'
 config30='100  1 1 1024  5 1 1 0 0 1'
 
 #Alexnet
-config31='100  227 227 3  64 11 11 0 0 4'
+#config31='100  227 227 3  64 11 11 0 0 4'
 config32='100  27  27  64 192 5 5 2 2 1'
 config33='100  13  13  192 384 3 3 1 1 1'
 config34='100  13  13  384 256 3 3 1 1 1'
 config35='100  13  13  256 256 3 3 1 1 1'
 
-for config in "$config1" "$config2" "$config3" "$config4" "$config5" "$config6" "$config7" "$config8" "$config9" "$config10" "$config11" "$config12" "$config13" "$config14" "$config15" "$config16" "$config17" "$config18" "$config19" "$config20" "$config21" "$config22" "$config23" "$config24" "$config25" "$config26" "$config27" "$config28" "$config29" "$config30" "$config31" "$config32" "$config33" "$config34" "$config35"
+for config in "$config1" "$config2" "$config3" "$config4" "$config5" "$config6" "$config7" "$config8" "$config9" "$config10" "$config11" "$config12" "$config13" "$config14" "$config15" "$config16" "$config17" "$config18" "$config19"  "$config21" "$config22" "$config23" "$config24" "$config25" "$config26" "$config27" "$config28" "$config29" "$config30" "$config32" "$config33" "$config34" "$config35"
 
 do
 	echo -n $config, >> ${OUT}
