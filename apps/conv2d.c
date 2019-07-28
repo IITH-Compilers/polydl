@@ -15,6 +15,13 @@ libxsmm_smmfunction fwd_gemm;
 #define min(X, Y) (((X) < (Y)) ? (X) : (Y))
 #define max(X, Y) (((X) > (Y)) ? (X) : (Y))
 
+#define T_ofm_tile 4
+#define T_ifm_tile 1
+#define T_oj 4
+#define T_oi 28
+
+#define GEMM_BLOCK 64
+
 typedef struct {
 	double max_rel_err;
 	double max_abs_err;
@@ -24,9 +31,9 @@ typedef struct {
 } correctness_t;
 
 void copy_NCHW_to_GEMM(int N, int H, int W, int C, const float nchw[N][C][H][W],
-	float gemm[N][C / 16][H][W][16]);
+	float gemm[N][C / GEMM_BLOCK][H][W][GEMM_BLOCK]);
 void copy_GEMM_to_PADDED_GEMM(int N, int H, int W, int C, int pad_h, int pad_w,
-	const float gemm[N][C / 16][H][W][16], float pad_gemm[N][C / 16][H + 2 * pad_h][W + 2 * pad_w][16]);
+	const float gemm[N][C / GEMM_BLOCK][H][W][GEMM_BLOCK], float pad_gemm[N][C / GEMM_BLOCK][H + 2 * pad_h][W + 2 * pad_w][GEMM_BLOCK]);
 void compare_buf(float* ref, float* test, long size, correctness_t* norms);
 
 void naive_conv_fp_stride_1(
@@ -67,121 +74,122 @@ void naive_conv_fp_stride_1(
 }
 
 
-
-void naive_conv_bp(
-        int nImg, int nIfm, int nOfm, int ifhp, int ifwp, int ofhp, int ofwp, int ifh, int ifw,
-        int ofh, int ofw, int pad_h, int pad_w, int pad_h_in, int pad_w_in, int pad_h_out,
-        int pad_w_out, int kh, int kw, int stride_h, int stride_w,
-        float input[nImg][nIfm][ifhp][ifwp], const float output[nImg][nOfm][ofhp][ofwp], const float filter[nOfm][nIfm][kh][kw])
-{
-        /* loop counters */
-        int img, ofm, ifm, oj, oi, ij, ii, kj, ki;
-
-#pragma scop
-        for (img = 0; img < nImg; ++img) {
-               for (ifm = 0; ifm < nIfm; ++ifm) {
-                        for (ofm = 0; ofm < nOfm; ++ofm) {
-                                for (oj = 0; oj < ofh; ++oj) {
-                                        ij = oj - pad_h;
-                                        for (oi = 0; oi < ofw; ++oi) {
-                                                ii = oi - pad_w;
-                                                for (kj = 0; kj < kh; ++kj) {
-                                                        if (ij + kj < 0 || ij + kj >= ifh) continue;
-                                                        for (ki = 0; ki < kw; ++ki) {
-                                                                if (ii + ki < 0 || ii + ki >= ifw) continue;
-                                                                 input[img][ifm][ij + kj][ii + ki]+= output[img][ofm][oj][oi]
-                                                                        * filter[ofm][ifm][kj][ki];
-                                                        }
-                                                }
-                                        }
-                                }
-                        }
-                }
-        }
-#pragma endscop
-}
-
-
-
-
-void naive_conv_wu(
-        int nImg, int nIfm, int nOfm, int ifhp, int ifwp, int ofhp, int ofwp, int ifh, int ifw,
-        int ofh, int ofw, int pad_h, int pad_w, int pad_h_in, int pad_w_in, int pad_h_out,
-        int pad_w_out, int kh, int kw, int stride_h, int stride_w,
-        const float input[nImg][nIfm][ifhp][ifwp], const float output[nImg][nOfm][ofhp][ofwp], float filter[nOfm][nIfm][kh][kw])
-{
-        /* loop counters */
-        int img, ofm, ifm, oj, oi, ij, ii, kj, ki;
-
-#pragma scop
-        for (ofm = 0; ofm < nOfm; ++ofm) {
-                for (ifm = 0; ifm < nIfm; ++ifm) {
-                        for (img = 0; img < nImg; ++img) {
-                                for (oj = 0; oj < ofh; ++oj) {
-                                    ij = oj - pad_h;
-                                        for (oi = 0; oi < ofw; ++oi) {
-                                                ii = oi - pad_w;
-                                                for (kj = 0; kj < kh; ++kj) {
-                                                        if (ij + kj < 0 || ij + kj >= ifh) continue;
-                                                        for (ki = 0; ki < kw; ++ki) {
-                                                                if (ii + ki < 0 || ii + ki >= ifw) continue;
-                                                                filter[ofm][ifm][kj][ki] += input[img][ifm][ij + kj][ii + ki] * output[img][ofm][oj][oi];
-                                                        }
-                                                }
-                                        }
-                                }
-                        }
-                }
-        }
-#pragma endscop
-}
-
-
-
-
-
-#define T_ofm_tile 16
-#define T_ifm_tile 16
-#define T_oj 16
-#define T_oi 16
-
-
-
-void padded_conv_fp_stride_1_tiled_core(int nImg, int nIfm, int nOfm, int ifhp, int ifwp, int ofhp, int ofwp, int ifh, int ifw,
+/* With libxsmm parameters*/
+void padded_conv_fp_stride_1_tiled_loop_order_1(int nImg, int nIfm, int nOfm, int ifhp, int ifwp, int ofhp, int ofwp, int ifh, int ifw,
 	int ofh, int ofw, int pad_h, int pad_w, int pad_h_in, int pad_w_in, int pad_h_out,
 	int pad_w_out, int kh, int kw, int stride_h, int stride_w,
-	const float pad_gemm_input[nImg][nIfm / 16][ifhp + 2 * pad_h][ifwp + 2 * pad_w][16], float output[nImg][nOfm / 16][ofhp][ofwp][16], const float filter[nOfm / 16][nIfm / 16][kh][kw][16][16])
+	const float pad_gemm_input[nImg][nIfm / GEMM_BLOCK][ifhp + 2 * pad_h][ifwp + 2 * pad_w][GEMM_BLOCK], float output[nImg][nOfm / GEMM_BLOCK][ofhp][ofwp][GEMM_BLOCK], const float filter[nOfm / GEMM_BLOCK][nIfm / GEMM_BLOCK][kh][kw][GEMM_BLOCK][GEMM_BLOCK], int iters)
 {
+	// printf("LIBXMM version\n");
+	/*
+	FWD params...
+Fwd_ofw_rb = 28
+Fwd_ofh_rb = 1
+Pack input = 0
+Block oj = 4
+Loop order = 1
+Blocksifm_blocking = 1
+Block fwd ofm = 4
+Block fwd ifm = 1
+Avoid rim fmas = 0
+Ofm parallelization = 0
+Shuffle filter accesses = 0
+Avoid acc load = 1
+Fwd GEMM flags = 640
+	*/
+
 	/* loop counters */
-	int img, ofm_tile, ofm, ifm_tile, ifm, oj, oi, ij, ii, kj, ki;
+	int img, ofm_tile, ofm, ifm_tile, ifm, oj, oi, ij, ii, kj, ki, i;
 	int t_ofm_tile, t_ifm_tile, t_oj, t_oi;
 
 #pragma scop
-	for (img = 0; img < nImg; ++img) {
-		// Tile loops
-		for (t_ofm_tile = 0; t_ofm_tile < nOfm / 16; t_ofm_tile += T_ofm_tile) {
-			for (t_ifm_tile = 0; t_ifm_tile < nIfm / 16; t_ifm_tile += T_ifm_tile) {
+	for (i = 0; i < iters; i++) {
+#pragma omp parallel for private(img, t_ofm_tile, t_oj, oj, t_oi, ofm_tile, t_ifm_tile, ifm_tile, kj, ki)
+		for (img = 0; img < nImg; ++img) {
+			for (t_ofm_tile = 0; t_ofm_tile < nOfm / GEMM_BLOCK; t_ofm_tile += T_ofm_tile) {
 				for (t_oj = 0; t_oj < ofh; t_oj += T_oj) {
-					for (t_oi = 0; t_oi < ofw; t_oi += T_oi) {
-
-						// Intra-tile loops
-						for (ofm_tile = t_ofm_tile;
-							ofm_tile < min(t_ofm_tile + T_ofm_tile, nOfm / 16); ++ofm_tile) {
-							for (ifm_tile = t_ifm_tile;
-								ifm_tile < min(t_ifm_tile + T_ifm_tile, nIfm / 16); ++ifm_tile) {
-								for (oj = t_oj; oj < min(t_oj + T_oj, ofh); ++oj) {
-									for (oi = t_oi; oi < min(t_oi + T_oi, ofw); ++oi) {
-
+					for (oj = t_oj; oj < min(ofh, t_oj + T_oj); ++oj) {
+						for (t_oi = 0; t_oi < ofw; t_oi += T_oi) {
+							for (ofm_tile = t_ofm_tile; ofm_tile < min(nOfm / GEMM_BLOCK, t_ofm_tile + T_ofm_tile); ++ofm_tile) {
+								for (t_ifm_tile = 0; t_ifm_tile < nIfm / GEMM_BLOCK; t_ifm_tile += T_ifm_tile) {
+									for (ifm_tile = t_ifm_tile; ifm_tile < min(nIfm / GEMM_BLOCK, t_ifm_tile + T_ifm_tile); ++ifm_tile) {
 										for (kj = 0; kj < kh; ++kj) {
 											for (ki = 0; ki < kw; ++ki) {
 
+												/*
 												// GEMM
-												for (ofm = 0; ofm < 16; ++ofm) {
-													for (ifm = 0; ifm < 16; ++ifm) {
-														output[img][ofm_tile][oj][oi][ofm] +=
-															filter[ofm_tile][ifm_tile][kj][ki][ifm][ofm] * pad_gemm_input[img][ifm_tile][oj + kj][oi + ki][ifm];
+												// min(ofw, t_oi + T_oi) is simplified to t_oi + T_oi because T_oi divides ofw.
+												for (oi = t_oi; oi < t_oi + T_oi; ++oi) {
+													for (ofm = 0; ofm < GEMM_BLOCK; ++ofm) {
+														for (ifm = 0; ifm < GEMM_BLOCK; ++ifm) {
+															output[img][ofm_tile][oj][oi][ofm] +=
+																filter[ofm_tile][ifm_tile][kj][ki][ifm][ofm] * pad_gemm_input[img][ifm_tile][oj + kj][oi + ki][ifm];
+														}
 													}
 												}
+												*/
+
+												fwd_gemm(&filter[ofm_tile][ifm_tile][kj][ki][0][0],
+													&pad_gemm_input[img][ifm_tile][oj + kj][t_oi + ki][0],
+													&output[img][ofm_tile][oj][t_oi][0]);
+
+											}
+										}
+									}
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+#pragma endscop
+}
+
+/* With libxsmm parameters*/
+void padded_conv_fp_stride_1_tiled_loop_order_0(int nImg, int nIfm, int nOfm, int ifhp, int ifwp, int ofhp, int ofwp, int ifh, int ifw,
+	int ofh, int ofw, int pad_h, int pad_w, int pad_h_in, int pad_w_in, int pad_h_out,
+	int pad_w_out, int kh, int kw, int stride_h, int stride_w,
+	const float pad_gemm_input[nImg][nIfm / GEMM_BLOCK][ifhp + 2 * pad_h][ifwp + 2 * pad_w][GEMM_BLOCK], float output[nImg][nOfm / GEMM_BLOCK][ofhp][ofwp][GEMM_BLOCK], const float filter[nOfm / GEMM_BLOCK][nIfm / GEMM_BLOCK][kh][kw][GEMM_BLOCK][GEMM_BLOCK], int iters)
+{
+	// printf("LIBXMM version: padded_conv_fp_stride_1_tiled_loop_order_0\n");
+	/* loop counters */
+	int img, ofm_tile, ofm, ifm_tile, ifm, oj, oi, ij, ii, kj, ki, i;
+	int t_ofm_tile, t_ifm_tile, t_oj, t_oi;
+
+#pragma scop
+	for (i = 0; i < iters; i++) {
+#pragma omp parallel for private(img, t_ofm_tile, t_oj, oj, t_oi, ofm_tile, t_ifm_tile, ifm_tile, kj, ki)
+		for (img = 0; img < nImg; ++img) {
+			for (t_ofm_tile = 0; t_ofm_tile < nOfm / GEMM_BLOCK; t_ofm_tile += T_ofm_tile) {
+				for (t_ifm_tile = 0; t_ifm_tile < nIfm / GEMM_BLOCK; t_ifm_tile += T_ifm_tile) {
+					for (t_oj = 0; t_oj < ofh; t_oj += T_oj) {
+						for (ofm_tile = t_ofm_tile; ofm_tile < min(nOfm / GEMM_BLOCK, t_ofm_tile + T_ofm_tile); ++ofm_tile) {
+							for (ifm_tile = t_ifm_tile; ifm_tile < min(nIfm / GEMM_BLOCK, t_ifm_tile + T_ifm_tile); ++ifm_tile) {
+								for (oj = t_oj; oj < min(ofh, t_oj + T_oj); ++oj) {
+									for (t_oi = 0; t_oi < ofw; t_oi += T_oi) {
+										for (kj = 0; kj < kh; ++kj) {
+											for (ki = 0; ki < kw; ++ki) {
+
+
+												// GEMM
+												/*
+												// min(ofw, t_oi + T_oi) is simplified to t_oi + T_oi because T_oi divides ofw.
+												for (oi = t_oi; oi < t_oi + T_oi; ++oi) {
+													for (ofm = 0; ofm < GEMM_BLOCK; ++ofm) {
+														for (ifm = 0; ifm < GEMM_BLOCK; ++ifm) {
+															output[img][ofm_tile][oj][oi][ofm] +=
+																filter[ofm_tile][ifm_tile][kj][ki][ifm][ofm] * pad_gemm_input[img][ifm_tile][oj + kj][oi + ki][ifm];
+														}
+													}
+												}
+												*/
+
+												fwd_gemm(&filter[ofm_tile][ifm_tile][kj][ki][0][0],
+													&pad_gemm_input[img][ifm_tile][oj + kj][t_oi + ki][0],
+													&output[img][ofm_tile][oj][t_oi][0]);
+
 											}
 										}
 									}
@@ -199,35 +207,42 @@ void padded_conv_fp_stride_1_tiled_core(int nImg, int nIfm, int nOfm, int ifhp, 
 void padded_conv_fp_stride_1_libxsmm_core(int nImg, int nIfm, int nOfm, int ifhp, int ifwp, int ofhp, int ofwp, int ifh, int ifw,
 	int ofh, int ofw, int pad_h, int pad_w, int pad_h_in, int pad_w_in, int pad_h_out,
 	int pad_w_out, int kh, int kw, int stride_h, int stride_w,
-	const float pad_gemm_input[nImg][nIfm / 16][ifhp + 2 * pad_h][ifwp + 2 * pad_w][16], float output[nImg][nOfm / 16][ofhp][ofwp][16], const float filter[nOfm / 16][nIfm / 16][kh][kw][16][16])
+	const float pad_gemm_input[nImg][nIfm / GEMM_BLOCK][ifhp + 2 * pad_h][ifwp + 2 * pad_w][GEMM_BLOCK], float output[nImg][nOfm / GEMM_BLOCK][ofhp][ofwp][GEMM_BLOCK], const float filter[nOfm / GEMM_BLOCK][nIfm / GEMM_BLOCK][kh][kw][GEMM_BLOCK][GEMM_BLOCK], int iters)
 {
 	/* loop counters */
-	int img, ofm_tile, ofm, ifm_tile, ifm, oj, oi, ij, ii, kj, ki;
+	int img, ofm_tile, ofm, ifm_tile, ifm, oj, oi, ij, ii, kj, ki, i;
 
 #pragma scop
-	for (img = 0; img < nImg; ++img) {
-		for (ofm_tile = 0; ofm_tile < nOfm / 16; ++ofm_tile) {
-			for (ifm_tile = 0; ifm_tile < nIfm / 16; ++ifm_tile) {
-				for (oj = 0; oj < ofh; ++oj) {
-					for (kj = 0; kj < kh; ++kj) {
-						for (ki = 0; ki < kw; ++ki) {
+	for (i = 0; i < iters; i++) {
+#pragma omp parallel for private(ofm_tile, ifm_tile, oj, kj, ki)
+		for (img = 0; img < nImg; ++img) {
+			// printf("thread id = %d\n", omp_get_thread_num());
+			// #pragma omp parallel for private(ofm_tile, ifm_tile, oj, kj, ki)
+			for (ofm_tile = 0; ofm_tile < nOfm / GEMM_BLOCK; ++ofm_tile) {
+				for (ifm_tile = 0; ifm_tile < nIfm / GEMM_BLOCK; ++ifm_tile) {
+					for (oj = 0; oj < ofh; ++oj) {
+						for (kj = 0; kj < kh; ++kj) {
+							for (ki = 0; ki < kw; ++ki) {
 
-							fwd_gemm(&filter[ofm_tile][ifm_tile][kj][ki][0][0] /*A*/,
-								&pad_gemm_input[img][ifm_tile][oj + kj][ki][0] /*B*/,
-								&output[img][ofm_tile][oj][0][0] /*C*/);
 
-							//GEMM
-							/**
+								fwd_gemm(&filter[ofm_tile][ifm_tile][kj][ki][0][0],
+									&pad_gemm_input[img][ifm_tile][oj + kj][ki][0],
+									&output[img][ofm_tile][oj][0][0]);
+
+
+								//GEMM
+							/*
 							for (oi = 0; oi < ofw; ++oi) {
-								for (ofm = 0; ofm < 16; ++ofm) {
-									for (ifm = 0; ifm < 16; ++ifm) {
+								for (ofm = 0; ofm < GEMM_BLOCK; ++ofm) {
+									for (ifm = 0; ifm < GEMM_BLOCK; ++ifm) {
 										output[img][ofm_tile][oj][oi][ofm] +=
 											filter[ofm_tile][ifm_tile][kj][ki][ifm][ofm] * pad_gemm_input[img][ifm_tile][oj + kj][oi + ki][ifm];
 									}
 								}
 							}
-
 							*/
+
+							}
 						}
 					}
 				}
@@ -240,35 +255,37 @@ void padded_conv_fp_stride_1_libxsmm_core(int nImg, int nIfm, int nOfm, int ifhp
 void padded_conv_fp_stride_1_libxsmm_core2(int nImg, int nIfm, int nOfm, int ifhp, int ifwp, int ofhp, int ofwp, int ifh, int ifw,
 	int ofh, int ofw, int pad_h, int pad_w, int pad_h_in, int pad_w_in, int pad_h_out,
 	int pad_w_out, int kh, int kw, int stride_h, int stride_w,
-	const float pad_gemm_input[nImg][nIfm / 16][ifhp + 2 * pad_h][ifwp + 2 * pad_w][16], float output[nImg][nOfm / 16][ofhp][ofwp][16], const float filter[nOfm / 16][nIfm / 16][kh][kw][16][16])
+	const float pad_gemm_input[nImg][nIfm / GEMM_BLOCK][ifhp + 2 * pad_h][ifwp + 2 * pad_w][GEMM_BLOCK], float output[nImg][nOfm / GEMM_BLOCK][ofhp][ofwp][GEMM_BLOCK], const float filter[nOfm / GEMM_BLOCK][nIfm / GEMM_BLOCK][kh][kw][GEMM_BLOCK][GEMM_BLOCK], int iters)
 {
 	/* loop counters */
-	int img, ofm_tile, ofm, ifm_tile, ifm, oj, oi, ij, ii, kj, ki;
+	int img, ofm_tile, ofm, ifm_tile, ifm, oj, oi, ij, ii, kj, ki, i;
 
 #pragma scop
-	for (img = 0; img < nImg; ++img) {
-		for (oj = 0; oj < ofh; ++oj) {
-			for (kj = 0; kj < kh; ++kj) {
-				for (ki = 0; ki < kw; ++ki) {
-					for (ofm_tile = 0; ofm_tile < nOfm / 16; ++ofm_tile) {
-						for (ifm_tile = 0; ifm_tile < nIfm / 16; ++ifm_tile) {
+	for (i = 0; i < iters; i++) {
+#pragma omp parallel for private(ofm_tile, ifm_tile, oj, kj, ki)
+		for (img = 0; img < nImg; ++img) {
+			for (oj = 0; oj < ofh; ++oj) {
+				for (kj = 0; kj < kh; ++kj) {
+					for (ki = 0; ki < kw; ++ki) {
+						for (ofm_tile = 0; ofm_tile < nOfm / GEMM_BLOCK; ++ofm_tile) {
+							for (ifm_tile = 0; ifm_tile < nIfm / GEMM_BLOCK; ++ifm_tile) {
 
-							fwd_gemm(&filter[ofm_tile][ifm_tile][kj][ki][0][0] /*A*/,
-								&pad_gemm_input[img][ifm_tile][oj + kj][ki][0] /*B*/,
-								&output[img][ofm_tile][oj][0][0] /*C*/);
+								fwd_gemm(&filter[ofm_tile][ifm_tile][kj][ki][0][0] /*A*/,
+									&pad_gemm_input[img][ifm_tile][oj + kj][ki][0] /*B*/,
+									&output[img][ofm_tile][oj][0][0] /*C*/);
 
-							//GEMM
-							/**
-							for (oi = 0; oi < ofw; ++oi) {
-								for (ofm = 0; ofm < 16; ++ofm) {
-									for (ifm = 0; ifm < 16; ++ifm) {
-										output[img][ofm_tile][oj][oi][ofm] +=
-											filter[ofm_tile][ifm_tile][kj][ki][ifm][ofm] * pad_gemm_input[img][ifm_tile][oj + kj][oi + ki][ifm];
+								//GEMM
+								/**
+								for (oi = 0; oi < ofw; ++oi) {
+									for (ofm = 0; ofm < GEMM_BLOCK; ++ofm) {
+										for (ifm = 0; ifm < GEMM_BLOCK; ++ifm) {
+											output[img][ofm_tile][oj][oi][ofm] +=
+												filter[ofm_tile][ifm_tile][kj][ki][ifm][ofm] * pad_gemm_input[img][ifm_tile][oj + kj][oi + ki][ifm];
+										}
 									}
 								}
+								*/
 							}
-
-							*/
 						}
 					}
 				}
@@ -282,35 +299,37 @@ void padded_conv_fp_stride_1_libxsmm_core2(int nImg, int nIfm, int nOfm, int ifh
 void padded_conv_fp_stride_1_libxsmm_core3(int nImg, int nIfm, int nOfm, int ifhp, int ifwp, int ofhp, int ofwp, int ifh, int ifw,
 	int ofh, int ofw, int pad_h, int pad_w, int pad_h_in, int pad_w_in, int pad_h_out,
 	int pad_w_out, int kh, int kw, int stride_h, int stride_w,
-	const float pad_gemm_input[nImg][nIfm / 16][ifhp + 2 * pad_h][ifwp + 2 * pad_w][16], float output[nImg][nOfm / 16][ofhp][ofwp][16], const float filter[nOfm / 16][nIfm / 16][kh][kw][16][16])
+	const float pad_gemm_input[nImg][nIfm / GEMM_BLOCK][ifhp + 2 * pad_h][ifwp + 2 * pad_w][GEMM_BLOCK], float output[nImg][nOfm / GEMM_BLOCK][ofhp][ofwp][GEMM_BLOCK], const float filter[nOfm / GEMM_BLOCK][nIfm / GEMM_BLOCK][kh][kw][GEMM_BLOCK][GEMM_BLOCK], int iters)
 {
 	/* loop counters */
-	int img, ofm_tile, ofm, ifm_tile, ifm, oj, oi, ij, ii, kj, ki;
+	int img, ofm_tile, ofm, ifm_tile, ifm, oj, oi, ij, ii, kj, ki, i;
 
 #pragma scop
-	for (img = 0; img < nImg; ++img) {
-		for (ofm_tile = 0; ofm_tile < nOfm / 16; ++ofm_tile) {
-			for (kj = 0; kj < kh; ++kj) {
-				for (ki = 0; ki < kw; ++ki) {
-					for (ifm_tile = 0; ifm_tile < nIfm / 16; ++ifm_tile) {
-						for (oj = 0; oj < ofh; ++oj) {
+	for (i = 0; i < iters; i++) {
+#pragma omp parallel for private(ofm_tile, ifm_tile, oj, kj, ki)
+		for (img = 0; img < nImg; ++img) {
+			for (ofm_tile = 0; ofm_tile < nOfm / GEMM_BLOCK; ++ofm_tile) {
+				for (kj = 0; kj < kh; ++kj) {
+					for (ki = 0; ki < kw; ++ki) {
+						for (ifm_tile = 0; ifm_tile < nIfm / GEMM_BLOCK; ++ifm_tile) {
+							for (oj = 0; oj < ofh; ++oj) {
 
-							fwd_gemm(&filter[ofm_tile][ifm_tile][kj][ki][0][0] /*A*/,
-								&pad_gemm_input[img][ifm_tile][oj + kj][ki][0] /*B*/,
-								&output[img][ofm_tile][oj][0][0] /*C*/);
+								fwd_gemm(&filter[ofm_tile][ifm_tile][kj][ki][0][0] /*A*/,
+									&pad_gemm_input[img][ifm_tile][oj + kj][ki][0] /*B*/,
+									&output[img][ofm_tile][oj][0][0] /*C*/);
 
-							//GEMM
-							/**
-							for (oi = 0; oi < ofw; ++oi) {
-								for (ofm = 0; ofm < 16; ++ofm) {
-									for (ifm = 0; ifm < 16; ++ifm) {
-										output[img][ofm_tile][oj][oi][ofm] +=
-											filter[ofm_tile][ifm_tile][kj][ki][ifm][ofm] * pad_gemm_input[img][ifm_tile][oj + kj][oi + ki][ifm];
+								//GEMM
+								/**
+								for (oi = 0; oi < ofw; ++oi) {
+									for (ofm = 0; ofm < GEMM_BLOCK; ++ofm) {
+										for (ifm = 0; ifm < GEMM_BLOCK; ++ifm) {
+											output[img][ofm_tile][oj][oi][ofm] +=
+												filter[ofm_tile][ifm_tile][kj][ki][ifm][ofm] * pad_gemm_input[img][ifm_tile][oj + kj][oi + ki][ifm];
+										}
 									}
 								}
+								*/
 							}
-
-							*/
 						}
 					}
 				}
@@ -323,36 +342,37 @@ void padded_conv_fp_stride_1_libxsmm_core3(int nImg, int nIfm, int nOfm, int ifh
 void padded_conv_fp_stride_1_libxsmm_core4(int nImg, int nIfm, int nOfm, int ifhp, int ifwp, int ofhp, int ofwp, int ifh, int ifw,
 	int ofh, int ofw, int pad_h, int pad_w, int pad_h_in, int pad_w_in, int pad_h_out,
 	int pad_w_out, int kh, int kw, int stride_h, int stride_w,
-	const float pad_gemm_input[nImg][nIfm / 16][ifhp + 2 * pad_h][ifwp + 2 * pad_w][16], float output[nImg][nOfm / 16][ofhp][ofwp][16], const float filter[nOfm / 16][nIfm / 16][kh][kw][16][16])
+	const float pad_gemm_input[nImg][nIfm / GEMM_BLOCK][ifhp + 2 * pad_h][ifwp + 2 * pad_w][GEMM_BLOCK], float output[nImg][nOfm / GEMM_BLOCK][ofhp][ofwp][GEMM_BLOCK], const float filter[nOfm / GEMM_BLOCK][nIfm / GEMM_BLOCK][kh][kw][GEMM_BLOCK][GEMM_BLOCK], int iters)
 {
 	/* loop counters */
-	int img, ofm_tile, ofm, ifm_tile, ifm, oj, oi, ij, ii, kj, ki;
+	int img, ofm_tile, ofm, ifm_tile, ifm, oj, oi, ij, ii, kj, ki, i;
 
 #pragma scop
-#pragma omp parallel for private(ifm_tile, kj, ki, oj, ofm_tile)
-	for (img = 0; img < nImg; ++img) {
-		for (ifm_tile = 0; ifm_tile < nIfm / 16; ++ifm_tile) {
-			for (kj = 0; kj < kh; ++kj) {
-				for (ki = 0; ki < kw; ++ki) {
-					for (oj = 0; oj < ofh; ++oj) {
-						for (ofm_tile = 0; ofm_tile < nOfm / 16; ++ofm_tile) {
+	for (i = 0; i < iters; i++) {
+#pragma omp parallel for private(ofm_tile, ifm_tile, oj, kj, ki)
+		for (img = 0; img < nImg; ++img) {
+			for (ifm_tile = 0; ifm_tile < nIfm / GEMM_BLOCK; ++ifm_tile) {
+				for (kj = 0; kj < kh; ++kj) {
+					for (ki = 0; ki < kw; ++ki) {
+						for (oj = 0; oj < ofh; ++oj) {
+							for (ofm_tile = 0; ofm_tile < nOfm / GEMM_BLOCK; ++ofm_tile) {
 
-							fwd_gemm(&filter[ofm_tile][ifm_tile][kj][ki][0][0] /*A*/,
-								&pad_gemm_input[img][ifm_tile][oj + kj][ki][0] /*B*/,
-								&output[img][ofm_tile][oj][0][0] /*C*/);
+								fwd_gemm(&filter[ofm_tile][ifm_tile][kj][ki][0][0] /*A*/,
+									&pad_gemm_input[img][ifm_tile][oj + kj][ki][0] /*B*/,
+									&output[img][ofm_tile][oj][0][0] /*C*/);
 
-							//GEMM
-							/**
-							for (oi = 0; oi < ofw; ++oi) {
-								for (ofm = 0; ofm < 16; ++ofm) {
-									for (ifm = 0; ifm < 16; ++ifm) {
-										output[img][ofm_tile][oj][oi][ofm] +=
-											filter[ofm_tile][ifm_tile][kj][ki][ifm][ofm] * pad_gemm_input[img][ifm_tile][oj + kj][oi + ki][ifm];
+								//GEMM
+								/**
+								for (oi = 0; oi < ofw; ++oi) {
+									for (ofm = 0; ofm < GEMM_BLOCK; ++ofm) {
+										for (ifm = 0; ifm < GEMM_BLOCK; ++ifm) {
+											output[img][ofm_tile][oj][oi][ofm] +=
+												filter[ofm_tile][ifm_tile][kj][ki][ifm][ofm] * pad_gemm_input[img][ifm_tile][oj + kj][oi + ki][ifm];
+										}
 									}
 								}
+								*/
 							}
-
-							*/
 						}
 					}
 				}
@@ -365,24 +385,26 @@ void padded_conv_fp_stride_1_libxsmm_core4(int nImg, int nIfm, int nOfm, int ifh
 void padded_conv_fp_stride_1_core(int nImg, int nIfm, int nOfm, int ifhp, int ifwp, int ofhp, int ofwp, int ifh, int ifw,
 	int ofh, int ofw, int pad_h, int pad_w, int pad_h_in, int pad_w_in, int pad_h_out,
 	int pad_w_out, int kh, int kw, int stride_h, int stride_w,
-	const float pad_gemm_input[nImg][nIfm / 16][ifhp + 2 * pad_h][ifwp + 2 * pad_w][16], float output[nImg][nOfm / 16][ofhp][ofwp][16], const float filter[nOfm / 16][nIfm / 16][kh][kw][16][16])
+	const float pad_gemm_input[nImg][nIfm / GEMM_BLOCK][ifhp + 2 * pad_h][ifwp + 2 * pad_w][GEMM_BLOCK], float output[nImg][nOfm / GEMM_BLOCK][ofhp][ofwp][GEMM_BLOCK], const float filter[nOfm / GEMM_BLOCK][nIfm / GEMM_BLOCK][kh][kw][GEMM_BLOCK][GEMM_BLOCK], int iters)
 {
 	/* loop counters */
-	int img, ofm_tile, ofm, ifm_tile, ifm, oj, oi, ij, ii, kj, ki;
+	int img, ofm_tile, ofm, ifm_tile, ifm, oj, oi, ij, ii, kj, ki, i;
 
 #pragma scop
-	for (img = 0; img < nImg; ++img) {
-		for (ofm_tile = 0; ofm_tile < nOfm / 16; ++ofm_tile) {
-			for (ifm_tile = 0; ifm_tile < nIfm / 16; ++ifm_tile) {
-				for (oj = 0; oj < ofh; ++oj) {
-					for (kj = 0; kj < kh; ++kj) {
-						for (ki = 0; ki < kw; ++ki) {
-							//GEMM
-							for (oi = 0; oi < ofw; ++oi) {
-								for (ofm = 0; ofm < 16; ++ofm) {
-									for (ifm = 0; ifm < 16; ++ifm) {
-										output[img][ofm_tile][oj][oi][ofm] +=
-											filter[ofm_tile][ifm_tile][kj][ki][ifm][ofm] * pad_gemm_input[img][ifm_tile][oj + kj][oi + ki][ifm];
+	for (i = 0; i < iters; i++) {
+		for (img = 0; img < nImg; ++img) {
+			for (ofm_tile = 0; ofm_tile < nOfm / GEMM_BLOCK; ++ofm_tile) {
+				for (ifm_tile = 0; ifm_tile < nIfm / GEMM_BLOCK; ++ifm_tile) {
+					for (oj = 0; oj < ofh; ++oj) {
+						for (kj = 0; kj < kh; ++kj) {
+							for (ki = 0; ki < kw; ++ki) {
+								//GEMM
+								for (oi = 0; oi < ofw; ++oi) {
+									for (ofm = 0; ofm < GEMM_BLOCK; ++ofm) {
+										for (ifm = 0; ifm < GEMM_BLOCK; ++ifm) {
+											output[img][ofm_tile][oj][oi][ofm] +=
+												filter[ofm_tile][ifm_tile][kj][ki][ifm][ofm] * pad_gemm_input[img][ifm_tile][oj + kj][oi + ki][ifm];
+										}
 									}
 								}
 							}
@@ -416,68 +438,83 @@ void padded_conv_fp_stride_1(
 	int nImg, int nIfm, int nOfm, int ifhp, int ifwp, int ofhp, int ofwp, int ifh, int ifw,
 	int ofh, int ofw, int pad_h, int pad_w, int pad_h_in, int pad_w_in, int pad_h_out,
 	int pad_w_out, int kh, int kw, int stride_h, int stride_w,
-	const float input[nImg][nIfm / 16][ifhp][ifwp][16], float output[nImg][nOfm / 16][ofhp][ofwp][16], const float filter[nOfm / 16][nIfm / 16][kh][kw][16][16], int version)
+	const float input[nImg][nIfm / GEMM_BLOCK][ifhp][ifwp][GEMM_BLOCK], float output[nImg][nOfm / GEMM_BLOCK][ofhp][ofwp][GEMM_BLOCK], const float filter[nOfm / GEMM_BLOCK][nIfm / GEMM_BLOCK][kh][kw][GEMM_BLOCK][GEMM_BLOCK], int version, int iters)
 {
 	/* declare a physcial padded buffer */
-	float pad_gemm_input[nImg][nIfm / 16][ifhp + 2 * pad_h][ifwp + 2 * pad_w][16];
-	zero_buf(&pad_gemm_input[0][0][0][0][0], (nImg)*(nIfm / 16)*(ifhp + 2 * pad_h)*(ifwp + 2 * pad_w) * 16);
+
+	/*
+	float pad_gemm_input[nImg][nIfm / GEMM_BLOCK][ifhp + 2 * pad_h][ifwp + 2 * pad_w][GEMM_BLOCK];
+	*/
+	float(*pad_gemm_input)[nIfm / GEMM_BLOCK][ifhp + 2 * pad_h][ifwp + 2 * pad_w][GEMM_BLOCK] = (float*)libxsmm_aligned_malloc(nImg*nIfm*(ifhp + 2 * pad_h)*(ifwp + 2 * pad_w) * sizeof(float), 2097152);
+	// printf("pad_gemm_input = %p\n", pad_gemm_input);
+	zero_buf(&pad_gemm_input[0][0][0][0][0], (nImg)*(nIfm / GEMM_BLOCK)*(ifhp + 2 * pad_h)*(ifwp + 2 * pad_w) * GEMM_BLOCK);
+
+
 
 	// printf("Calling copy_GEMM_to_PADDED_GEMM\n");
 	copy_GEMM_to_PADDED_GEMM(nImg, ifhp, ifwp, nIfm, pad_h, pad_w, input, pad_gemm_input);
 
 	if (version == 0) {
 		// printf("padded_conv_fp_stride_1_core\n");
-		padded_conv_fp_stride_1_core(nImg, nIfm, nOfm, ifhp, ifwp, ofhp, ofwp, ifh, ifw,
+		padded_conv_fp_stride_1_tiled_loop_order_0(nImg, nIfm, nOfm, ifhp, ifwp, ofhp, ofwp, ifh, ifw,
 			ofh, ofw, pad_h, pad_w, pad_h_in, pad_w_in, pad_h_out,
-			pad_w_out, kh, kw, stride_h, stride_w, pad_gemm_input, output, filter);
+			pad_w_out, kh, kw, stride_h, stride_w, pad_gemm_input, output, filter, iters);
 	}
 	else if (version == 1) {
 		// printf("padded_conv_fp_stride_1_tiled_core\n");
-		padded_conv_fp_stride_1_tiled_core(nImg, nIfm, nOfm, ifhp, ifwp, ofhp, ofwp, ifh, ifw,
+		padded_conv_fp_stride_1_tiled_loop_order_1(nImg, nIfm, nOfm, ifhp, ifwp, ofhp, ofwp, ifh, ifw,
 			ofh, ofw, pad_h, pad_w, pad_h_in, pad_w_in, pad_h_out,
-			pad_w_out, kh, kw, stride_h, stride_w, pad_gemm_input, output, filter);
+			pad_w_out, kh, kw, stride_h, stride_w, pad_gemm_input, output, filter, iters);
 	}
 	else if (version == 2) {
 		// printf("padded_conv_fp_stride_1_libxsmm_core\n");
 		padded_conv_fp_stride_1_libxsmm_core(nImg, nIfm, nOfm, ifhp, ifwp, ofhp, ofwp, ifh, ifw,
 			ofh, ofw, pad_h, pad_w, pad_h_in, pad_w_in, pad_h_out,
-			pad_w_out, kh, kw, stride_h, stride_w, pad_gemm_input, output, filter);
+			pad_w_out, kh, kw, stride_h, stride_w, pad_gemm_input, output, filter, iters);
 	}
 	else if (version == 3) {
 		// printf("padded_conv_fp_stride_1_libxsmm_core\n");
 		padded_conv_fp_stride_1_libxsmm_core2(nImg, nIfm, nOfm, ifhp, ifwp, ofhp, ofwp, ifh, ifw,
 			ofh, ofw, pad_h, pad_w, pad_h_in, pad_w_in, pad_h_out,
-			pad_w_out, kh, kw, stride_h, stride_w, pad_gemm_input, output, filter);
+			pad_w_out, kh, kw, stride_h, stride_w, pad_gemm_input, output, filter, iters);
 	}
 	else if (version == 4) {
 		// printf("padded_conv_fp_stride_1_libxsmm_core\n");
 		padded_conv_fp_stride_1_libxsmm_core3(nImg, nIfm, nOfm, ifhp, ifwp, ofhp, ofwp, ifh, ifw,
 			ofh, ofw, pad_h, pad_w, pad_h_in, pad_w_in, pad_h_out,
-			pad_w_out, kh, kw, stride_h, stride_w, pad_gemm_input, output, filter);
+			pad_w_out, kh, kw, stride_h, stride_w, pad_gemm_input, output, filter, iters);
 	}
 	else if (version == 5) {
 		// printf("padded_conv_fp_stride_1_libxsmm_core\n");
 		padded_conv_fp_stride_1_libxsmm_core4(nImg, nIfm, nOfm, ifhp, ifwp, ofhp, ofwp, ifh, ifw,
 			ofh, ofw, pad_h, pad_w, pad_h_in, pad_w_in, pad_h_out,
-			pad_w_out, kh, kw, stride_h, stride_w, pad_gemm_input, output, filter);
+			pad_w_out, kh, kw, stride_h, stride_w, pad_gemm_input, output, filter, iters);
+	}
+	else if (version == 6) {
+		padded_conv_fp_stride_1_core(nImg, nIfm, nOfm, ifhp, ifwp, ofhp, ofwp, ifh, ifw,
+			ofh, ofw, pad_h, pad_w, pad_h_in, pad_w_in, pad_h_out,
+			pad_w_out, kh, kw, stride_h, stride_w, pad_gemm_input, output, filter, iters);
 	}
 	else {
 		printf("Incorrect version\n");
+		libxsmm_free(pad_gemm_input);
 		exit(0);
 	}
+
+	libxsmm_free(pad_gemm_input);
 }
 
 
 void copy_GEMM_to_PADDED_GEMM(int N, int H, int W, int C, int pad_h, int pad_w,
-	const float gemm[N][C / 16][H][W][16], float pad_gemm[N][C / 16][H + 2 * pad_h][W + 2 * pad_w][16])
+	const float gemm[N][C / GEMM_BLOCK][H][W][GEMM_BLOCK], float pad_gemm[N][C / GEMM_BLOCK][H + 2 * pad_h][W + 2 * pad_w][GEMM_BLOCK])
 {
 	int n, h, w, c1, c2;
 
 	for (n = 0; n < N; n++) {
-		for (c1 = 0; c1 < C / 16; c1++) {
+		for (c1 = 0; c1 < C / GEMM_BLOCK; c1++) {
 			for (h = 0; h < H; h++) {
 				for (w = 0; w < W; w++) {
-					for (c2 = 0; c2 < 16; c2++) {
+					for (c2 = 0; c2 < GEMM_BLOCK; c2++) {
 						pad_gemm[n][c1][h + pad_h][w + pad_w][c2] = gemm[n][c1][h][w][c2];
 					}
 				}
@@ -488,16 +525,16 @@ void copy_GEMM_to_PADDED_GEMM(int N, int H, int W, int C, int pad_h, int pad_w,
 
 
 void copy_GEMM_to_NCHW(int N, int H, int W, int C,
-	const float input[N][C / 16][H][W][16], float output[N][C][H][W])
+	const float input[N][C / GEMM_BLOCK][H][W][GEMM_BLOCK], float output[N][C][H][W])
 {
 	int n, h, w, c1, c2;
 
 	for (n = 0; n < N; n++) {
-		for (c1 = 0; c1 < C / 16; c1++) {
+		for (c1 = 0; c1 < C / GEMM_BLOCK; c1++) {
 			for (h = 0; h < H; h++) {
 				for (w = 0; w < W; w++) {
-					for (c2 = 0; c2 < 16; c2++) {
-						output[n][c1 * 16 + c2][h][w] = input[n][c1][h][w][c2];
+					for (c2 = 0; c2 < GEMM_BLOCK; c2++) {
+						output[n][c1 * GEMM_BLOCK + c2][h][w] = input[n][c1][h][w][c2];
 					}
 				}
 			}
@@ -506,16 +543,16 @@ void copy_GEMM_to_NCHW(int N, int H, int W, int C,
 }
 
 void copy_NCHW_to_GEMM(int N, int H, int W, int C, const float nchw[N][C][H][W],
-	float gemm[N][C / 16][H][W][16])
+	float gemm[N][C / GEMM_BLOCK][H][W][GEMM_BLOCK])
 {
 	int n, h, w, c1, c2;
 
 	for (n = 0; n < N; n++) {
-		for (c1 = 0; c1 < C / 16; c1++) {
+		for (c1 = 0; c1 < C / GEMM_BLOCK; c1++) {
 			for (h = 0; h < H; h++) {
 				for (w = 0; w < W; w++) {
-					for (c2 = 0; c2 < 16; c2++) {
-						gemm[n][c1][h][w][c2] = nchw[n][c1 * 16 + c2][h][w];
+					for (c2 = 0; c2 < GEMM_BLOCK; c2++) {
+						gemm[n][c1][h][w][c2] = nchw[n][c1 * GEMM_BLOCK + c2][h][w];
 					}
 				}
 			}
@@ -523,18 +560,18 @@ void copy_NCHW_to_GEMM(int N, int H, int W, int C, const float nchw[N][C][H][W],
 	}
 }
 
-void copy_KCRS_to_GEMM(int R, int S, int C, int K, const float input[K][C][R][S], float output[K / 16][C / 16][R][S][16][16])
+void copy_KCRS_to_GEMM(int R, int S, int C, int K, const float input[K][C][R][S], float output[K / GEMM_BLOCK][C / GEMM_BLOCK][R][S][GEMM_BLOCK][GEMM_BLOCK])
 {
 	int r, s, c1, c2, k1, k2;
 
-	for (k1 = 0; k1 < K / 16; k1++) {
-		for (c1 = 0; c1 < C / 16; c1++) {
+	for (k1 = 0; k1 < K / GEMM_BLOCK; k1++) {
+		for (c1 = 0; c1 < C / GEMM_BLOCK; c1++) {
 			for (r = 0; r < R; r++) {
 				for (s = 0; s < S; s++) {
-					for (c2 = 0; c2 < 16; c2++) {
-						for (k2 = 0; k2 < 16; k2++) {
+					for (c2 = 0; c2 < GEMM_BLOCK; c2++) {
+						for (k2 = 0; k2 < GEMM_BLOCK; k2++) {
 							output[k1][c1][r][s][c2][k2] =
-								input[k1 * 16 + k2][c1 * 16 + c2][r][s];
+								input[k1 * GEMM_BLOCK + k2][c1 * GEMM_BLOCK + c2][r][s];
 						}
 					}
 				}
@@ -578,9 +615,9 @@ void compare_buf(float* ref, float* test, long size, correctness_t* norms)
 		}
 #endif
 
-		}
+	}
 	norms->l2_rel_err = sqrt(norms->l2_rel_err);
-		}
+}
 
 int main(int argc, char **argv) {
 	int ifhp, ifwp, ofhp, ofwp, ofh, ofw;
@@ -615,7 +652,6 @@ int main(int argc, char **argv) {
 	if (argc > i) iters = atoi(argv[i++]);
 	if (argc > i) ifw = atoi(argv[i++]);
 	if (argc > i) ifh = atoi(argv[i++]);
-	if (argc > i) nImg = atoi(argv[i++]);
 	if (argc > i) nIfm = atoi(argv[i++]);
 	if (argc > i) nOfm = atoi(argv[i++]);
 	if (argc > i) kw = atoi(argv[i++]);
@@ -623,6 +659,10 @@ int main(int argc, char **argv) {
 	if (argc > i) pad_w = atoi(argv[i++]);
 	if (argc > i) pad_h = atoi(argv[i++]);
 	if (argc > i) stride = atoi(argv[i++]);
+	if (argc > i) nImg = atoi(argv[i++]);
+	if (argc > i) version = atoi(argv[i++]);
+
+	printf("version = %d\n", version);
 
 	if (stride != 1) {
 		printf("A non-unit stride is not supported yet\n");
@@ -663,8 +703,8 @@ int main(int argc, char **argv) {
 	printf("SIZE Output  (1): %10.2f MiB\n", (double)(1 * nOfm*ofhp*ofwp * sizeof(float)) / (1024.0*1024.0));
 	printf("SIZE Weight     : %10.2f MiB\n", (double)(nIfm*nOfm*kw*kh * sizeof(float)) / (1024.0*1024.0));
 
-	if ((nIfm % 16 != 0) || (nOfm % 16 != 0)) {
-		printf("\nThis code only works for ofm/ifm % 16!\n\n\n");
+	if ((nIfm % GEMM_BLOCK != 0) || (nOfm % GEMM_BLOCK != 0)) {
+		printf("\nThis code only works for ofm/ifm % %d!\n\n\n", GEMM_BLOCK);
 		return -1;
 	}
 
@@ -673,8 +713,21 @@ int main(int argc, char **argv) {
 /* JIT GEMM kernel */
 #if defined(USE_LIBXSMM)
 	int ldx;
-	ldx = 16;
-	fwd_gemm = libxsmm_smmdispatch(16, ofwp, 16, NULL, &ldx, NULL, NULL, NULL, NULL, NULL);
+	ldx = GEMM_BLOCK;
+
+	if (version == 0 || version == 1) {
+		// LIBXSMM tiled
+		if (ofwp % T_oi != 0) {
+			printf("The tiling factor %d for oi loop should divide ofwp = %d\n. Exiting\n", T_oi, ofwp);
+			return -1;
+		}
+
+		fwd_gemm = libxsmm_smmdispatch(GEMM_BLOCK, T_oi, GEMM_BLOCK, NULL, NULL /* &ldx */, NULL, NULL, NULL, NULL, NULL);
+	}
+	else {
+		fwd_gemm = libxsmm_smmdispatch(GEMM_BLOCK, ofwp, GEMM_BLOCK, NULL, /* &ldx */ NULL, NULL, NULL, NULL, NULL, NULL);
+	}
+
 #endif
 
 	printf("Allocating data\n");
@@ -683,13 +736,27 @@ int main(int argc, char **argv) {
 	float naive_output[nImg][nOfm][ofhp][ofwp];
 	float naive_filter[nOfm][nIfm][kh][kw];
 
-	float gemm_input[nImg][nIfm / 16][ifhp][ifwp][16];
-	float gemm_output[nImg][nOfm / 16][ifhp][ifwp][16];
-	float gemm_filter[nOfm / 16][nIfm / 16][kh][kw][16][16];
-	float check_output[nImg][nOfm][ofhp][ofwp];
+	/*
+	float gemm_input[nImg][nIfm / GEMM_BLOCK][ifhp][ifwp][GEMM_BLOCK] __attribute__((aligned(2097152)));
+	float gemm_output[nImg][nOfm / GEMM_BLOCK][ifhp][ifwp][GEMM_BLOCK] __attribute__((aligned(2097152)));
+	float gemm_filter[nOfm / GEMM_BLOCK][nIfm / GEMM_BLOCK][kh][kw][GEMM_BLOCK][GEMM_BLOCK] __attribute__((aligned(2097152)));
+	float check_output[nImg][nOfm][ofhp][ofwp] __attribute__((aligned(2097152)));
+	*/
 
+	float(*gemm_input)[nIfm / GEMM_BLOCK][ifhp][ifwp][GEMM_BLOCK] = (float*)libxsmm_aligned_malloc(nImg*nIfm*ifhp*ifwp * sizeof(float), 2097152);
+	float(*gemm_output)[nOfm / GEMM_BLOCK][ifhp][ifwp][GEMM_BLOCK] = (float*)libxsmm_aligned_malloc(nImg*nOfm*ifhp*ifwp * sizeof(float), 2097152);
+	float(*gemm_filter)[nIfm / GEMM_BLOCK][kh][kw][GEMM_BLOCK][GEMM_BLOCK] = (float*)libxsmm_aligned_malloc(nOfm*nIfm*kh*kw * sizeof(float), 2097152);
+	float(*check_output)[nImg][nOfm][ofhp][ofwp] = (float*)libxsmm_aligned_malloc(nImg*nOfm*ofhp*ofwp * sizeof(float), 2097152);
+
+	/*
+	printf("gemm_input = %p\n", gemm_input);
+	printf("gemm_output = %p\n", gemm_output);
+	printf("gemm_filter = %p\n", gemm_filter);
+	printf("check_output = %p\n", check_output);
+	*/
 	printf("Initializing data\n");
 	/* initialize data */
+	srand48(100);
 	init_buf(&naive_input[0][0][0][0], nImg*nIfm*ifhp*ifwp);
 	init_buf(&gemm_input[0][0][0][0], nImg*nIfm*ifhp*ifwp);
 	init_buf(&naive_filter[0][0][0][0], nOfm*nIfm*kh*kw);
@@ -710,34 +777,7 @@ int main(int argc, char **argv) {
 
 	clock_t end = clock();
 	double exec_time = (double)(end - start) / CLOCKS_PER_SEC;
-	printf("Elapsed time of naive_conv_fp_stride_1 = %f seconds\n", exec_time);
-	
-
-	printf("##########################################\n");
-	printf("Calling naive_conv_bp\n");
-	start = clock();
-
-	naive_conv_bp(nImg, nIfm, nOfm, ifhp, ifwp, ofhp, ofwp, ifh, ifw,
-		ofh, ofw, pad_h, pad_w, pad_h_in, pad_w_in, pad_h_out,
-		pad_w_out, kh, kw, stride_h, stride_w, naive_input, naive_output, naive_filter);
-
-	end = clock();
-	exec_time = (double)(end - start) / CLOCKS_PER_SEC;
-	printf("Elapsed time of naive_conv_bp = %f seconds\n", exec_time);
-	
-	
-	printf("##########################################\n");
-	printf("Calling naive_conv_wu\n");
-	start = clock();
-
-	naive_conv_wu(nImg, nIfm, nOfm, ifhp, ifwp, ofhp, ofwp, ifh, ifw,
-		ofh, ofw, pad_h, pad_w, pad_h_in, pad_w_in, pad_h_out,
-		pad_w_out, kh, kw, stride_h, stride_w, naive_input, naive_output, naive_filter);
-
-	end = clock();
-	exec_time = (double)(end - start) / CLOCKS_PER_SEC;
-	printf("Elapsed time of naive_conv_wu = %f seconds\n", exec_time);
-
+	printf("Total time of naive_conv_fp_stride_1 = %f seconds\n", exec_time);
 	flops = (double)nImg * (double)nIfm * (double)nOfm * (double)ofh * (double)ofw * (double)(2 * kh * kw) * (double)iters;
 
 	printf("Calling copy_NCHW_to_GEMM\n");
@@ -748,23 +788,23 @@ int main(int argc, char **argv) {
 	printf("Calling padded_conv_fp_stride_1\n");
 	padded_conv_fp_stride_1(nImg, nIfm, nOfm, ifhp, ifwp, ofhp, ofwp, ifh, ifw,
 		ofh, ofw, pad_h, pad_w, pad_h_in, pad_w_in, pad_h_out,
-		pad_w_out, kh, kw, stride_h, stride_w, gemm_input, gemm_output, gemm_filter, version);
+		pad_w_out, kh, kw, stride_h, stride_w, gemm_input, gemm_output, gemm_filter, version, 1 /*iters*/);
 
 	printf("Calling copy_GEMM_to_NCHW\n");
 	copy_GEMM_to_NCHW(nImg, ofhp, ofwp, nOfm, gemm_output, check_output);
 
 	printf("Printing input values\n");
 	printf("%f %f %f\n", naive_input[0][0][0][0], naive_input[nImg / 2][nIfm / 2][ifhp / 2][ifwp / 2], naive_input[nImg - 1][nIfm - 1][ifhp - 1][ifwp - 1]);
-	printf("%f %f %f\n", gemm_input[0][0][0][0][0], gemm_input[nImg / 2][(nIfm / 2) / 16][ifhp / 2][ifwp / 2][(nIfm / 2) % 16], gemm_input[nImg - 1][(nIfm - 1) / 16][ifhp - 1][ifwp - 1][(nIfm - 1) % 16]);
+	printf("%f %f %f\n", gemm_input[0][0][0][0][0], gemm_input[nImg / 2][(nIfm / 2) / GEMM_BLOCK][ifhp / 2][ifwp / 2][(nIfm / 2) % GEMM_BLOCK], gemm_input[nImg - 1][(nIfm - 1) / GEMM_BLOCK][ifhp - 1][ifwp - 1][(nIfm - 1) % GEMM_BLOCK]);
 	printf("Printing weight values\n");
 	printf("%f %f %f\n", naive_filter[0][0][0][0], naive_filter[nOfm / 2][nIfm / 2][kh / 2][kw / 2], naive_filter[nOfm - 1][nIfm - 1][kh - 1][kw - 1]);
-	printf("%f %f %f\n", gemm_filter[0][0][0][0][0][0], gemm_filter[(nOfm / 2) / 16][(nIfm / 2) / 16][kh / 2][kw / 2][(nOfm / 2) % 16][(nIfm / 2) % 16], gemm_filter[(nOfm - 1) / 16][(nIfm - 1) / 16][kh - 1][kw - 1][(nOfm - 1) % 16][(nIfm - 1) % 16]);
+	printf("%f %f %f\n", gemm_filter[0][0][0][0][0][0], gemm_filter[(nOfm / 2) / GEMM_BLOCK][(nIfm / 2) / GEMM_BLOCK][kh / 2][kw / 2][(nOfm / 2) % GEMM_BLOCK][(nIfm / 2) % GEMM_BLOCK], gemm_filter[(nOfm - 1) / GEMM_BLOCK][(nIfm - 1) / GEMM_BLOCK][kh - 1][kw - 1][(nOfm - 1) % GEMM_BLOCK][(nIfm - 1) % GEMM_BLOCK]);
 	printf("Printing output values\n");
 	printf("%f %f %f\n", naive_output[0][0][0][0], naive_output[nImg / 2][nOfm / 2][ofhp / 2][ofwp / 2], naive_output[nImg - 1][nOfm - 1][ofhp - 1][ofwp - 1]);
 	printf("Printing check_output values\n");
 	printf("%f %f %f\n", check_output[0][0][0][0], check_output[nImg / 2][nOfm / 2][ofhp / 2][ofwp / 2], check_output[nImg - 1][nOfm - 1][ofhp - 1][ofwp - 1]);
 	printf("Printing gemm_output values\n");
-	printf("%f %f %f\n", gemm_output[0][0][0][0][0], gemm_output[nImg / 2][(nOfm / 2) / 16][ofhp / 2][ofwp / 2][(nOfm / 2) % 16], gemm_output[nImg - 1][(nOfm - 1) / 16][ofhp - 1][ofwp - 1][(nOfm - 1) % 16]);
+	printf("%f %f %f\n", gemm_output[0][0][0][0][0], gemm_output[nImg / 2][(nOfm / 2) / GEMM_BLOCK][ofhp / 2][ofwp / 2][(nOfm / 2) % GEMM_BLOCK], gemm_output[nImg - 1][(nOfm - 1) / GEMM_BLOCK][ofhp - 1][ofwp - 1][(nOfm - 1) % GEMM_BLOCK]);
 
 	/* compare */
 	compare_buf(naive_output, check_output, nImg*nOfm*ofhp*ofwp, &norms_fwd);
@@ -779,19 +819,26 @@ int main(int argc, char **argv) {
 	printf("##########################################\n");
 
 	start = clock();
-	for (i = 0; i < iters; i++) {
-		padded_conv_fp_stride_1(nImg, nIfm, nOfm, ifhp, ifwp, ofhp, ofwp, ifh, ifw,
-			ofh, ofw, pad_h, pad_w, pad_h_in, pad_w_in, pad_h_out,
-			pad_w_out, kh, kw, stride_h, stride_w, gemm_input, gemm_output, gemm_filter, version);
-	}
+	l_start = libxsmm_timer_tick();
 
+	padded_conv_fp_stride_1(nImg, nIfm, nOfm, ifhp, ifwp, ofhp, ofwp, ifh, ifw,
+		ofh, ofw, pad_h, pad_w, pad_h_in, pad_w_in, pad_h_out,
+		pad_w_out, kh, kw, stride_h, stride_w, gemm_input, gemm_output, gemm_filter, version, iters);
+
+	l_end = libxsmm_timer_tick();
+	l_total = libxsmm_timer_duration(l_start, l_end);
 	end = clock();
 	exec_time = (double)(end - start) / CLOCKS_PER_SEC;
-	printf("Elapsed time of padded_conv_fp_stride_1 = %f seconds\n", exec_time);
+	printf("Total consumed time of padded_conv_fp_stride_1 = %f seconds\n", exec_time);
+	printf("Elapsed time of padded_conv_fp_stride_1 = %f seconds\n", l_total);
 	printf("GFLOP  = %.5g\n", flops*1e-9 / (double)iters);
-	printf("fp time = %.5g\n", ((double)(exec_time / iters)));
-	printf("GFLOPS  = %.5g\n", (flops*1e-9) / exec_time);
+	printf("fp time = %.5g\n", ((double)(l_total / iters)));
+	printf("GFLOPS =%.5g\n", (flops*1e-9) / l_total);
 
+	libxsmm_free(gemm_input);
+	libxsmm_free(gemm_output);
+	libxsmm_free(gemm_filter);
+	libxsmm_free(check_output);
 	return 0;
 }
 
