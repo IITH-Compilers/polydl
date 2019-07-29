@@ -867,6 +867,10 @@ isl_union_map* ComputeDataDependences(isl_union_map *source,
 pet_scop* ParseScop(isl_ctx* ctx, const char *fileName) {
 	pet_options_set_autodetect(ctx, 0);
 	pet_scop *scop = pet_scop_extract_from_C_source(ctx, fileName, NULL);
+	if (DEBUG) {
+		PrintScop(ctx, scop);
+	}
+
 	return scop;
 }
 

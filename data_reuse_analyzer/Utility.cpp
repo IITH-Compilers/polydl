@@ -96,7 +96,6 @@ void PrintScop(isl_ctx* ctx, struct pet_scop *scop) {
 	cout << "pet_scop_get_may_reads:" << endl;
 	isl_printer_print_union_map(printer, pet_scop_get_may_reads(scop));
 	cout << endl;
-	return;
 
 	// Print Context
 	isl_set *context = scop->context;
