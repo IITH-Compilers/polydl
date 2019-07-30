@@ -20,11 +20,25 @@ using namespace std;
 #define L3Cost 60
 */
 
+/*Latency related*/
 #define L1Cost 4
-#define L2Cost 12
-#define L3Cost 42
+#define L2Cost 14
+#define L3Cost 60
 #define MemCost 84
 
+
+/*Bandwidth related:
+L1: 192 B/cycle
+L2: 64 B/cycle
+L3: 64 B/cycle
+Mem: 2 B/cycle
+
+Source: https://en.wikichip.org/wiki/intel/microarchitectures/skylake_(server)
+*/
+#define SecondaryL1Cost (1.0/192.0)
+#define SecondaryL2Cost (1.0/64.0)
+#define SecondaryL3Cost (1.0/64.0)
+#define SecondaryMemCost 0.0
 
 struct ProgramVariant {
 	string config;
@@ -233,13 +247,13 @@ The cardinality can be the weight of the reuse*/
 
 		programVariants->at(i)->secondaryCost =
 			(programVariants->at(i)->L1DataSetSize)
-			* 1.0 +
+			* SecondaryL1Cost +
 			(programVariants->at(i)->L2DataSetSize)
-			* 1.0 +
+			* SecondaryL2Cost +
 			(programVariants->at(i)->L3DataSetSize)
-			* 1.0 +
+			* SecondaryL3Cost +
 			(programVariants->at(i)->MemDataSetSize)
-			* 1.0;
+			* SecondaryMemCost;
 	}
 
 	AssignPolyRanksBasedOnUserDefinedCost(programVariants);
