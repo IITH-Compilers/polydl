@@ -12,7 +12,7 @@ void ReadUserInput(int argc, char **argv, UserInput *userInput) {
 	*/
 	string inputPrefix = "--input";
 	string configPrefix = "--config";
-	string interactive = "--interactive";
+	string diagnostic = "--diagnostic";
 
 	userInput->interactive = false;
 	for (i = 1; i < argc;) {
@@ -24,7 +24,7 @@ void ReadUserInput(int argc, char **argv, UserInput *userInput) {
 			userInput->configFile = argv[i + 1];
 			i += 2;
 		}
-		else if (argv[i] == interactive) {
+		else if (argv[i] == diagnostic) {
 			userInput->interactive = true;
 			i++;
 		}

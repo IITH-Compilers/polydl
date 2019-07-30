@@ -38,14 +38,25 @@ struct ProgramCharacteristics {
 	int L3Fit; // #working sets that fit in L3 cache
 	int MemFit;
 	int datatypeSize; // size of datatype of arrays
+	long L1DataSetSize;
+	long L2DataSetSize;
+	long L3DataSetSize;
+	long MemDataSetSize;
 };
 
 typedef struct ProgramCharacteristics ProgramCharacteristics;
 
+struct MinMaxTuple {
+	long min;
+	long max;
+};
+
+typedef struct MinMaxTuple MinMaxTuple;
+
 void GetSystemAndProgramCharacteristics(SystemConfig* systemConfig,
 	ProgramCharacteristics* programChar);
 void InitializeProgramCharacteristics(ProgramCharacteristics* programChar);
-void UpdateProgramCharacteristics(string size, SystemConfig* systemConfig,
+void UpdateProgramCharacteristics(long size, SystemConfig* systemConfig,
 	ProgramCharacteristics* programChar);
 
 struct ArgComputeWorkingSetSizesForDependence {
@@ -84,6 +95,10 @@ isl_union_map* ComputeDataDependences(isl_union_map *source,
 	isl_union_map *target, isl_schedule* schedule);
 void OrchestrateDataReuseComputation(int argc, char **argv);
 string ExtractFileName(string fileName);
+bool IsUniqueDependence(vector<MinMaxTuple*> *minMaxTupleVector,
+	long min, long max);
+void FreeMinMaxTupleVector(vector<MinMaxTuple*> *minMaxTupleVector);
+long ConvertStringToLong(string sizeStr);
 /* Function header declarations end */
 
 int main(int argc, char **argv) {
@@ -294,8 +309,10 @@ void SimplifyWorkingSetSizes(vector<WorkingSetSize*>* workingSetSizes,
 	}
 
 	ProgramCharacteristics* programChar = new ProgramCharacteristics;
+	vector<MinMaxTuple*> *minMaxTupleVector = new vector<MinMaxTuple*>();
+
 	programChar->datatypeSize = config->datatypeSize;
-	file << "params,L1,L2,L3,Mem" << endl;
+	file << "params,L1,L2,L3,Mem,L1DataSetSize,L2DataSetSize,L3DataSetSize,MemDataSetSize" << endl;
 	for (int i = 0; i < config->programParameterVector->size(); i++) {
 		InitializeProgramCharacteristics(programChar);
 		unordered_map<string, int>* paramValues =
@@ -315,24 +332,62 @@ void SimplifyWorkingSetSizes(vector<WorkingSetSize*>* workingSetSizes,
 				maxSizePoly,
 				paramValues);
 
+			if (!minSize.empty() && !maxSize.empty()) {
+				long min = ConvertStringToLong(minSize);
+				long max = ConvertStringToLong(maxSize);
 
-			if (!minSize.empty()) {
-				UpdateProgramCharacteristics(minSize, config->systemConfig, programChar);
-			}
-
-			if (!maxSize.empty()) {
-				UpdateProgramCharacteristics(maxSize, config->systemConfig, programChar);
+				if (IsUniqueDependence(minMaxTupleVector, min, max)) {
+					UpdateProgramCharacteristics(min, config->systemConfig, programChar);
+					UpdateProgramCharacteristics(max, config->systemConfig, programChar);
+				}
 			}
 
 		}
 
+		FreeMinMaxTupleVector(minMaxTupleVector);
+
 		file << programChar->L1Fit << "," << programChar->L2Fit << ","
-			<< programChar->L3Fit << "," << programChar->MemFit << endl;
+			<< programChar->L3Fit << "," << programChar->MemFit << ","
+			<< programChar->L1DataSetSize << ","
+			<< programChar->L2DataSetSize << ","
+			<< programChar->L3DataSetSize << ","
+			<< programChar->MemDataSetSize
+			<< endl;
 	}
 
 	file.close();
 
+	delete minMaxTupleVector;
 	delete programChar;
+}
+
+bool IsUniqueDependence(vector<MinMaxTuple*> *minMaxTupleVector,
+	long min, long max) {
+	if (min != -1 && max != -1) {
+		for (int i = 0; i < minMaxTupleVector->size(); i++) {
+			if (minMaxTupleVector->at(i)->min == min &&
+				minMaxTupleVector->at(i)->max == max) {
+				return false;
+			}
+		}
+
+		MinMaxTuple* minMaxTuple = new MinMaxTuple;
+		minMaxTuple->min = min;
+		minMaxTuple->max = max;
+		minMaxTupleVector->push_back(minMaxTuple);
+		return true;
+	}
+	else {
+		return false;
+	}
+}
+
+void FreeMinMaxTupleVector(vector<MinMaxTuple*> *minMaxTupleVector) {
+	for (int i = 0; i < minMaxTupleVector->size(); i++) {
+		delete minMaxTupleVector->at(i);
+	}
+
+	minMaxTupleVector->clear();
 }
 
 void SimplifyWorkingSetSizesInteractively(vector<WorkingSetSize*>* workingSetSizes,
@@ -373,6 +428,7 @@ void SimplifyWorkingSetSizesInteractively(vector<WorkingSetSize*>* workingSetSiz
 
 	ProgramCharacteristics* programChar =
 		(ProgramCharacteristics*)malloc(sizeof(ProgramCharacteristics));
+	vector<MinMaxTuple*> *minMaxTupleVector = new vector<MinMaxTuple*>();
 
 	if (config == NULL) {
 		GetSystemAndProgramCharacteristics(systemConfig, programChar);
@@ -415,25 +471,25 @@ void SimplifyWorkingSetSizesInteractively(vector<WorkingSetSize*>* workingSetSiz
 				maxSizePoly,
 				paramValues);
 
-			if (!minSize.empty() || !maxSize.empty()) {
-				file << isl_basic_map_to_str(
-					workingSetSizes->at(i)->dependence)
-					<< "\t";
-				file << isl_set_to_str(workingSetSizes->at(i)->source)
-					<< "\t";
-				file << isl_set_to_str(workingSetSizes->at(i)->minTarget)
-					<< "\t";
-				file << isl_set_to_str(workingSetSizes->at(i)->maxTarget)
-					<< "\t";
-				file << minSize << "\t";
-				file << maxSize << endl;
+			if (!minSize.empty() && !maxSize.empty()) {
+				long min = ConvertStringToLong(minSize);
+				long max = ConvertStringToLong(maxSize);
 
-				if (!minSize.empty()) {
-					UpdateProgramCharacteristics(minSize, systemConfig, programChar);
-				}
+				if (IsUniqueDependence(minMaxTupleVector, min, max)) {
+					file << isl_basic_map_to_str(
+						workingSetSizes->at(i)->dependence)
+						<< "\t";
+					file << isl_set_to_str(workingSetSizes->at(i)->source)
+						<< "\t";
+					file << isl_set_to_str(workingSetSizes->at(i)->minTarget)
+						<< "\t";
+					file << isl_set_to_str(workingSetSizes->at(i)->maxTarget)
+						<< "\t";
+					file << minSize << "\t";
+					file << maxSize << endl;
 
-				if (!maxSize.empty()) {
-					UpdateProgramCharacteristics(maxSize, systemConfig, programChar);
+					UpdateProgramCharacteristics(min, systemConfig, programChar);
+					UpdateProgramCharacteristics(max, systemConfig, programChar);
 				}
 			}
 		}
@@ -442,7 +498,14 @@ void SimplifyWorkingSetSizesInteractively(vector<WorkingSetSize*>* workingSetSiz
 			<< "\t" << programChar->L1Fit
 			<< "\t" << programChar->L2Fit
 			<< "\t" << programChar->L3Fit
-			<< "\t" << programChar->MemFit << endl;
+			<< "\t" << programChar->MemFit
+			<< "\t" << programChar->L1DataSetSize
+			<< "\t" << programChar->L2DataSetSize
+			<< "\t" << programChar->L3DataSetSize
+			<< "\t" << programChar->MemDataSetSize
+			<< endl;
+
+		FreeMinMaxTupleVector(minMaxTupleVector);
 
 		if (config == NULL) {
 			paramValues->clear();
@@ -461,6 +524,7 @@ void SimplifyWorkingSetSizesInteractively(vector<WorkingSetSize*>* workingSetSiz
 		free(systemConfig);
 	}
 
+	delete minMaxTupleVector;
 	free(programChar);
 }
 
@@ -480,35 +544,43 @@ void InitializeProgramCharacteristics(ProgramCharacteristics* programChar) {
 	programChar->L2Fit = 0;
 	programChar->L3Fit = 0;
 	programChar->MemFit = 0;
+	programChar->L1DataSetSize = 0;
+	programChar->L2DataSetSize = 0;
+	programChar->L3DataSetSize = 0;
+	programChar->MemDataSetSize = 0;
 }
 
-void UpdateProgramCharacteristics(string sizeStr, SystemConfig* systemConfig,
-	ProgramCharacteristics* programChar) {
-	long size = -1;
-
+long ConvertStringToLong(string sizeStr) {
 	try {
-		size = stol(sizeStr, nullptr, 10) * programChar->datatypeSize;
+		return stol(sizeStr, nullptr, 10);
 	}
 	catch (const invalid_argument) {
 		cerr << "Invalid argument while updating" << endl;
-		return;
+		return -1;
 	}
+}
 
-	if (size == -1) {
-		return;
-	}
-
-	if (size <= systemConfig->L1) {
-		programChar->L1Fit += 1;
-	}
-	else if (size <= systemConfig->L2) {
-		programChar->L2Fit += 1;
-	}
-	else if (size <= systemConfig->L3) {
-		programChar->L3Fit += 1;
-	}
-	else {
-		programChar->MemFit += 1;
+void UpdateProgramCharacteristics(long size,
+	SystemConfig* systemConfig,
+	ProgramCharacteristics* programChar) {
+	size = size * programChar->datatypeSize;
+	if (size != -1) {
+		if (size <= systemConfig->L1) {
+			programChar->L1Fit += 1;
+			programChar->L1DataSetSize += size;
+		}
+		else if (size <= systemConfig->L2) {
+			programChar->L2Fit += 1;
+			programChar->L2DataSetSize += size;
+		}
+		else if (size <= systemConfig->L3) {
+			programChar->L3Fit += 1;
+			programChar->L3DataSetSize += size;
+		}
+		else {
+			programChar->MemFit += 1;
+			programChar->MemDataSetSize += size;
+		}
 	}
 }
 
@@ -795,6 +867,10 @@ isl_union_map* ComputeDataDependences(isl_union_map *source,
 pet_scop* ParseScop(isl_ctx* ctx, const char *fileName) {
 	pet_options_set_autodetect(ctx, 0);
 	pet_scop *scop = pet_scop_extract_from_C_source(ctx, fileName, NULL);
+	if (DEBUG) {
+		PrintScop(ctx, scop);
+	}
+
 	return scop;
 }
 
