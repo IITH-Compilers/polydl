@@ -19,7 +19,7 @@ void padded_conv_fp_stride_1_libxsmm_core_pluto(int nImg, int nIfm, int nOfm, in
  register int lbv, ubv;
 if ((kh >= 1) && (kh <= -ofh+2147483649) && (kw >= 1) && (kw <= -ofw+2147483649) && (nIfm >= 64) && (nImg >= 1) && (nOfm >= 64) && (ofh >= 1) && (ofw >= 1)) {
   lbp=0;
-  ubp=floord(nImg-1,32);
+  ubp=floord(nImg-1,1);
 #pragma omp parallel for private(lbv,ubv,t2,t3,t4,t5,t6,t7,t8,t9,t10,t11,t12,t13,t14,t15)
   for (t1=lbp;t1<=ubp;t1++) {
     for (t2=0;t2<=floord(nOfm-64,2048);t2++) {
@@ -27,7 +27,7 @@ if ((kh >= 1) && (kh <= -ofh+2147483649) && (kw >= 1) && (kw <= -ofw+2147483649)
         for (t4=0;t4<=floord(ofw-1,32);t4++) {
           for (t5=0;t5<=1;t5++) {
             for (t6=0;t6<=floord(nIfm-64,2048);t6++) {
-              for (t7=32*t1;t7<=min(nImg-1,32*t1+31);t7++) {
+              for (t7=1*t1;t7<=min(nImg-1,1*t1+0);t7++) {
                 for (t8=32*t2;t8<=min(floord(nOfm-64,64),32*t2+31);t8++) {
                   for (t9=32*t3;t9<=min(ofh-1,32*t3+31);t9++) {
                     for (t10=32*t4;t10<=min(ofw-1,32*t4+31);t10++) {
