@@ -16,10 +16,12 @@ void padded_conv_fp_stride_1_libxsmm_core_pluto(int nImg, int nIfm, int nOfm, in
 
   int t1, t2, t3, t4, t5, t6, t7, t8, t9, t10, t11, t12, t13, t14, t15;
  int lb, ub, lbp, ubp, lb2, ub2;
+ int iter_loop;
  register int lbv, ubv;
 if ((kh >= 1) && (kh <= -ofh+2147483649) && (kw >= 1) && (kw <= -ofw+2147483649) && (nIfm >= 64) && (nImg >= 1) && (nOfm >= 64) && (ofh >= 1) && (ofw >= 1)) {
   lbp=0;
   ubp=floord(nImg-1,1);
+for (iter_loop = 0; iter_loop < iters; iter_loop++) {
 #pragma omp parallel for private(lbv,ubv,t2,t3,t4,t5,t6,t7,t8,t9,t10,t11,t12,t13,t14,t15)
   for (t1=lbp;t1<=ubp;t1++) {
     for (t2=0;t2<=floord(nOfm-64,2048);t2++) {
@@ -52,5 +54,6 @@ if ((kh >= 1) && (kh <= -ofh+2147483649) && (kw >= 1) && (kw <= -ofw+2147483649)
       }
     }
   }
+}
 }
 }
