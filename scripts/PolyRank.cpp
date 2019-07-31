@@ -14,12 +14,6 @@ using namespace std;
 #define max(X, Y) (((X) > (Y)) ? (X) : (Y))
 
 
-/*
-#define L1Cost 3
-#define L2Cost 17
-#define L3Cost 60
-*/
-
 /*Latency related*/
 #define L1Cost 4
 #define L2Cost 14
@@ -28,17 +22,17 @@ using namespace std;
 
 
 /*Bandwidth related:
-L1: 192 B/cycle
-L2: 64 B/cycle
-L3: 64 B/cycle
+L1: 192 B/cycle : R/W together
+L2: 64 B/cycle : R/W together: 96 B/cycle
+L3: 8 B/cycle : R/W together: 16 B/cycle
 Mem: 2 B/cycle
 
-Source: https://en.wikichip.org/wiki/intel/microarchitectures/skylake_(server)
 */
 #define SecondaryL1Cost (1.0/192.0)
-#define SecondaryL2Cost (1.0/64.0)
-#define SecondaryL3Cost (1.0/64.0)
+#define SecondaryL2Cost (1.0/96.0)
+#define SecondaryL3Cost (1.0/16.0)
 #define SecondaryMemCost 0.0
+
 
 struct ProgramVariant {
 	string config;
