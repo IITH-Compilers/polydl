@@ -2,8 +2,9 @@
 mkdir file_data;
 echo "Part 1";
 `grep -EHrin "T_oi|T_oj|T_ofm_tile|T_ifm_tile" fwd_perf_N_1.txt | cut -d"=" -f2 > temp`;
+`grep -EHrin "T_oi|T_oj|T_ofm_tile|T_ifm_tile" fwd_perf_N_28.txt | cut -d"=" -f2 >> temp`;
 
-for f in $(seq 1 19);
+for f in $(seq 1 38);
 do
        	cp ../padded_conv_fp_stride_1_tiled_loop_order_0.c ./file_data/padded_conv_fp_stride_1_tiled_loop_order_0_$f.c;
 	sed -i '1,4d' ./file_data/padded_conv_fp_stride_1_tiled_loop_order_0_$f.c;
@@ -22,9 +23,10 @@ do
 done;
 
 echo "Part 2";
-`grep -EHrin "T_oi|T_oj|T_ofm_tile|T_ifm_tile" fwd_perf_N_28.txt | cut -d"=" -f2 > temp`;
+`grep -EHrin "T_oi|T_oj|T_ofm_tile|T_ifm_tile" fwd_perf_N_1.txt | cut -d"=" -f2 > temp`;
+`grep -EHrin "T_oi|T_oj|T_ofm_tile|T_ifm_tile" fwd_perf_N_28.txt | cut -d"=" -f2 >> temp`;
 
-for f in $(seq 1 19);
+for f in $(seq 1 38);
 do
        	cp ../padded_conv_fp_stride_1_tiled_loop_order_1.c ./file_data/padded_conv_fp_stride_1_tiled_loop_order_1_$f.c;
 	sed -i '4,7d' ./file_data/padded_conv_fp_stride_1_tiled_loop_order_1_$f.c;
