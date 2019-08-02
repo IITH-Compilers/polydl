@@ -325,12 +325,19 @@ void SimplifyWorkingSetSizes(vector<WorkingSetSize*>* workingSetSizes,
 	vector<MinMaxTuple*> *minMaxTupleVector = new vector<MinMaxTuple*>();
 
 	programChar->datatypeSize = config->datatypeSize;
-	file << "params,L1,L2,L3,Mem,L1DataSetSize,L2DataSetSize,L3DataSetSize,MemDataSetSize" << endl;
+
+	if (userInput->minOutput == false) {
+		file << "params,L1,L2,L3,Mem,L1DataSetSize,L2DataSetSize,L3DataSetSize,MemDataSetSize" << endl;
+	}
+
 	for (int i = 0; i < config->programParameterVector->size(); i++) {
 		InitializeProgramCharacteristics(programChar);
 		unordered_map<string, int>* paramValues =
 			config->programParameterVector->at(i);
-		file << GetParameterValuesString(paramValues) << ",";
+
+		if (userInput->minOutput == false) {
+			file << GetParameterValuesString(paramValues) << ",";
+		}
 
 		for (int i = 0; i < workingSetSizes->size(); i++) {
 			isl_union_pw_qpolynomial* minSizePoly =

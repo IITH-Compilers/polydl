@@ -13,8 +13,10 @@ void ReadUserInput(int argc, char **argv, UserInput *userInput) {
 	string inputPrefix = "--input";
 	string configPrefix = "--config";
 	string diagnostic = "--diagnostic";
+	string minimalOutput = "--minout";
 
 	userInput->interactive = false;
+	userInput->minOutput = false;
 	for (i = 1; i < argc;) {
 		if (argv[i] == inputPrefix) {
 			userInput->inputFile = argv[i + 1];
@@ -26,6 +28,10 @@ void ReadUserInput(int argc, char **argv, UserInput *userInput) {
 		}
 		else if (argv[i] == diagnostic) {
 			userInput->interactive = true;
+			i++;
+		}
+		else if (argv[i] == minimalOutput) {
+			userInput->minOutput = true;
 			i++;
 		}
 		else {
