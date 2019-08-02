@@ -1,6 +1,9 @@
 export KMP_AFFINITY=granularity=fine,compact,1,0
+export LD_LIBRARY_PATH=/nfs_home/stavarag/work/software/barvinok/barvinok-0.41.2_install/lib:/nfs_home/stavarag/work/software/barvinok/isl_install/lib:$LD_LIBRARY_PATH
+
 OUT=poly_perf.csv
 
+test_config='100  7  7  1 1 1 1 0 0 1'
 config1='100  56  56  64  256 1 1 0 0 1'
 config2='100  56  56  64  64 1 1 0 0 1'
 config3='100  56  56  64  64 3 3 1 1 1'
@@ -24,15 +27,20 @@ config19='100  7   7   2048   512 1 1 0 0 1'
 GEMM_BLOCK=64
 config_num=1
 check_correctness=0
+PERF_DIR=perf_data
+CONFIG_DIR=configs
+TEMP=temp
+mkdir ${PERF_DIR}
+mkdir ${TEMP}
 for config in "$config1" 
 do
-	for images in 1 28
+	for images in 28 #1 
 	do
-	        CONFIG_OUT=${config_num}_${images}_${OUT}
+	        CONFIG_OUT=${PERF_DIR}/${config_num}_${images}_${OUT}
 	        rm ${CONFIG_OUT}
 
 		export OMP_NUM_THREADS=${images}
-		for version in 0 1 2 3 4 5
+		for version in 2 3 4 1 #0
 		do
 			params=( ${config} )
 			ofw=${params[1]}
@@ -42,11 +50,11 @@ do
 			#We will first do an actual run
 			if [ $version -eq 0 -o $version -eq 1 ]
 			then
-				for (( T_oi=7; T_oi<= ${ofw}; T_oi=T_oi*2 ))
+				for (( T_oi=7; T_oi<= ${ofw}; T_oi=T_oi*4 ))
 				do
 				if [ `expr $ofw % $T_oi` -eq 0 ] 
 				then
-				for (( T_oj=7; T_oj<= ${ofh}; T_oj=T_oj*2 ))
+				for (( T_oj=7; T_oj<= ${ofh}; T_oj=T_oj*4 ))
 				do
 				if [ `expr $ofh % $T_oj` -eq 0 ] 
 				then
@@ -63,7 +71,32 @@ do
      					# do something
 					echo  $T_oi " " $T_oj " " $T_ifm_tile " " $T_ofm_tile
 					GFLOPS=`../conv2d $config ${images} ${version} ${check_correctness} |  grep GFLOPS |  cut -d= -f2`
-                        		echo "${version}_${T_oi}_${T_oj}_${T_ifm_tile}_${T_ofm_tile},${GFLOPS}" >> ${CONFIG_OUT}
+
+					rm ${TEMP}/temp.c
+					if [ $version -eq 0 ] 
+					then
+					cp ../padded_conv_fp_stride_1_tiled_loop_order_0.c ${TEMP}/temp.c
+					fi
+
+					if [ $version -eq 1 ] 
+					then
+					cp ../padded_conv_fp_stride_1_tiled_loop_order_1.c ${TEMP}/temp.c
+					fi
+
+					rm tile_sizes.c
+					echo "#define T_oi ${T_oi}" > tile_sizes.c
+					echo "#define T_oj ${T_oj}" >> tile_sizes.c
+					echo "#define T_ifm_tile ${T_ifm_tile}" >> tile_sizes.c
+					echo "#define T_ofm_tile ${T_ofm_tile}" >> tile_sizes.c
+					cat temp/temp.c >> tile_sizes.c
+					mv tile_sizes.c ${TEMP}/temp.c
+					config_file=${config_num}_${images}_conv_config.txt
+					output_file=${TEMP}/temp.c${config_file}_ws_stats.csv
+					rm ${output_file}
+					../../data_reuse_analyzer/polyscientist --input ${TEMP}/temp.c --config ${CONFIG_DIR}/${config_file} --minout 
+					echo -n "${version}_${T_oi}_${T_oj}_${T_ifm_tile}_${T_ofm_tile},${GFLOPS}," | cat - ${output_file} >> ${CONFIG_OUT}
+
+
 				fi
 				done
 				fi
@@ -76,7 +109,32 @@ do
 			else
 				(cd .. && make clean && make) 	
 				GFLOPS=`../conv2d $config ${images} ${version} ${check_correctness} |  grep GFLOPS |  cut -d= -f2`
-				echo "${version},${GFLOPS}" >> ${CONFIG_OUT}
+                                rm ${TEMP}/temp.c
+                                if [ $version -eq 2 ]
+                                then
+                                cp ../padded_conv_fp_stride_1_libxsmm_core.c ${TEMP}/temp.c
+                                fi
+
+                                if [ $version -eq 3 ]
+                                then
+                                cp ../padded_conv_fp_stride_1_libxsmm_core2.c ${TEMP}/temp.c
+                                fi
+
+                                if [ $version -eq 4 ]
+                                then
+                                cp ../padded_conv_fp_stride_1_libxsmm_core3.c ${TEMP}/temp.c
+                                fi
+
+                                if [ $version -eq 5 ]
+                                then
+                                cp ../padded_conv_fp_stride_1_libxsmm_core4.c ${TEMP}/temp.c
+                                fi
+
+                                config_file=${config_num}_${images}_conv_config.txt
+                                output_file=${TEMP}/temp.c${config_file}_ws_stats.csv
+                                rm ${output_file}
+                                ../../data_reuse_analyzer/polyscientist --input ${TEMP}/temp.c --config ${CONFIG_DIR}/${config_file} --minout
+                                echo -n "${version},${GFLOPS}," | cat - ${output_file} >> ${CONFIG_OUT}
 			fi
 		done
 	done

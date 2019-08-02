@@ -1,10 +1,22 @@
 #define min(X, Y) (((X) < (Y)) ? (X) : (Y))
 #define max(X, Y) (((X) > (Y)) ? (X) : (Y))
 
+#ifndef T_ofm_tile
 #define T_ofm_tile 4
+#endif // !T_ofm_tile
+
+#ifndef T_ifm_tile
 #define T_ifm_tile 1
+#endif // !T_ifm_tile
+
+#ifndef T_oj
 #define T_oj 4
+#endif // !T_oj
+
+#ifndef T_oi
 #define T_oi 28
+#endif // !T_oi
+
 
 #define GEMM_BLOCK 16
 void padded_conv_fp_stride_1_tiled_loop_order_1(int nImg, int nIfm, int nOfm, int ifhp, int ifwp, int ofhp, int ofwp, int ifh, int ifw,
