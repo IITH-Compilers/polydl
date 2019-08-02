@@ -23,15 +23,16 @@ config19='100  7   7   2048   512 1 1 0 0 1'
 
 GEMM_BLOCK=64
 config_num=1
+check_correctness=0
 for config in "$config1" 
 do
-	for images in 1 #28
+	for images in 1 28
 	do
 	        CONFIG_OUT=${config_num}_${images}_${OUT}
 	        rm ${CONFIG_OUT}
 
 		export OMP_NUM_THREADS=${images}
-		for version in 0 # 1 2 3 4 5
+		for version in 0 1 2 3 4 5
 		do
 			params=( ${config} )
 			ofw=${params[1]}
@@ -49,11 +50,11 @@ do
 				do
 				if [ `expr $ofh % $T_oj` -eq 0 ] 
 				then
-				for (( T_ifm_tile=1; T_ifm_tile<= ${nIfm}; T_ifm_tile=T_ifm_tile*2 ))
+				for (( T_ifm_tile=1; T_ifm_tile<= ${nIfm}; T_ifm_tile=T_ifm_tile*4 ))
                                 do
 				if [ `expr $nIfm % $T_ifm_tile` -eq 0 ]
 				then
-                                for (( T_ofm_tile=1; T_ofm_tile<= ${nOfm}; T_ofm_tile=T_ofm_tile*2 ))
+                                for (( T_ofm_tile=1; T_ofm_tile<= ${nOfm}; T_ofm_tile=T_ofm_tile*4 ))
                                 do
                                 if [ `expr $nOfm % $T_ofm_tile` -eq 0 ]
                                 then
@@ -61,7 +62,7 @@ do
 					(cd .. && make clean && make MACROFLAGS="-DT_oi=$T_oi -DT_oj=$T_oj -DT_ifm_tile=$T_ifm_tile -DT_ofm_tile=$T_ofm_tile")
      					# do something
 					echo  $T_oi " " $T_oj " " $T_ifm_tile " " $T_ofm_tile
-					GFLOPS=`../conv2d $config ${images} ${version} |  grep GFLOPS |  cut -d= -f2`
+					GFLOPS=`../conv2d $config ${images} ${version} ${check_correctness} |  grep GFLOPS |  cut -d= -f2`
                         		echo "${version}_${T_oi}_${T_oj}_${T_ifm_tile}_${T_ofm_tile},${GFLOPS}" >> ${CONFIG_OUT}
 				fi
 				done
@@ -74,7 +75,7 @@ do
 				echo
 			else
 				(cd .. && make clean && make) 	
-				GFLOPS=`../conv2d $config ${images} ${version} |  grep GFLOPS |  cut -d= -f2`
+				GFLOPS=`../conv2d $config ${images} ${version} ${check_correctness} |  grep GFLOPS |  cut -d= -f2`
 				echo "${version},${GFLOPS}" >> ${CONFIG_OUT}
 			fi
 		done

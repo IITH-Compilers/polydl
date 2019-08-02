@@ -637,6 +637,7 @@ int main(int argc, char **argv) {
 	int ifhp, ifwp, ofhp, ofwp, ofh, ofw;
 	int stride_h, stride_w, pad_h, pad_w, pad_h_in, pad_w_in, pad_h_out, pad_w_out;
 	int version = 5;
+	int check_correctness = 1;
 
 	correctness_t norms_fwd;
 	memset(&norms_fwd, 0, sizeof(norms_fwd));
@@ -675,6 +676,7 @@ int main(int argc, char **argv) {
 	if (argc > i) stride = atoi(argv[i++]);
 	if (argc > i) nImg = atoi(argv[i++]);
 	if (argc > i) version = atoi(argv[i++]);
+	if (argc > i) check_correctness = atoi(argv[i++]);
 
 	printf("version = %d\n", version);
 
@@ -779,54 +781,65 @@ int main(int argc, char **argv) {
 	zero_buf(&gemm_output[0][0][0][0][0], nImg*nOfm*ofhp*ofwp);
 	zero_buf(&check_output[0][0][0][0], nImg*nOfm*ofhp*ofwp);
 
-	printf("##########################################\n");
-	printf("#   Correctness - FWD (custom-Storage)   #\n");
-	printf("##########################################\n");
-	printf("Calling naive_conv_fp_stride_1\n");
-	clock_t start = clock();
+	copy_NCHW_to_GEMM(nImg, ifhp, ifwp, nIfm, naive_input, gemm_input);
+	copy_KCRS_to_GEMM(kh, kw, nIfm, nOfm, naive_filter, gemm_filter);
 
-	naive_conv_fp_stride_1(nImg, nIfm, nOfm, ifhp, ifwp, ofhp, ofwp, ifh, ifw,
-		ofh, ofw, pad_h, pad_w, pad_h_in, pad_w_in, pad_h_out,
-		pad_w_out, kh, kw, stride_h, stride_w, naive_input, naive_output, naive_filter);
-
-	clock_t end = clock();
-	double exec_time = (double)(end - start) / CLOCKS_PER_SEC;
-	printf("Total time of naive_conv_fp_stride_1 = %f seconds\n", exec_time);
+	clock_t start, end;
+	double exec_time;
 	flops = (double)nImg * (double)nIfm * (double)nOfm * (double)ofh * (double)ofw * (double)(2 * kh * kw) * (double)iters;
 
-	printf("Calling copy_NCHW_to_GEMM\n");
-	copy_NCHW_to_GEMM(nImg, ifhp, ifwp, nIfm, naive_input, gemm_input);
+	if (check_correctness) {
+		printf("##########################################\n");
+		printf("#   Correctness - FWD (custom-Storage)   #\n");
+		printf("##########################################\n");
+		printf("Calling naive_conv_fp_stride_1\n");
+		start = clock();
 
-	printf("Calling copy_KCRS_to_GEMM\n");
-	copy_KCRS_to_GEMM(kh, kw, nIfm, nOfm, naive_filter, gemm_filter);
-	printf("Calling padded_conv_fp_stride_1\n");
-	padded_conv_fp_stride_1(nImg, nIfm, nOfm, ifhp, ifwp, ofhp, ofwp, ifh, ifw,
-		ofh, ofw, pad_h, pad_w, pad_h_in, pad_w_in, pad_h_out,
-		pad_w_out, kh, kw, stride_h, stride_w, gemm_input, gemm_output, gemm_filter, version, 1 /*iters*/);
+		naive_conv_fp_stride_1(nImg, nIfm, nOfm, ifhp, ifwp, ofhp, ofwp, ifh, ifw,
+			ofh, ofw, pad_h, pad_w, pad_h_in, pad_w_in, pad_h_out,
+			pad_w_out, kh, kw, stride_h, stride_w, naive_input, naive_output, naive_filter);
 
-	printf("Calling copy_GEMM_to_NCHW\n");
-	copy_GEMM_to_NCHW(nImg, ofhp, ofwp, nOfm, gemm_output, check_output);
+		end = clock();
+		exec_time = (double)(end - start) / CLOCKS_PER_SEC;
+		printf("Total time of naive_conv_fp_stride_1 = %f seconds\n", exec_time);
 
-	printf("Printing input values\n");
-	printf("%f %f %f\n", naive_input[0][0][0][0], naive_input[nImg / 2][nIfm / 2][ifhp / 2][ifwp / 2], naive_input[nImg - 1][nIfm - 1][ifhp - 1][ifwp - 1]);
-	printf("%f %f %f\n", gemm_input[0][0][0][0][0], gemm_input[nImg / 2][(nIfm / 2) / GEMM_BLOCK][ifhp / 2][ifwp / 2][(nIfm / 2) % GEMM_BLOCK], gemm_input[nImg - 1][(nIfm - 1) / GEMM_BLOCK][ifhp - 1][ifwp - 1][(nIfm - 1) % GEMM_BLOCK]);
-	printf("Printing weight values\n");
-	printf("%f %f %f\n", naive_filter[0][0][0][0], naive_filter[nOfm / 2][nIfm / 2][kh / 2][kw / 2], naive_filter[nOfm - 1][nIfm - 1][kh - 1][kw - 1]);
-	printf("%f %f %f\n", gemm_filter[0][0][0][0][0][0], gemm_filter[(nOfm / 2) / GEMM_BLOCK][(nIfm / 2) / GEMM_BLOCK][kh / 2][kw / 2][(nOfm / 2) % GEMM_BLOCK][(nIfm / 2) % GEMM_BLOCK], gemm_filter[(nOfm - 1) / GEMM_BLOCK][(nIfm - 1) / GEMM_BLOCK][kh - 1][kw - 1][(nOfm - 1) % GEMM_BLOCK][(nIfm - 1) % GEMM_BLOCK]);
-	printf("Printing output values\n");
-	printf("%f %f %f\n", naive_output[0][0][0][0], naive_output[nImg / 2][nOfm / 2][ofhp / 2][ofwp / 2], naive_output[nImg - 1][nOfm - 1][ofhp - 1][ofwp - 1]);
-	printf("Printing check_output values\n");
-	printf("%f %f %f\n", check_output[0][0][0][0], check_output[nImg / 2][nOfm / 2][ofhp / 2][ofwp / 2], check_output[nImg - 1][nOfm - 1][ofhp - 1][ofwp - 1]);
-	printf("Printing gemm_output values\n");
-	printf("%f %f %f\n", gemm_output[0][0][0][0][0], gemm_output[nImg / 2][(nOfm / 2) / GEMM_BLOCK][ofhp / 2][ofwp / 2][(nOfm / 2) % GEMM_BLOCK], gemm_output[nImg - 1][(nOfm - 1) / GEMM_BLOCK][ofhp - 1][ofwp - 1][(nOfm - 1) % GEMM_BLOCK]);
+		printf("Calling padded_conv_fp_stride_1\n");
+		padded_conv_fp_stride_1(nImg, nIfm, nOfm, ifhp, ifwp, ofhp, ofwp, ifh, ifw,
+			ofh, ofw, pad_h, pad_w, pad_h_in, pad_w_in, pad_h_out,
+			pad_w_out, kh, kw, stride_h, stride_w, gemm_input, gemm_output, gemm_filter, version, 1 /*iters*/);
 
-	/* compare */
-	compare_buf(naive_output, check_output, nImg*nOfm*ofhp*ofwp, &norms_fwd);
-	printf("             1-norm of reference: %f\n", norms_fwd.one_norm_ref);
-	printf("             1-norm of GEMM-code: %f\n", norms_fwd.one_norm_test);
-	printf("      L2-error-norm of GEMM-code: %f\n", norms_fwd.l2_rel_err);
-	printf("    inf-norm of comp. rel. error: %f\n", norms_fwd.max_rel_err);
-	printf("    inf-norm of comp. abs. error: %f\n", norms_fwd.max_abs_err);
+		printf("Calling copy_GEMM_to_NCHW\n");
+		copy_GEMM_to_NCHW(nImg, ofhp, ofwp, nOfm, gemm_output, check_output);
+
+		printf("Printing input values\n");
+		printf("%f %f %f\n", naive_input[0][0][0][0], naive_input[nImg / 2][nIfm / 2][ifhp / 2][ifwp / 2], naive_input[nImg - 1][nIfm - 1][ifhp - 1][ifwp - 1]);
+		printf("%f %f %f\n", gemm_input[0][0][0][0][0], gemm_input[nImg / 2][(nIfm / 2) / GEMM_BLOCK][ifhp / 2][ifwp / 2][(nIfm / 2) % GEMM_BLOCK], gemm_input[nImg - 1][(nIfm - 1) / GEMM_BLOCK][ifhp - 1][ifwp - 1][(nIfm - 1) % GEMM_BLOCK]);
+		printf("Printing weight values\n");
+		printf("%f %f %f\n", naive_filter[0][0][0][0], naive_filter[nOfm / 2][nIfm / 2][kh / 2][kw / 2], naive_filter[nOfm - 1][nIfm - 1][kh - 1][kw - 1]);
+		printf("%f %f %f\n", gemm_filter[0][0][0][0][0][0], gemm_filter[(nOfm / 2) / GEMM_BLOCK][(nIfm / 2) / GEMM_BLOCK][kh / 2][kw / 2][(nOfm / 2) % GEMM_BLOCK][(nIfm / 2) % GEMM_BLOCK], gemm_filter[(nOfm - 1) / GEMM_BLOCK][(nIfm - 1) / GEMM_BLOCK][kh - 1][kw - 1][(nOfm - 1) % GEMM_BLOCK][(nIfm - 1) % GEMM_BLOCK]);
+		printf("Printing output values\n");
+		printf("%f %f %f\n", naive_output[0][0][0][0], naive_output[nImg / 2][nOfm / 2][ofhp / 2][ofwp / 2], naive_output[nImg - 1][nOfm - 1][ofhp - 1][ofwp - 1]);
+		printf("Printing check_output values\n");
+		printf("%f %f %f\n", check_output[0][0][0][0], check_output[nImg / 2][nOfm / 2][ofhp / 2][ofwp / 2], check_output[nImg - 1][nOfm - 1][ofhp - 1][ofwp - 1]);
+		printf("Printing gemm_output values\n");
+		printf("%f %f %f\n", gemm_output[0][0][0][0][0], gemm_output[nImg / 2][(nOfm / 2) / GEMM_BLOCK][ofhp / 2][ofwp / 2][(nOfm / 2) % GEMM_BLOCK], gemm_output[nImg - 1][(nOfm - 1) / GEMM_BLOCK][ofhp - 1][ofwp - 1][(nOfm - 1) % GEMM_BLOCK]);
+
+		/* compare */
+		compare_buf(naive_output, check_output, nImg*nOfm*ofhp*ofwp, &norms_fwd);
+		printf("             1-norm of reference: %f\n", norms_fwd.one_norm_ref);
+		printf("             1-norm of GEMM-code: %f\n", norms_fwd.one_norm_test);
+		printf("      L2-error-norm of GEMM-code: %f\n", norms_fwd.l2_rel_err);
+		printf("    inf-norm of comp. rel. error: %f\n", norms_fwd.max_rel_err);
+		printf("    inf-norm of comp. abs. error: %f\n", norms_fwd.max_abs_err);
+
+	}
+	else {
+		/* Warm up */
+		padded_conv_fp_stride_1(nImg, nIfm, nOfm, ifhp, ifwp, ofhp, ofwp, ifh, ifw,
+			ofh, ofw, pad_h, pad_w, pad_h_in, pad_w_in, pad_h_out,
+			pad_w_out, kh, kw, stride_h, stride_w, gemm_input, gemm_output, gemm_filter, version, 1 /*iters*/);
+
+	}
 
 	printf("##########################################\n");
 	printf("#   Performance - FWD (custom-Storage)   #\n");
