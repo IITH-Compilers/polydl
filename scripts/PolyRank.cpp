@@ -14,16 +14,24 @@ using namespace std;
 #define max(X, Y) (((X) > (Y)) ? (X) : (Y))
 
 
-/*
-#define L1Cost 3
-#define L2Cost 17
-#define L3Cost 60
-*/
-
+/*Latency related*/
 #define L1Cost 4
-#define L2Cost 12
-#define L3Cost 42
+#define L2Cost 14
+#define L3Cost 60
 #define MemCost 84
+
+
+/*Bandwidth related:
+L1: 192 B/cycle : R/W together
+L2: 64 B/cycle : R/W together: 96 B/cycle
+L3: 8 B/cycle : R/W together: 16 B/cycle
+Mem: 2 B/cycle
+
+*/
+#define SecondaryL1Cost (1.0/192.0)
+#define SecondaryL2Cost (1.0/96.0)
+#define SecondaryL3Cost (1.0/16.0)
+#define SecondaryMemCost 0.0
 
 
 struct ProgramVariant {
@@ -31,8 +39,13 @@ struct ProgramVariant {
 	int version;
 	double gflops;
 	int L1, L2, L3, Mem;
+	long L1DataSetSize;
+	long L2DataSetSize;
+	long L3DataSetSize;
+	long MemDataSetSize;
 	int polyRank, actualRank;
 	double userDefinedCost;
+	double secondaryCost;
 };
 
 typedef struct ProgramVariant ProgramVariant;
@@ -208,20 +221,33 @@ void AssignPolyRanks(vector<ProgramVariant*> *programVariants) {
 source and target iteration data sets and compute its cardinality.
 The cardinality can be the weight of the reuse*/
 
-/*TODO: De-duplicate data reuses.*/
-
-
 	for (int i = 0; i < programVariants->size(); i++) {
 		double totalReuses = programVariants->at(i)->L1 +
 			programVariants->at(i)->L2 +
 			programVariants->at(i)->L3 +
 			programVariants->at(i)->Mem;
 
+		double totalDataSetSize =
+			programVariants->at(i)->L1DataSetSize +
+			programVariants->at(i)->L2DataSetSize +
+			programVariants->at(i)->L3DataSetSize +
+			programVariants->at(i)->MemDataSetSize;
+
 		programVariants->at(i)->userDefinedCost =
 			(programVariants->at(i)->L1 / totalReuses) * L1Cost +
 			(programVariants->at(i)->L2 / totalReuses) * L2Cost +
 			(programVariants->at(i)->L3 / totalReuses) * L3Cost +
 			(programVariants->at(i)->Mem / totalReuses) * MemCost;
+
+		programVariants->at(i)->secondaryCost =
+			(programVariants->at(i)->L1DataSetSize)
+			* SecondaryL1Cost +
+			(programVariants->at(i)->L2DataSetSize)
+			* SecondaryL2Cost +
+			(programVariants->at(i)->L3DataSetSize)
+			* SecondaryL3Cost +
+			(programVariants->at(i)->MemDataSetSize)
+			* SecondaryMemCost;
 	}
 
 	AssignPolyRanksBasedOnUserDefinedCost(programVariants);
@@ -229,7 +255,21 @@ The cardinality can be the weight of the reuse*/
 
 bool compareByUserDefinedCost(const ProgramVariant* a,
 	const ProgramVariant* b) {
-	return a->userDefinedCost < b->userDefinedCost;
+
+	/*We use the following statistics in the order shown as the criteria
+	for ordering two program variants. The lower the value of a given metric, the better the variant is considered:
+	1. userDefinedCost
+	2. MemDataSetSize
+	3. L3DataSetSize
+	4. L2DataSetSize
+	5. L1DataSetSize */
+
+	if (a->userDefinedCost == b->userDefinedCost) {
+		return a->secondaryCost < b->secondaryCost;
+	}
+	else {
+		return a->userDefinedCost < b->userDefinedCost;
+	}
 }
 
 void AssignPolyRanksBasedOnUserDefinedCost(
@@ -251,7 +291,7 @@ void AssignPolyRanksBasedOnUserDefinedCost(
 					programVariants->at(i)->userDefinedCost;
 			}
 
-			programVariants->at(i)->polyRank = currentRank;
+			programVariants->at(i)->polyRank = i + 1;
 		}
 	}
 }
@@ -290,7 +330,9 @@ void InitializeRanks(ProgramVariant *programVariant) {
 
 void ReadProgramVariants(string line, vector<ProgramVariant*> *programVariants) {
 	/* The columns are assumed to be the following:
-	Config	<Version	GFLOPS	L1	L2	L3 Mem> <Version	GFLOPS	L1	L2	L3 Mem> ...
+	Config
+	<Version	GFLOPS	L1	L2	L3 Mem L1DataSetSize	L2DataSetSize	L3DataSetSize	MemDataSetSize>
+	<Version	GFLOPS	L1	L2	L3 Mem L1DataSetSize	L2DataSetSize	L3DataSetSize	MemDataSetSize> ...
 	*/
 
 	istringstream iss(line);
@@ -304,12 +346,17 @@ void ReadProgramVariants(string line, vector<ProgramVariant*> *programVariants) 
 	cout << "config: " << config << endl;
 
 	string version, gflops, L1, L2, L3, Mem;
+	string L1DataSetSize, L2DataSetSize, L3DataSetSize, MemDataSetSize;
 	while (getline(iss, version, ',') &&
 		getline(iss, gflops, ',') &&
 		getline(iss, L1, ',') &&
 		getline(iss, L2, ',') &&
 		getline(iss, L3, ',') &&
-		getline(iss, Mem, ',')) {
+		getline(iss, Mem, ',') &&
+		getline(iss, L1DataSetSize, ',') &&
+		getline(iss, L2DataSetSize, ',') &&
+		getline(iss, L3DataSetSize, ',') &&
+		getline(iss, MemDataSetSize, ',')) {
 		ProgramVariant* var = new ProgramVariant;
 		var->config = config;
 		var->version = stoi(version);
@@ -318,6 +365,10 @@ void ReadProgramVariants(string line, vector<ProgramVariant*> *programVariants) 
 		var->L2 = stoi(L2);
 		var->L3 = stoi(L3);
 		var->Mem = stoi(Mem);
+		var->L1DataSetSize = stol(L1DataSetSize);
+		var->L2DataSetSize = stol(L2DataSetSize);
+		var->L3DataSetSize = stol(L3DataSetSize);
+		var->MemDataSetSize = stol(MemDataSetSize);
 		InitializeRanks(var);
 		programVariants->push_back(var);
 	}
@@ -331,6 +382,12 @@ void PrintProgramVariant(ProgramVariant *var) {
 	cout << "L2: " << var->L2 << endl;
 	cout << "L3: " << var->L3 << endl;
 	cout << "Mem: " << var->Mem << endl;
+	cout << "L1DataSetSize: " << var->L1DataSetSize << endl;
+	cout << "L2DataSetSize: " << var->L2DataSetSize << endl;
+	cout << "L3DataSetSize: " << var->L3DataSetSize << endl;
+	cout << "MemDataSetSize: " << var->MemDataSetSize << endl;
+	cout << "userDefinedCost: " << var->userDefinedCost << endl;
+	cout << "secondaryCost: " << var->secondaryCost << endl;
 	cout << "polyRank: " << var->polyRank << endl;
 	cout << "actualRank: " << var->actualRank << endl;
 }
