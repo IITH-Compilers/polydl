@@ -1,6 +1,7 @@
 CC=icc
 CFLAGS=-O3 -I./libxsmm/include -qopenmp -fno-alias
 LDFLAGS=-L./libxsmm/lib -lxsmm -lxsmmext -lpthread
+MACROFLAGS=
 
 default: conv2d
 
@@ -11,7 +12,7 @@ default: conv2d
 	$(MAKE) BLAS=0 -C libxsmm
 
 conv2d: conv2d.c ./libxsmm/include/libxsmm.h
-	$(CC) $(CFLAGS) conv2d.c $(LDFLAGS) -o conv2d
+	$(CC) $(CFLAGS) $(MACROFLAGS) conv2d.c $(LDFLAGS) -o conv2d
 
 clean: 
 	rm -rf conv2d
