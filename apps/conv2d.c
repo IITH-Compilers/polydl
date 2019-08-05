@@ -720,7 +720,7 @@ int main(int argc, char **argv) {
 	printf("SIZE Weight     : %10.2f MiB\n", (double)(nIfm*nOfm*kw*kh * sizeof(float)) / (1024.0*1024.0));
 
 	if ((nIfm % GEMM_BLOCK != 0) || (nOfm % GEMM_BLOCK != 0)) {
-		printf("\nThis code only works for ofm/ifm % %d!\n\n\n", GEMM_BLOCK);
+		printf("\nThis code only works for ofm/ifm %d!\n\n\n", GEMM_BLOCK);
 		return -1;
 	}
 
