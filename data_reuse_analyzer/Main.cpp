@@ -226,11 +226,17 @@ isl_stat ComputeWorkingSetSizesForDependenceBasicMap(isl_basic_map* dep,
 	isl_set* minTarget = isl_set_lexmin(isl_set_copy(target));
 	isl_set* maxTarget = isl_set_lexmax(isl_set_copy(target));
 
-	cout << "Computing minWSSize: " << endl;
+	if (DEBUG) {
+		cout << "Computing minWSSize: " << endl;
+	}
+
 	isl_union_pw_qpolynomial* minWSSize =
 		ComputeDataSetSize(sourceDomain, source, minTarget, scop);
 
-	cout << "Computing maxWSSize: " << endl;
+	if (DEBUG) {
+		cout << "Computing maxWSSize: " << endl;
+	}
+
 	isl_union_pw_qpolynomial* maxWSSize =
 		ComputeDataSetSize(sourceDomain, source, maxTarget, scop);
 
