@@ -34,13 +34,13 @@ mkdir ${PERF_DIR}
 mkdir ${TEMP}
 for config in "$config1" 
 do
-	for images in 28 #1 
+	for images in 28 1 
 	do
 	        CONFIG_OUT=${PERF_DIR}/${config_num}_${images}_${OUT}
 	        rm ${CONFIG_OUT}
 
 		export OMP_NUM_THREADS=${images}
-		for version in 2 3 4 1 #0
+		for version in 2 3 4 5 1 0
 		do
 			params=( ${config} )
 			ofw=${params[1]}
