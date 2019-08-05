@@ -50,10 +50,19 @@ struct ProgramVariant {
 
 typedef struct ProgramVariant ProgramVariant;
 
+struct UserOptions {
+	bool headers;
+	bool perfseparaterow;
+	/* false. For a single row holding the performance of all variants
+	   true. The performance of different variants beings in different rows*/
+};
+
+typedef struct UserOptions UserOptions;
+
 /* Function declarations begin */
 void OrchestrateProgramVariantsRanking(int argc, char **argv);
 void FreeProgramVariants(vector<ProgramVariant*> *programVariants);
-void ReadProgramVariants(string line, vector<ProgramVariant*> *programVariants);
+void ReadProgramVariants(string line, vector<ProgramVariant*> *programVariants, UserOptions* userOptions);
 void PrintProgramVariant(ProgramVariant *var);
 void RankProgramVariants(vector<ProgramVariant*> *programVariants);
 void InitializeRanks(vector<ProgramVariant*> *programVariants);
@@ -70,9 +79,13 @@ void AssignPolyRanksBasedOnUserDefinedCost(
 bool compareByUserDefinedCost(const ProgramVariant* a,
 	const ProgramVariant* b);
 void WriteRanksToFile(vector<ProgramVariant*> *programVariants,
-	ofstream& outFile);
+	ofstream& outFile, UserOptions *userOptions);
 void WritePerfToFile(vector<ProgramVariant*> *programVariants,
-	ofstream& outFile);
+	ofstream& outFile, UserOptions* userOptions);
+UserOptions* ProcessInputArguments(int argc, char **argv);
+void RankProgramVariantsAndWriteResults(
+	vector<ProgramVariant*> *programVariants,
+	ofstream& outFile, ofstream& outFile2, UserOptions* userOptions);
 /* Function declarations end */
 
 
@@ -82,13 +95,38 @@ int main(int argc, char **argv) {
 	return 0;
 }
 
+UserOptions* ProcessInputArguments(int argc, char **argv) {
+	string arg;
+	string NO_HEADER = "--noheader";
+	string PERF_SEPARATE_ROW = "--perfseparaterow";
+	UserOptions* userOptions = new UserOptions;
+	userOptions->headers = true;
+	userOptions->perfseparaterow = false;
+
+	for (int i = 2; i < argc; i++) {
+		arg = argv[i];
+
+		if (argv[i] == NO_HEADER) {
+			userOptions->headers = false;
+		}
+
+		if (argv[i] == PERF_SEPARATE_ROW) {
+			userOptions->perfseparaterow = true;
+		}
+	}
+
+	return userOptions;
+}
+
 void OrchestrateProgramVariantsRanking(int argc, char **argv) {
-	if (argc < 1) {
+	if (argc < 2) {
 		cout << "Input file not specified." << endl;
 		exit(1);
 	}
 
 	string inputFile = argv[1];
+	UserOptions* userOptions = ProcessInputArguments(argc, argv);
+
 	ifstream inFile;
 	inFile.open(inputFile);
 
@@ -134,7 +172,9 @@ void OrchestrateProgramVariantsRanking(int argc, char **argv) {
 	/* Each line holds performance data on multiple variants of the program.
 	Therefore, we perform rank ordering on each line of the CSV file*/
 	string line;
-	bool header = true;
+	bool header = userOptions->headers;
+
+
 	while (getline(inFile, line))
 	{
 		// We will skip the header file
@@ -143,22 +183,30 @@ void OrchestrateProgramVariantsRanking(int argc, char **argv) {
 			continue;
 		}
 
-		ReadProgramVariants(line, programVariants);
-		RankProgramVariants(programVariants);
-		WriteRanksToFile(programVariants, outFile);
-		WritePerfToFile(programVariants, outFile2);
-		FreeProgramVariants(programVariants);
+		ReadProgramVariants(line, programVariants, userOptions);
+
+		if (userOptions->perfseparaterow == false) {
+			RankProgramVariantsAndWriteResults(programVariants,
+				outFile, outFile2, userOptions);
+		}
+	}
+
+	if (userOptions->perfseparaterow == true) {
+		RankProgramVariantsAndWriteResults(programVariants,
+			outFile, outFile2, userOptions);
 	}
 
 	delete programVariants;
+	delete userOptions;
 
 	inFile.close();
 	outFile.close();
 }
 
 void WriteRanksToFile(vector<ProgramVariant*> *programVariants,
-	ofstream& outFile) {
-	if (programVariants->size() >= 0) {
+	ofstream& outFile, UserOptions *userOptions) {
+	if (programVariants->size() >= 0 &&
+		userOptions->perfseparaterow == false) {
 		outFile << programVariants->at(0)->config << endl;
 	}
 
@@ -175,8 +223,17 @@ void WriteRanksToFile(vector<ProgramVariant*> *programVariants,
 	outFile << endl;
 }
 
+void RankProgramVariantsAndWriteResults(
+	vector<ProgramVariant*> *programVariants,
+	ofstream& outFile, ofstream& outFile2, UserOptions* userOptions) {
+	RankProgramVariants(programVariants);
+	WriteRanksToFile(programVariants, outFile, userOptions);
+	WritePerfToFile(programVariants, outFile2, userOptions);
+	FreeProgramVariants(programVariants);
+}
+
 void WritePerfToFile(vector<ProgramVariant*> *programVariants,
-	ofstream& outFile) {
+	ofstream& outFile, UserOptions* userOptions) {
 	double maxGflops = 0;
 	double maxPolyKFlops = 0;
 
@@ -190,8 +247,14 @@ void WritePerfToFile(vector<ProgramVariant*> *programVariants,
 	}
 
 	if (programVariants->size() >= 0) {
-		outFile << programVariants->at(0)->config << ","
-			<< maxGflops << "," << maxPolyKFlops << endl;
+
+		if (userOptions->perfseparaterow == false) {
+			outFile << programVariants->at(0)->config << ","
+				<< maxGflops << "," << maxPolyKFlops << endl;
+		}
+		else {
+			outFile << maxGflops << "," << maxPolyKFlops << endl;
+		}
 	}
 }
 
@@ -328,7 +391,7 @@ void InitializeRanks(ProgramVariant *programVariant) {
 	programVariant->userDefinedCost = 0;
 }
 
-void ReadProgramVariants(string line, vector<ProgramVariant*> *programVariants) {
+void ReadProgramVariants(string line, vector<ProgramVariant*> *programVariants, UserOptions* userOptions) {
 	/* The columns are assumed to be the following:
 	Config
 	<Version	GFLOPS	L1	L2	L3 Mem L1DataSetSize	L2DataSetSize	L3DataSetSize	MemDataSetSize>
@@ -338,12 +401,14 @@ void ReadProgramVariants(string line, vector<ProgramVariant*> *programVariants) 
 	istringstream iss(line);
 	string config;
 
-	if (!(getline(iss, config, ','))) {
-		cout << "Error reading the line in config file: " << line << endl;
-		exit(1);
-	}
+	if (userOptions->perfseparaterow == false) {
+		if (!(getline(iss, config, ','))) {
+			cout << "Error reading the line in config file: " << line << endl;
+			exit(1);
+		}
 
-	cout << "config: " << config << endl;
+		cout << "config: " << config << endl;
+	}
 
 	string version, gflops, L1, L2, L3, Mem;
 	string L1DataSetSize, L2DataSetSize, L3DataSetSize, MemDataSetSize;
