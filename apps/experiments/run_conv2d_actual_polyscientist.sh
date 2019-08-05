@@ -4,7 +4,7 @@ export LD_LIBRARY_PATH=/nfs_home/stavarag/work/software/barvinok/barvinok-0.41.2
 OUT=poly_perf.csv
 
 test_config='100  7  7  1 1 1 1 0 0 1'
-config1='100  56  56  64  256 1 1 0 0 1'
+config1='1000  56  56  64  256 1 1 0 0 1'
 config2='100  56  56  64  64 1 1 0 0 1'
 config3='100  56  56  64  64 3 3 1 1 1'
 config4='100  56  56  256  64 1 1 0 0 1'
@@ -34,7 +34,7 @@ mkdir ${PERF_DIR}
 mkdir ${TEMP}
 for config in "$config1" 
 do
-	for images in 28 1 
+	for images in 1 # 28 1 
 	do
 	        CONFIG_OUT=${PERF_DIR}/${config_num}_${images}_${OUT}
 	        rm ${CONFIG_OUT}
