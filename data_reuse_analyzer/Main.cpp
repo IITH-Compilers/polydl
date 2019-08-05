@@ -203,6 +203,12 @@ isl_stat ComputeWorkingSetSizesForDependence(isl_map* dep, void *user) {
 
 isl_stat ComputeWorkingSetSizesForDependenceBasicMap(isl_basic_map* dep,
 	void *user) {
+
+	if (DEBUG) {
+		cout << "Data_dependence: " << endl;
+		PrintBasicMap(dep);
+	}
+
 	ArgComputeWorkingSetSizesForDependence* arg =
 		(ArgComputeWorkingSetSizesForDependence*)user;
 	pet_scop *scop = arg->scop;
@@ -220,9 +226,11 @@ isl_stat ComputeWorkingSetSizesForDependenceBasicMap(isl_basic_map* dep,
 	isl_set* minTarget = isl_set_lexmin(isl_set_copy(target));
 	isl_set* maxTarget = isl_set_lexmax(isl_set_copy(target));
 
+	cout << "Computing minWSSize: " << endl;
 	isl_union_pw_qpolynomial* minWSSize =
 		ComputeDataSetSize(sourceDomain, source, minTarget, scop);
 
+	cout << "Computing maxWSSize: " << endl;
 	isl_union_pw_qpolynomial* maxWSSize =
 		ComputeDataSetSize(sourceDomain, source, maxTarget, scop);
 
@@ -286,6 +294,16 @@ isl_union_pw_qpolynomial* ComputeDataSetSize(isl_union_set* WS,
 	isl_union_set* writeSet =
 		isl_union_set_apply(isl_union_set_copy(WS),
 			isl_union_map_copy(may_writes));
+
+	if (DEBUG) {
+		cout << "Working set: " << endl;
+		PrintUnionSet(WS);
+		cout << "readSet: " << endl;
+		PrintUnionSet(readSet);
+		cout << "writeSet: " << endl;
+		PrintUnionSet(writeSet);
+	}
+
 	isl_union_set* dataSet = isl_union_set_union(readSet, writeSet);
 	return isl_union_set_card(dataSet);
 }
