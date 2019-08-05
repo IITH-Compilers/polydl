@@ -36,7 +36,7 @@ Mem: 2 B/cycle
 
 struct ProgramVariant {
 	string config;
-	int version;
+	string version;
 	double gflops;
 	int L1, L2, L3, Mem;
 	long L1DataSetSize;
@@ -424,7 +424,7 @@ void ReadProgramVariants(string line, vector<ProgramVariant*> *programVariants, 
 		getline(iss, MemDataSetSize, ',')) {
 		ProgramVariant* var = new ProgramVariant;
 		var->config = config;
-		var->version = stoi(version);
+		var->version = version;
 		var->gflops = stod(gflops);
 		var->L1 = stoi(L1);
 		var->L2 = stoi(L2);
