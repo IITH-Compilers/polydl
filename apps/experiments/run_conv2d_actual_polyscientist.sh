@@ -25,16 +25,16 @@ config18='1000  7   7   512  2048 1 1 0 0 1'
 config19='1000  7   7   2048   512 1 1 0 0 1'
 
 GEMM_BLOCK=64
-config_num=1
+config_num=2
 check_correctness=0
 PERF_DIR=perf_data
 CONFIG_DIR=configs
 TEMP=temp
 mkdir ${PERF_DIR}
 mkdir ${TEMP}
-for config in "$config1" 
+for config in "$config2" 
 do
-	for images in 1 # 28 1 
+	for images in 1 28
 	do
 	        CONFIG_OUT=${PERF_DIR}/${config_num}_${images}_${OUT}
 	        rm ${CONFIG_OUT}

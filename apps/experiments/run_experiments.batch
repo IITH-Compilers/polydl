@@ -1,0 +1,11 @@
+#!/bin/bash
+#
+#SBATCH --job-name=polyscientist
+#SBATCH --output=res.txt
+#
+#SBATCH --time=10:00:00
+#SBATCH --nodes=1
+#SBATCH --partition=skx
+
+cd /nfs_home/stavarag/work/polyscientist/apps/experiments
+sh run_conv2d_actual_polyscientist.sh
