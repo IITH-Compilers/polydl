@@ -32,6 +32,7 @@ libxsmm_smmfunction fwd_gemm;
 #endif // !T_oi
 
 #define GEMM_BLOCK 64
+#define NUM_TRIALS 3
 
 typedef struct {
 	double max_rel_err;
@@ -845,22 +846,38 @@ int main(int argc, char **argv) {
 	printf("#   Performance - FWD (custom-Storage)   #\n");
 	printf("##########################################\n");
 
-	start = clock();
-	l_start = libxsmm_timer_tick();
+	double min_l_total = 0.0;
+	double min_exec_time;
+	int trial;
+	for (trial = 0; trial < NUM_TRIALS; trial++) {
+		start = clock();
+		l_start = libxsmm_timer_tick();
 
-	padded_conv_fp_stride_1(nImg, nIfm, nOfm, ifhp, ifwp, ofhp, ofwp, ifh, ifw,
-		ofh, ofw, pad_h, pad_w, pad_h_in, pad_w_in, pad_h_out,
-		pad_w_out, kh, kw, stride_h, stride_w, gemm_input, gemm_output, gemm_filter, version, iters);
+		padded_conv_fp_stride_1(nImg, nIfm, nOfm, ifhp, ifwp, ofhp, ofwp, ifh, ifw,
+			ofh, ofw, pad_h, pad_w, pad_h_in, pad_w_in, pad_h_out,
+			pad_w_out, kh, kw, stride_h, stride_w, gemm_input, gemm_output, gemm_filter, version, iters);
 
-	l_end = libxsmm_timer_tick();
-	l_total = libxsmm_timer_duration(l_start, l_end);
-	end = clock();
-	exec_time = (double)(end - start) / CLOCKS_PER_SEC;
-	printf("Total consumed time of padded_conv_fp_stride_1 = %f seconds\n", exec_time);
-	printf("Elapsed time of padded_conv_fp_stride_1 = %f seconds\n", l_total);
+		l_end = libxsmm_timer_tick();
+		l_total = libxsmm_timer_duration(l_start, l_end);
+		end = clock();
+		exec_time = (double)(end - start) / CLOCKS_PER_SEC;
+
+		if (trial == 0) {
+			min_l_total = l_total;
+			min_exec_time = exec_time;
+		}
+		else {
+			min_l_total = min(min_l_total, l_total);
+			min_exec_time = min(min_exec_time, exec_time);
+		}
+	}
+
+
+	printf("Total consumed time of padded_conv_fp_stride_1 = %f seconds\n", min_exec_time);
+	printf("Elapsed time of padded_conv_fp_stride_1 = %f seconds\n", min_l_total);
 	printf("GFLOP  = %.5g\n", flops*1e-9 / (double)iters);
-	printf("fp time = %.5g\n", ((double)(l_total / iters)));
-	printf("GFLOPS =%.5g\n", (flops*1e-9) / l_total);
+	printf("fp time = %.5g\n", ((double)(min_l_total / iters)));
+	printf("GFLOPS =%.5g\n", (flops*1e-9) / min_l_total);
 
 	libxsmm_free(gemm_input);
 	libxsmm_free(gemm_output);
