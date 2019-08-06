@@ -300,11 +300,19 @@ The cardinality can be the weight of the reuse*/
 			programVariants->at(i)->L3DataSetSize +
 			programVariants->at(i)->MemDataSetSize;
 
+		/*
 		programVariants->at(i)->userDefinedCost =
 			(programVariants->at(i)->L1 / totalReuses) * L1Cost +
 			(programVariants->at(i)->L2 / totalReuses) * L2Cost +
 			(programVariants->at(i)->L3 / totalReuses) * L3Cost +
 			(programVariants->at(i)->Mem / totalReuses) * MemCost;
+			*/
+
+		programVariants->at(i)->userDefinedCost =
+			(programVariants->at(i)->L1DataSetSize) * L1Cost +
+			(programVariants->at(i)->L2DataSetSize) * L2Cost +
+			(programVariants->at(i)->L3DataSetSize) * L3Cost +
+			(programVariants->at(i)->MemDataSetSize) * MemCost;
 
 		programVariants->at(i)->secondaryCost =
 			(programVariants->at(i)->L1DataSetSize)
