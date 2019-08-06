@@ -163,7 +163,11 @@ void OrchestrateProgramVariantsRanking(int argc, char **argv) {
 		exit(1);
 	}
 
-	outFile2 << "Config,Max_GFLOPS,Poly_Top_" + to_string(TOP_K)
+	if (userOptions->perfseparaterow == false) {
+		outFile2 << "Config,";
+	}
+
+	outFile2 << "Max_GFLOPS, Poly_Top_" + to_string(TOP_K)
 		+ "GFLOPS" << endl;
 
 	vector<ProgramVariant*> *programVariants =
