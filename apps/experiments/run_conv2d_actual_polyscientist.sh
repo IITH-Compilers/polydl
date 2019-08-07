@@ -31,7 +31,7 @@ CONFIG_DIR=configs
 TEMP=temp
 mkdir ${PERF_DIR}
 mkdir ${TEMP}
-for config in "$config1" "$config2" "$config3" "$config4" "$config5" "$config6" "$config7" "$config8" "$config9" "$config10" 
+for config in "$config1" "$config2" "$config3" "$config4" "$config5" "$config6" "$config7" "$config8" "$config9" "$config10" "$config11" "$config12" "$config13" "$config14" "$config15" "$config16" "$config17" "$config18" "$config19" 
 do
 	for images in 1 28
 	do
@@ -39,7 +39,7 @@ do
 	        rm ${CONFIG_OUT}
 
 		export OMP_NUM_THREADS=${images}
-		for version in 2 3 4 5 #1 0
+		for version in 0 2 3 4 5 1
 		do
 			params=( ${config} )
 			ofw=${params[1]}
