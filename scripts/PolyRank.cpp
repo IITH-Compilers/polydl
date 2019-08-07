@@ -437,17 +437,24 @@ void ReadProgramVariants(string line, vector<ProgramVariant*> *programVariants, 
 		ProgramVariant* var = new ProgramVariant;
 		var->config = config;
 		var->version = version;
-		var->gflops = stod(gflops);
-		var->L1 = stoi(L1);
-		var->L2 = stoi(L2);
-		var->L3 = stoi(L3);
-		var->Mem = stoi(Mem);
-		var->L1DataSetSize = stol(L1DataSetSize);
-		var->L2DataSetSize = stol(L2DataSetSize);
-		var->L3DataSetSize = stol(L3DataSetSize);
-		var->MemDataSetSize = stol(MemDataSetSize);
-		InitializeRanks(var);
-		programVariants->push_back(var);
+
+		try {
+			var->gflops = stod(gflops);
+			var->L1 = stoi(L1);
+			var->L2 = stoi(L2);
+			var->L3 = stoi(L3);
+			var->Mem = stoi(Mem);
+			var->L1DataSetSize = stol(L1DataSetSize);
+			var->L2DataSetSize = stol(L2DataSetSize);
+			var->L3DataSetSize = stol(L3DataSetSize);
+			var->MemDataSetSize = stol(MemDataSetSize);
+			InitializeRanks(var);
+			programVariants->push_back(var);
+		}
+		catch (const invalid_argument) {
+			cerr << "Error parsing the line: " << line << endl;
+			delete var;
+		}
 	}
 }
 
