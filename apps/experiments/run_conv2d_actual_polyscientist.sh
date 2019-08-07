@@ -3,7 +3,6 @@ export LD_LIBRARY_PATH=/nfs_home/stavarag/work/software/barvinok/barvinok-0.41.2
 
 OUT=poly_perf.csv
 
-test_config='100  7  7  1 1 1 1 0 0 1'
 config1='1000  56  56  64  256 1 1 0 0 1'
 config2='1000  56  56  64  64 1 1 0 0 1'
 config3='1000  56  56  64  64 3 3 1 1 1'
@@ -25,14 +24,14 @@ config18='1000  7   7   512  2048 1 1 0 0 1'
 config19='1000  7   7   2048   512 1 1 0 0 1'
 
 GEMM_BLOCK=64
-config_num=3
+config_num=1
 check_correctness=0
 PERF_DIR=perf_data
 CONFIG_DIR=configs
 TEMP=temp
 mkdir ${PERF_DIR}
 mkdir ${TEMP}
-for config in "$config3" "$config4" "$config5" "$config6" 
+for config in "$config1" "$config2" "$config3" "$config4" "$config5" "$config6" "$config7" "$config8" "$config9" "$config10" 
 do
 	for images in 1 28
 	do
@@ -40,7 +39,7 @@ do
 	        rm ${CONFIG_OUT}
 
 		export OMP_NUM_THREADS=${images}
-		for version in 2 3 4 5 1 0
+		for version in 2 3 4 5 #1 0
 		do
 			params=( ${config} )
 			ofw=${params[1]}
