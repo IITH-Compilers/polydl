@@ -11,4 +11,4 @@ g++ (GCC) 9.1.0
 
 Example usage: 
 ./polyscientist --input ../apps/padded_conv_fp_stride_1_libxsmm_core4.c --config conv_config.txt
-./polyscientist --input ../apps/padded_conv_fp_stride_1_libxsmm_core4.c --interactive
+./polyscientist --input ../apps/padded_conv_fp_stride_1_libxsmm_core4.c --diagnostic
