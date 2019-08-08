@@ -9,7 +9,7 @@ default: conv2d
 	rm -rf libxsmm/
 	git clone https://github.com/hfp/libxsmm.git
 	$(MAKE) realclean -C libxsmm
-	$(MAKE) BLAS=0 -C libxsmm
+	$(MAKE) AVX=3 BLAS=0 -C libxsmm
 
 conv2d: conv2d.c ./libxsmm/include/libxsmm.h
 	$(CC) $(CFLAGS) $(MACROFLAGS) conv2d.c $(LDFLAGS) -o conv2d

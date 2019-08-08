@@ -33,6 +33,7 @@ libxsmm_smmfunction fwd_gemm;
 #endif // !T_oi
 
 #define GEMM_BLOCK 64
+#define NUM_TRIALS 3
 
 typedef struct {
 	double max_rel_err;
@@ -449,12 +450,14 @@ void zero_buf(float* buf, long size) {
 	}
 }
 
-void padded_conv_fp_stride_1(
+double padded_conv_fp_stride_1(
 	int nImg, int nIfm, int nOfm, int ifhp, int ifwp, int ofhp, int ofwp, int ifh, int ifw,
 	int ofh, int ofw, int pad_h, int pad_w, int pad_h_in, int pad_w_in, int pad_h_out,
 	int pad_w_out, int kh, int kw, int stride_h, int stride_w,
 	const float input[nImg][nIfm / GEMM_BLOCK][ifhp][ifwp][GEMM_BLOCK], float output[nImg][nOfm / GEMM_BLOCK][ofhp][ofwp][GEMM_BLOCK], const float filter[nOfm / GEMM_BLOCK][nIfm / GEMM_BLOCK][kh][kw][GEMM_BLOCK][GEMM_BLOCK], int version, int iters)
 {
+	unsigned long long l_start, l_end;
+	double l_total = 0.0;
 	/* declare a physcial padded buffer */
 
 	/*
@@ -471,48 +474,65 @@ void padded_conv_fp_stride_1(
 
 	if (version == 0) {
 		// printf("padded_conv_fp_stride_1_core\n");
+		l_start = libxsmm_timer_tick();
 		padded_conv_fp_stride_1_tiled_loop_order_0(nImg, nIfm, nOfm, ifhp, ifwp, ofhp, ofwp, ifh, ifw,
 			ofh, ofw, pad_h, pad_w, pad_h_in, pad_w_in, pad_h_out,
 			pad_w_out, kh, kw, stride_h, stride_w, pad_gemm_input, output, filter, iters);
+		l_end = libxsmm_timer_tick();
 	}
 	else if (version == 1) {
 		// printf("padded_conv_fp_stride_1_tiled_core\n");
+		l_start = libxsmm_timer_tick();
 		padded_conv_fp_stride_1_tiled_loop_order_1(nImg, nIfm, nOfm, ifhp, ifwp, ofhp, ofwp, ifh, ifw,
 			ofh, ofw, pad_h, pad_w, pad_h_in, pad_w_in, pad_h_out,
 			pad_w_out, kh, kw, stride_h, stride_w, pad_gemm_input, output, filter, iters);
+		l_end = libxsmm_timer_tick();
 	}
 	else if (version == 2) {
 		// printf("padded_conv_fp_stride_1_libxsmm_core\n");
+		l_start = libxsmm_timer_tick();
 		padded_conv_fp_stride_1_libxsmm_core(nImg, nIfm, nOfm, ifhp, ifwp, ofhp, ofwp, ifh, ifw,
 			ofh, ofw, pad_h, pad_w, pad_h_in, pad_w_in, pad_h_out,
 			pad_w_out, kh, kw, stride_h, stride_w, pad_gemm_input, output, filter, iters);
+		l_end = libxsmm_timer_tick();
 	}
 	else if (version == 3) {
 		// printf("padded_conv_fp_stride_1_libxsmm_core\n");
+		l_start = libxsmm_timer_tick();
 		padded_conv_fp_stride_1_libxsmm_core2(nImg, nIfm, nOfm, ifhp, ifwp, ofhp, ofwp, ifh, ifw,
 			ofh, ofw, pad_h, pad_w, pad_h_in, pad_w_in, pad_h_out,
 			pad_w_out, kh, kw, stride_h, stride_w, pad_gemm_input, output, filter, iters);
+		l_end = libxsmm_timer_tick();
 	}
 	else if (version == 4) {
 		// printf("padded_conv_fp_stride_1_libxsmm_core\n");
+		l_start = libxsmm_timer_tick();
 		padded_conv_fp_stride_1_libxsmm_core3(nImg, nIfm, nOfm, ifhp, ifwp, ofhp, ofwp, ifh, ifw,
 			ofh, ofw, pad_h, pad_w, pad_h_in, pad_w_in, pad_h_out,
 			pad_w_out, kh, kw, stride_h, stride_w, pad_gemm_input, output, filter, iters);
+		l_end = libxsmm_timer_tick();
 	}
 	else if (version == 5) {
 		// printf("padded_conv_fp_stride_1_libxsmm_core\n");
+		l_start = libxsmm_timer_tick();
 		padded_conv_fp_stride_1_libxsmm_core4(nImg, nIfm, nOfm, ifhp, ifwp, ofhp, ofwp, ifh, ifw,
 			ofh, ofw, pad_h, pad_w, pad_h_in, pad_w_in, pad_h_out,
 			pad_w_out, kh, kw, stride_h, stride_w, pad_gemm_input, output, filter, iters);
+		l_end = libxsmm_timer_tick();
 	}
 	else if (version == 6) {
+		l_start = libxsmm_timer_tick();
 		padded_conv_fp_stride_1_core(nImg, nIfm, nOfm, ifhp, ifwp, ofhp, ofwp, ifh, ifw,
 			ofh, ofw, pad_h, pad_w, pad_h_in, pad_w_in, pad_h_out,
 			pad_w_out, kh, kw, stride_h, stride_w, pad_gemm_input, output, filter, iters);
-	}else if (version ==7){	
+		l_end = libxsmm_timer_tick();
+	}
+	else if (version == 7) {
+		l_start = libxsmm_timer_tick();
 		padded_conv_fp_stride_1_libxsmm_core_pluto(nImg, nIfm, nOfm, ifhp, ifwp, ofhp, ofwp, ifh, ifw,
 			ofh, ofw, pad_h, pad_w, pad_h_in, pad_w_in, pad_h_out,
 			pad_w_out, kh, kw, stride_h, stride_w, pad_gemm_input, output, filter, iters);
+		l_end = libxsmm_timer_tick();
 	}
 	else {
 		printf("Incorrect version\n");
@@ -521,6 +541,8 @@ void padded_conv_fp_stride_1(
 	}
 
 	libxsmm_free(pad_gemm_input);
+	l_total = libxsmm_timer_duration(l_start, l_end);
+	return l_total;
 }
 
 
@@ -634,9 +656,9 @@ void compare_buf(float* ref, float* test, long size, correctness_t* norms)
 		}
 #endif
 
-	}
+		}
 	norms->l2_rel_err = sqrt(norms->l2_rel_err);
-}
+	}
 
 int main(int argc, char **argv) {
 	int ifhp, ifwp, ofhp, ofwp, ofh, ofw;
@@ -725,7 +747,7 @@ int main(int argc, char **argv) {
 	printf("SIZE Weight     : %10.2f MiB\n", (double)(nIfm*nOfm*kw*kh * sizeof(float)) / (1024.0*1024.0));
 
 	if ((nIfm % GEMM_BLOCK != 0) || (nOfm % GEMM_BLOCK != 0)) {
-		printf("\nThis code only works for ofm/ifm % %d!\n\n\n", GEMM_BLOCK);
+		printf("\nThis code only works for ofm/ifm %d!\n\n\n", GEMM_BLOCK);
 		return -1;
 	}
 
@@ -851,16 +873,13 @@ int main(int argc, char **argv) {
 	printf("##########################################\n");
 
 	start = clock();
-	l_start = libxsmm_timer_tick();
-
-	padded_conv_fp_stride_1(nImg, nIfm, nOfm, ifhp, ifwp, ofhp, ofwp, ifh, ifw,
+	l_total = padded_conv_fp_stride_1(nImg, nIfm, nOfm, ifhp, ifwp, ofhp, ofwp, ifh, ifw,
 		ofh, ofw, pad_h, pad_w, pad_h_in, pad_w_in, pad_h_out,
 		pad_w_out, kh, kw, stride_h, stride_w, gemm_input, gemm_output, gemm_filter, version, iters);
 
-	l_end = libxsmm_timer_tick();
-	l_total = libxsmm_timer_duration(l_start, l_end);
 	end = clock();
 	exec_time = (double)(end - start) / CLOCKS_PER_SEC;
+
 	printf("Total consumed time of padded_conv_fp_stride_1 = %f seconds\n", exec_time);
 	printf("Elapsed time of padded_conv_fp_stride_1 = %f seconds\n", l_total);
 	printf("GFLOP  = %.5g\n", flops*1e-9 / (double)iters);
