@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <omp.h>
+#include "padded_conv_fp_stride_1_libxsmm_core_pluto.c"
 
 #define USE_LIBXSMM
 
@@ -526,6 +527,13 @@ double padded_conv_fp_stride_1(
 			pad_w_out, kh, kw, stride_h, stride_w, pad_gemm_input, output, filter, iters);
 		l_end = libxsmm_timer_tick();
 	}
+	else if (version == 7) {
+		l_start = libxsmm_timer_tick();
+		padded_conv_fp_stride_1_libxsmm_core_pluto(nImg, nIfm, nOfm, ifhp, ifwp, ofhp, ofwp, ifh, ifw,
+			ofh, ofw, pad_h, pad_w, pad_h_in, pad_w_in, pad_h_out,
+			pad_w_out, kh, kw, stride_h, stride_w, pad_gemm_input, output, filter, iters);
+		l_end = libxsmm_timer_tick();
+	}
 	else {
 		printf("Incorrect version\n");
 		libxsmm_free(pad_gemm_input);
@@ -648,9 +656,9 @@ void compare_buf(float* ref, float* test, long size, correctness_t* norms)
 		}
 #endif
 
-	}
+		}
 	norms->l2_rel_err = sqrt(norms->l2_rel_err);
-}
+	}
 
 int main(int argc, char **argv) {
 	int ifhp, ifwp, ofhp, ofwp, ofh, ofw;
