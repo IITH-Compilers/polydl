@@ -15,6 +15,7 @@ using namespace std;
 #define max(X, Y) (((X) > (Y)) ? (X) : (Y))
 
 
+#define DATASETSIZETHRESHOLD 0.05
 /*Latency related*/
 #define L1Cost 4
 #define L2Cost 14
@@ -47,6 +48,7 @@ struct ProgramVariant {
 	int polyRank, actualRank;
 	double userDefinedCost;
 	double secondaryCost;
+	int wins;
 };
 
 typedef struct ProgramVariant ProgramVariant;
@@ -54,6 +56,7 @@ typedef struct ProgramVariant ProgramVariant;
 struct UserOptions {
 	bool headers;
 	bool perfseparaterow;
+	bool decisiontree;
 	/* false. For a single row holding the performance of all variants
 	   true. The performance of different variants beings in different rows*/
 };
@@ -65,13 +68,15 @@ void OrchestrateProgramVariantsRanking(int argc, char **argv);
 void FreeProgramVariants(vector<ProgramVariant*> *programVariants);
 void ReadProgramVariants(string line, vector<ProgramVariant*> *programVariants, UserOptions* userOptions);
 void PrintProgramVariant(ProgramVariant *var);
-void RankProgramVariants(vector<ProgramVariant*> *programVariants);
+void RankProgramVariants(vector<ProgramVariant*> *programVariants,
+	UserOptions* userOptions);
 void InitializeRanks(vector<ProgramVariant*> *programVariants);
 void PrintProgramVariants(vector<ProgramVariant*> *programVariants);
 bool compareBygflops(const ProgramVariant* a, const ProgramVariant* b);
 void InitializeRanks(ProgramVariant *programVariant);
 void AssignActualRankBasedOnOrder(vector<ProgramVariant*> *programVariants);
-void AssignPolyRanks(vector<ProgramVariant*> *programVariants);
+void AssignPolyRanks(vector<ProgramVariant*> *programVariants,
+	UserOptions* userOptions);
 bool PolyRankingComplete(vector<ProgramVariant*> *programVariants);
 bool compareByUserDefinedCost(const ProgramVariant* a,
 	const ProgramVariant* b);
@@ -87,6 +92,11 @@ UserOptions* ProcessInputArguments(int argc, char **argv);
 void RankProgramVariantsAndWriteResults(
 	vector<ProgramVariant*> *programVariants,
 	ofstream& outFile, ofstream& outFile2, UserOptions* userOptions);
+void RankUsingDecisionTree(vector<ProgramVariant*> *programVariants);
+bool compareByWins(const ProgramVariant* a, const ProgramVariant* b);
+void AssignPolyRankBasedOnOrder(vector<ProgramVariant*> *programVariants);
+int FindWinner(ProgramVariant *a, ProgramVariant* b);
+bool ExceedsByAThreshold(long size1, long size2, double threshold = DATASETSIZETHRESHOLD);
 /* Function declarations end */
 
 
@@ -100,9 +110,11 @@ UserOptions* ProcessInputArguments(int argc, char **argv) {
 	string arg;
 	string NO_HEADER = "--noheader";
 	string PERF_SEPARATE_ROW = "--perfseparaterow";
+	string DECISION_TREE = "--decisiontree";
 	UserOptions* userOptions = new UserOptions;
 	userOptions->headers = true;
 	userOptions->perfseparaterow = false;
+	userOptions->decisiontree = false;
 
 	for (int i = 2; i < argc; i++) {
 		arg = argv[i];
@@ -113,6 +125,10 @@ UserOptions* ProcessInputArguments(int argc, char **argv) {
 
 		if (argv[i] == PERF_SEPARATE_ROW) {
 			userOptions->perfseparaterow = true;
+		}
+
+		if (argv[i] == DECISION_TREE) {
+			userOptions->decisiontree = true;
 		}
 	}
 
@@ -169,7 +185,8 @@ void OrchestrateProgramVariantsRanking(int argc, char **argv) {
 	}
 
 	outFile2 << "Max_GFLOPS, Poly_Top_" + to_string(TOP_K)
-		+ "GFLOPS,numVariants,Poly_Top_" + to_string(TOP_PERCENT) << endl;
+		+ "GFLOPS,numVariants,Poly_Top_" + to_string(TOP_PERCENT)
+		<< endl;
 
 	vector<ProgramVariant*> *programVariants =
 		new vector<ProgramVariant*>();
@@ -215,14 +232,15 @@ void WriteRanksToFile(vector<ProgramVariant*> *programVariants,
 		outFile << programVariants->at(0)->config << endl;
 	}
 
-	outFile << "ActualRank,PolyRank,GFLOPS,Version" << endl;
+	outFile << "ActualRank,PolyRank,GFLOPS,Version,wins" << endl;
 	sort(programVariants->begin(), programVariants->end(),
 		compareBygflops);
 	for (int i = 0; i < programVariants->size(); i++) {
 		outFile << programVariants->at(i)->actualRank << ","
 			<< programVariants->at(i)->polyRank << ","
 			<< programVariants->at(i)->gflops << ","
-			<< programVariants->at(i)->version << endl;
+			<< programVariants->at(i)->version << ","
+			<< programVariants->at(i)->wins << endl;
 	}
 
 	outFile << endl;
@@ -231,7 +249,7 @@ void WriteRanksToFile(vector<ProgramVariant*> *programVariants,
 void RankProgramVariantsAndWriteResults(
 	vector<ProgramVariant*> *programVariants,
 	ofstream& outFile, ofstream& outFile2, UserOptions* userOptions) {
-	RankProgramVariants(programVariants);
+	RankProgramVariants(programVariants, userOptions);
 	WriteRanksToFile(programVariants, outFile, userOptions);
 	WritePerfToFile(programVariants, outFile2, userOptions);
 	FreeProgramVariants(programVariants);
@@ -275,11 +293,12 @@ bool compareBygflops(const ProgramVariant* a, const ProgramVariant* b) {
 	return a->gflops > b->gflops;
 }
 
-void RankProgramVariants(vector<ProgramVariant*> *programVariants) {
+void RankProgramVariants(vector<ProgramVariant*> *programVariants,
+	UserOptions* userOptions) {
 	sort(programVariants->begin(), programVariants->end(),
 		compareBygflops);
 	AssignActualRankBasedOnOrder(programVariants);
-	AssignPolyRanks(programVariants);
+	AssignPolyRanks(programVariants, userOptions);
 
 	if (DEBUG) {
 		cout << "________________________" << endl;
@@ -289,13 +308,19 @@ void RankProgramVariants(vector<ProgramVariant*> *programVariants) {
 }
 
 /* Poly ranking logic begins */
-void AssignPolyRanks(vector<ProgramVariant*> *programVariants) {
+void AssignPolyRanks(vector<ProgramVariant*> *programVariants,
+	UserOptions* userOptions) {
 	/*LOGIC to rank the program variants based on thier data reuse
 	patterns in cache resides here*/
 
 	/*TODO: Assign weights to reuses. Idea: Take the intersection of
 source and target iteration data sets and compute its cardinality.
 The cardinality can be the weight of the reuse*/
+
+	if (userOptions->decisiontree) {
+		RankUsingDecisionTree(programVariants);
+		return;
+	}
 
 	for (int i = 0; i < programVariants->size(); i++) {
 		double totalReuses = programVariants->at(i)->L1 +
@@ -411,6 +436,7 @@ void InitializeRanks(ProgramVariant *programVariant) {
 	programVariant->polyRank = -1;
 	programVariant->actualRank = -1;
 	programVariant->userDefinedCost = 0;
+	programVariant->wins = 0;
 }
 
 void ReadProgramVariants(string line, vector<ProgramVariant*> *programVariants, UserOptions* userOptions) {
@@ -498,4 +524,91 @@ void FreeProgramVariants(vector<ProgramVariant*> *programVariants) {
 	}
 
 	programVariants->clear();
+}
+
+void RankUsingDecisionTree(vector<ProgramVariant*> *programVariants) {
+	int winner; // 0: first, 1: second
+	for (int i = 0; i < programVariants->size(); i++) {
+		for (int j = i + 1; j < programVariants->size(); j++) {
+			if (i != j) {
+				winner = FindWinner(programVariants->at(i),
+					programVariants->at(j));
+				if (winner == 0) {
+					programVariants->at(i)->wins += 1;
+				}
+				else {
+					programVariants->at(j)->wins += 1;
+				}
+			}
+		}
+	}
+
+	sort(programVariants->begin(), programVariants->end(),
+		compareByWins);
+	AssignPolyRankBasedOnOrder(programVariants);
+}
+
+int FindWinner(ProgramVariant *a, ProgramVariant* b) {
+	int winner = 0;
+
+	if (ExceedsByAThreshold(a->MemDataSetSize + a->L3DataSetSize
+		+ a->L2DataSetSize + a->L1DataSetSize,
+		b->MemDataSetSize + b->L3DataSetSize
+		+ b->L2DataSetSize + b->L1DataSetSize,
+		3 * DATASETSIZETHRESHOLD)) {
+		winner = 1;
+	}
+	else if (ExceedsByAThreshold(b->MemDataSetSize + b->L3DataSetSize
+		+ b->L2DataSetSize + b->L1DataSetSize, a->MemDataSetSize + a->L3DataSetSize
+		+ a->L2DataSetSize + a->L1DataSetSize,
+		DATASETSIZETHRESHOLD)) {
+		winner = 0;
+	}
+	else if (ExceedsByAThreshold(a->MemDataSetSize, b->MemDataSetSize)) {
+		winner = 1;
+	}
+	else if (ExceedsByAThreshold(b->MemDataSetSize, a->MemDataSetSize)) {
+		winner = 0;
+	}
+	else if (ExceedsByAThreshold(a->L3DataSetSize, b->L3DataSetSize)) {
+		winner = 1;
+	}
+	else if (ExceedsByAThreshold(b->L3DataSetSize, a->L3DataSetSize)) {
+		winner = 0;
+	}
+	else if (ExceedsByAThreshold(a->L2DataSetSize, b->L2DataSetSize)) {
+		winner = 1;
+	}
+	else if (ExceedsByAThreshold(b->L2DataSetSize, a->L2DataSetSize)) {
+		winner = 0;
+	}
+	else if (ExceedsByAThreshold(a->L1DataSetSize, b->L1DataSetSize)) {
+		winner = 1;
+	}
+	else if (ExceedsByAThreshold(b->L1DataSetSize, a->L1DataSetSize)) {
+		winner = 0;
+	}
+
+	return winner;
+}
+
+bool ExceedsByAThreshold(long size1, long size2,
+	double threshold) {
+	if (size1 > (1 + threshold) * size2) {
+		return true;
+	}
+	else {
+		return false;
+	}
+}
+
+bool compareByWins(const ProgramVariant* a, const ProgramVariant* b) {
+	return a->wins > b->wins;
+}
+
+void AssignPolyRankBasedOnOrder(vector<ProgramVariant*> *programVariants)
+{
+	for (int i = 0; i < programVariants->size(); i++) {
+		programVariants->at(i)->polyRank = i + 1;
+	}
 }
