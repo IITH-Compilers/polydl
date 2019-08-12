@@ -9,6 +9,7 @@ using namespace std;
 
 #define DEBUG 1
 #define TOP_K 1
+#define TOP_PERCENT 0.05
 
 #define min(X, Y) (((X) < (Y)) ? (X) : (Y))
 #define max(X, Y) (((X) > (Y)) ? (X) : (Y))
@@ -168,7 +169,7 @@ void OrchestrateProgramVariantsRanking(int argc, char **argv) {
 	}
 
 	outFile2 << "Max_GFLOPS, Poly_Top_" + to_string(TOP_K)
-		+ "GFLOPS" << endl;
+		+ "GFLOPS,numVariants,Poly_Top_" + to_string(TOP_PERCENT) << endl;
 
 	vector<ProgramVariant*> *programVariants =
 		new vector<ProgramVariant*>();
@@ -240,6 +241,9 @@ void WritePerfToFile(vector<ProgramVariant*> *programVariants,
 	ofstream& outFile, UserOptions* userOptions) {
 	double maxGflops = 0;
 	double maxPolyKFlops = 0;
+	double maxPolyTopPercentFlops = 0;
+	int numVariants = programVariants->size();
+	int maxPercentRank = max(TOP_PERCENT * numVariants, 1);
 
 	for (int i = 0; i < programVariants->size(); i++) {
 		maxGflops = max(maxGflops, programVariants->at(i)->gflops);
@@ -248,17 +252,22 @@ void WritePerfToFile(vector<ProgramVariant*> *programVariants,
 			maxPolyKFlops = max(maxPolyKFlops,
 				programVariants->at(i)->gflops);
 		}
+
+		if (programVariants->at(i)->polyRank <= maxPercentRank) {
+			maxPolyTopPercentFlops = max(maxPolyTopPercentFlops,
+				programVariants->at(i)->gflops);
+		}
 	}
 
 	if (programVariants->size() >= 0) {
 
 		if (userOptions->perfseparaterow == false) {
-			outFile << programVariants->at(0)->config << ","
-				<< maxGflops << "," << maxPolyKFlops << endl;
+			outFile << programVariants->at(0)->config << ",";
 		}
-		else {
-			outFile << maxGflops << "," << maxPolyKFlops << endl;
-		}
+
+		outFile << maxGflops << "," << maxPolyKFlops << ","
+			<< numVariants << "," << maxPolyTopPercentFlops << endl;
+
 	}
 }
 
