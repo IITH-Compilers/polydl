@@ -25,13 +25,13 @@ using namespace std;
 L1: 192 B/cycle : R/W together
 L2: 64 B/cycle : R/W together: 96 B/cycle
 L3: 8 B/cycle : R/W together: 16 B/cycle
-Mem: 2 B/cycle
+Mem: 4 B/cycle
 
 */
 #define SecondaryL1Cost (1.0/192.0)
 #define SecondaryL2Cost (1.0/96.0)
 #define SecondaryL3Cost (1.0/16.0)
-#define SecondaryMemCost 0.0
+#define SecondaryMemCost (1.0/4.0)
 
 
 struct ProgramVariant {
@@ -313,6 +313,7 @@ The cardinality can be the weight of the reuse*/
 			(programVariants->at(i)->L2DataSetSize) * L2Cost +
 			(programVariants->at(i)->L3DataSetSize) * L3Cost +
 			(programVariants->at(i)->MemDataSetSize) * MemCost;
+
 
 		programVariants->at(i)->secondaryCost =
 			(programVariants->at(i)->L1DataSetSize)
