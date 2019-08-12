@@ -16,6 +16,7 @@ using namespace std;
 
 
 #define DATASETSIZETHRESHOLD 0.05
+#define TOTALDATASETSIZETHRESHOLD 0.5
 /*Latency related*/
 #define L1Cost 4
 #define L2Cost 14
@@ -555,7 +556,7 @@ int FindWinner(ProgramVariant *a, ProgramVariant* b) {
 		+ a->L2DataSetSize + a->L1DataSetSize,
 		b->MemDataSetSize + b->L3DataSetSize
 		+ b->L2DataSetSize + b->L1DataSetSize,
-		3 * DATASETSIZETHRESHOLD)) {
+		TOTALDATASETSIZETHRESHOLD)) {
 		winner = 1;
 	}
 	else if (ExceedsByAThreshold(b->MemDataSetSize + b->L3DataSetSize
