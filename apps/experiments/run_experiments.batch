@@ -7,5 +7,5 @@
 #SBATCH --nodes=1
 #SBATCH --partition=clx
 
-cd /nfs_home/stavarag/work/polyscientist/apps/experiments
+cd /nfs_home/stavarag/work/polyscientist/apps/experiments  #FIXME -- path
 sh run_conv2d_actual_polyscientist.sh

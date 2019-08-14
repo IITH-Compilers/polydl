@@ -24,14 +24,14 @@ config18='1000  7   7   512  2048 1 1 0 0 1'
 config19='1000  7   7   2048   512 1 1 0 0 1'
 
 GEMM_BLOCK=64
-config_num=1
+config_num=1  #FIXME
 check_correctness=0
 PERF_DIR=perf_data
 CONFIG_DIR=configs
 TEMP=temp
 mkdir ${PERF_DIR}
 mkdir ${TEMP}
-for config in "$config1" "$config2" "$config3" "$config4" "$config5" "$config6" "$config7" "$config8" "$config9" "$config10" "$config11" "$config12" "$config13" "$config14" "$config15" "$config16" "$config17" "$config18" "$config19" 
+for config in "$config1" "$config2" "$config3" "$config4" "$config5" "$config6" "$config7" "$config8" "$config9" "$config10" "$config11" "$config12" "$config13" "$config14" "$config15" "$config16" "$config17" "$config18" "$config19" #FIXME 
 do
 	for images in 1 28
 	do
