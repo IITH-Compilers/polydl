@@ -13,6 +13,7 @@
 #include <ConfigProcessor.hpp>
 #include <OptionsProcessor.hpp>
 #include <Utility.hpp>
+#include <algorithm>
 using namespace std;
 
 
@@ -42,6 +43,10 @@ struct ProgramCharacteristics {
 	long L2DataSetSize;
 	long L3DataSetSize;
 	long MemDataSetSize;
+	long PessiL1DataSetSize;
+	long PessiL2DataSetSize;
+	long PessiL3DataSetSize;
+	long PessiMemDataSetSize;
 };
 
 typedef struct ProgramCharacteristics ProgramCharacteristics;
@@ -96,7 +101,7 @@ isl_union_map* ComputeDataDependences(isl_union_map *source,
 	isl_union_map *target, isl_schedule* schedule);
 void OrchestrateDataReuseComputation(int argc, char **argv);
 string ExtractFileName(string fileName);
-bool IsUniqueDependence(vector<MinMaxTuple*> *minMaxTupleVector,
+bool AddToVectorIfUniqueDependence(vector<MinMaxTuple*> *minMaxTupleVector,
 	long min, long max);
 void FreeMinMaxTupleVector(vector<MinMaxTuple*> *minMaxTupleVector);
 long ConvertStringToLong(string sizeStr);
@@ -104,6 +109,10 @@ isl_set* ConstructContextEquatingParametersToConstants(
 	isl_space* space, unordered_map<string, int>* paramValues);
 isl_union_map* SimplifyUnionMap(isl_union_map* map,
 	unordered_map<string, int>* paramValues);
+void UpdatePessimisticProgramCharacteristics(long minSize, long maxSize,
+	SystemConfig* systemConfig,
+	ProgramCharacteristics* programChar);
+bool compareByMinMaxSize(const MinMaxTuple* a, const MinMaxTuple* b);
 /* Function header declarations end */
 
 int main(int argc, char **argv) {
@@ -326,6 +335,17 @@ string ExtractFileName(string fileName) {
 
 	return returnFileName;
 }
+
+
+bool compareByMinMaxSize(const MinMaxTuple* a, const MinMaxTuple* b) {
+	if (a->min == b->min) {
+		return (a->max < b->max);
+	}
+	else {
+		return a->min < b->min;
+	}
+}
+
 void SimplifyWorkingSetSizes(vector<WorkingSetSize*>* workingSetSizes,
 	UserInput *userInput, Config *config) {
 	string suffix = "_ws_stats.csv";
@@ -354,10 +374,10 @@ void SimplifyWorkingSetSizes(vector<WorkingSetSize*>* workingSetSizes,
 		file << "params,L1,L2,L3,Mem,L1DataSetSize,L2DataSetSize,L3DataSetSize,MemDataSetSize" << endl;
 	}
 
-	for (int i = 0; i < config->programParameterVector->size(); i++) {
+	for (int j = 0; j < config->programParameterVector->size(); j++) {
 		InitializeProgramCharacteristics(programChar);
 		unordered_map<string, int>* paramValues =
-			config->programParameterVector->at(i);
+			config->programParameterVector->at(j);
 
 		if (userInput->minOutput == false) {
 			file << GetParameterValuesString(paramValues) << ",";
@@ -379,13 +399,19 @@ void SimplifyWorkingSetSizes(vector<WorkingSetSize*>* workingSetSizes,
 			if (!minSize.empty() && !maxSize.empty()) {
 				long min = ConvertStringToLong(minSize);
 				long max = ConvertStringToLong(maxSize);
-
-				if (IsUniqueDependence(minMaxTupleVector, min, max)) {
-					UpdateProgramCharacteristics(min, config->systemConfig, programChar);
-					UpdateProgramCharacteristics(max, config->systemConfig, programChar);
-				}
+				AddToVectorIfUniqueDependence(minMaxTupleVector, min, max);
 			}
+		}
 
+		sort(minMaxTupleVector->begin(), minMaxTupleVector->end(),
+			compareByMinMaxSize);
+		for (int i = 0; i < minMaxTupleVector->size(); i++) {
+			UpdateProgramCharacteristics(minMaxTupleVector->at(i)->min, config->systemConfig, programChar);
+			UpdateProgramCharacteristics(minMaxTupleVector->at(i)->max, config->systemConfig, programChar);
+			UpdatePessimisticProgramCharacteristics(minMaxTupleVector->at(i)->min,
+				minMaxTupleVector->at(i)->max,
+				config->systemConfig,
+				programChar);
 		}
 
 		FreeMinMaxTupleVector(minMaxTupleVector);
@@ -395,7 +421,11 @@ void SimplifyWorkingSetSizes(vector<WorkingSetSize*>* workingSetSizes,
 			<< programChar->L1DataSetSize << ","
 			<< programChar->L2DataSetSize << ","
 			<< programChar->L3DataSetSize << ","
-			<< programChar->MemDataSetSize
+			<< programChar->MemDataSetSize << ","
+			<< programChar->PessiL1DataSetSize << ","
+			<< programChar->PessiL2DataSetSize << ","
+			<< programChar->PessiL3DataSetSize << ","
+			<< programChar->PessiMemDataSetSize
 			<< endl;
 	}
 
@@ -405,7 +435,7 @@ void SimplifyWorkingSetSizes(vector<WorkingSetSize*>* workingSetSizes,
 	delete programChar;
 }
 
-bool IsUniqueDependence(vector<MinMaxTuple*> *minMaxTupleVector,
+bool AddToVectorIfUniqueDependence(vector<MinMaxTuple*> *minMaxTupleVector,
 	long min, long max) {
 	if (min != -1 && max != -1) {
 		for (int i = 0; i < minMaxTupleVector->size(); i++) {
@@ -525,7 +555,7 @@ void SimplifyWorkingSetSizesInteractively(vector<WorkingSetSize*>* workingSetSiz
 				long min = ConvertStringToLong(minSize);
 				long max = ConvertStringToLong(maxSize);
 
-				if (IsUniqueDependence(minMaxTupleVector, min, max)) {
+				if (AddToVectorIfUniqueDependence(minMaxTupleVector, min, max)) {
 					file << isl_basic_map_to_str(
 						workingSetSizes->at(i)->dependence)
 						<< "\t";
@@ -537,11 +567,19 @@ void SimplifyWorkingSetSizesInteractively(vector<WorkingSetSize*>* workingSetSiz
 						<< "\t";
 					file << minSize << "\t";
 					file << maxSize << endl;
-
-					UpdateProgramCharacteristics(min, systemConfig, programChar);
-					UpdateProgramCharacteristics(max, systemConfig, programChar);
 				}
 			}
+		}
+
+		sort(minMaxTupleVector->begin(), minMaxTupleVector->end(),
+			compareByMinMaxSize);
+		for (int i = 0; i < minMaxTupleVector->size(); i++) {
+			UpdateProgramCharacteristics(minMaxTupleVector->at(i)->min, config->systemConfig, programChar);
+			UpdateProgramCharacteristics(minMaxTupleVector->at(i)->max, config->systemConfig, programChar);
+			UpdatePessimisticProgramCharacteristics(minMaxTupleVector->at(i)->min,
+				minMaxTupleVector->at(i)->max,
+				config->systemConfig,
+				programChar);
 		}
 
 		file << "#reuses in L1, L2, L3:"
@@ -553,6 +591,11 @@ void SimplifyWorkingSetSizesInteractively(vector<WorkingSetSize*>* workingSetSiz
 			<< "\t" << programChar->L2DataSetSize
 			<< "\t" << programChar->L3DataSetSize
 			<< "\t" << programChar->MemDataSetSize
+			<< "\t" << programChar->PessiL1DataSetSize
+			<< "\t" << programChar->PessiL2DataSetSize
+			<< "\t" << programChar->PessiL3DataSetSize
+			<< "\t" << programChar->PessiMemDataSetSize
+
 			<< endl;
 
 		FreeMinMaxTupleVector(minMaxTupleVector);
@@ -598,6 +641,10 @@ void InitializeProgramCharacteristics(ProgramCharacteristics* programChar) {
 	programChar->L2DataSetSize = 0;
 	programChar->L3DataSetSize = 0;
 	programChar->MemDataSetSize = 0;
+	programChar->PessiL1DataSetSize = 0;
+	programChar->PessiL2DataSetSize = 0;
+	programChar->PessiL3DataSetSize = 0;
+	programChar->PessiMemDataSetSize = 0;
 }
 
 long ConvertStringToLong(string sizeStr) {
@@ -633,6 +680,56 @@ void UpdateProgramCharacteristics(long size,
 		else {
 			programChar->MemFit += 1;
 			programChar->MemDataSetSize += size;
+		}
+	}
+}
+
+void UpdatePessimisticProgramCharacteristics(long minSize, long maxSize,
+	SystemConfig* systemConfig,
+	ProgramCharacteristics* programChar) {
+	minSize = minSize * programChar->datatypeSize;
+	maxSize = maxSize * programChar->datatypeSize;
+	bool maxSizeSatisfied = false;
+	bool minSizeSatisfied = false;
+
+	if (minSize != -1 && maxSize != -1) {
+		if (!maxSizeSatisfied && ((maxSize + programChar->PessiL1DataSetSize) <= systemConfig->L1)) {
+			programChar->PessiL1DataSetSize += maxSize;
+			minSizeSatisfied = true;
+			maxSizeSatisfied = true;
+		}
+
+		if (!minSizeSatisfied && ((minSize + programChar->PessiL1DataSetSize) <= systemConfig->L1)) {
+			programChar->PessiL1DataSetSize += minSize;
+			minSizeSatisfied = true;
+		}
+
+		if (!maxSizeSatisfied && ((maxSize + programChar->PessiL2DataSetSize) <= systemConfig->L2)) {
+			programChar->PessiL2DataSetSize += maxSize;
+			minSizeSatisfied = true;
+			maxSizeSatisfied = true;
+		}
+
+		if (!minSizeSatisfied && ((minSize + programChar->PessiL2DataSetSize) <= systemConfig->L2)) {
+			programChar->PessiL2DataSetSize += minSize;
+			minSizeSatisfied = true;
+		}
+
+		if (!maxSizeSatisfied && ((maxSize + programChar->PessiL3DataSetSize) <= systemConfig->L3)) {
+			programChar->PessiL3DataSetSize += maxSize;
+			minSizeSatisfied = true;
+			maxSizeSatisfied = true;
+		}
+
+		if (!minSizeSatisfied && ((minSize + programChar->PessiL3DataSetSize) <= systemConfig->L3)) {
+			programChar->PessiL3DataSetSize += minSize;
+			minSizeSatisfied = true;
+		}
+
+		if (!maxSizeSatisfied) {
+			programChar->PessiMemDataSetSize += maxSize;
+			minSizeSatisfied = true;
+			maxSizeSatisfied = true;
 		}
 	}
 }

@@ -864,7 +864,7 @@ int main(int argc, char **argv) {
 		/* Warm up */
 		padded_conv_fp_stride_1(nImg, nIfm, nOfm, ifhp, ifwp, ofhp, ofwp, ifh, ifw,
 			ofh, ofw, pad_h, pad_w, pad_h_in, pad_w_in, pad_h_out,
-			pad_w_out, kh, kw, stride_h, stride_w, gemm_input, gemm_output, gemm_filter, version, 1 /*iters*/);
+			pad_w_out, kh, kw, stride_h, stride_w, gemm_input, gemm_output, gemm_filter, version, 100 /*iters*/);
 
 	}
 
@@ -872,15 +872,22 @@ int main(int argc, char **argv) {
 	printf("#   Performance - FWD (custom-Storage)   #\n");
 	printf("##########################################\n");
 
-	start = clock();
-	l_total = padded_conv_fp_stride_1(nImg, nIfm, nOfm, ifhp, ifwp, ofhp, ofwp, ifh, ifw,
+        int trial;
+	double min_l_total = 0.0;
+        for (trial = 0; trial < NUM_TRIALS; trial++) {
+		l_total = padded_conv_fp_stride_1(nImg, nIfm, nOfm, ifhp, ifwp, ofhp, ofwp, ifh, ifw,
 		ofh, ofw, pad_h, pad_w, pad_h_in, pad_w_in, pad_h_out,
 		pad_w_out, kh, kw, stride_h, stride_w, gemm_input, gemm_output, gemm_filter, version, iters);
 
-	end = clock();
-	exec_time = (double)(end - start) / CLOCKS_PER_SEC;
+		if (trial == 0) {
+			min_l_total = l_total;
+		} else {
+			min_l_total = min(min_l_total, l_total);
+		}
+	}
 
-	printf("Total consumed time of padded_conv_fp_stride_1 = %f seconds\n", exec_time);
+	l_total = min_l_total;
+
 	printf("Elapsed time of padded_conv_fp_stride_1 = %f seconds\n", l_total);
 	printf("GFLOP  = %.5g\n", flops*1e-9 / (double)iters);
 	printf("fp time = %.5g\n", ((double)(l_total / iters)));
