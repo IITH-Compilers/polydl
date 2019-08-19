@@ -201,7 +201,7 @@ void OrchestrateProgramVariantsRanking(int argc, char **argv) {
 
 	outFile2 << "Max_GFLOPS, Poly_Top_" + to_string(TOP_K)
 		+ "GFLOPS,numVariants,Poly_Top_" + to_string(TOP_PERCENT)
-		<< endl;
+		+ ",Min_GFLOPS, Median_GFLOPS" << endl;
 
 	vector<ProgramVariant*> *programVariants =
 		new vector<ProgramVariant*>();
@@ -277,6 +277,9 @@ void WritePerfToFile(vector<ProgramVariant*> *programVariants,
 	double maxPolyTopPercentFlops = 0;
 	int numVariants = programVariants->size();
 	int maxPercentRank = max(TOP_PERCENT * numVariants, 1);
+	double minGflops = 0;
+	double medianGflops = 0;
+	int medianIndex = programVariants->size() / 2;
 
 	for (int i = 0; i < programVariants->size(); i++) {
 		maxGflops = max(maxGflops, programVariants->at(i)->gflops);
@@ -290,16 +293,25 @@ void WritePerfToFile(vector<ProgramVariant*> *programVariants,
 			maxPolyTopPercentFlops = max(maxPolyTopPercentFlops,
 				programVariants->at(i)->gflops);
 		}
+
+		if (i == 0) {
+			minGflops = programVariants->at(i)->gflops;
+		}
+		else {
+			minGflops = min(minGflops, programVariants->at(i)->gflops);
+		}
 	}
 
 	if (programVariants->size() >= 0) {
+		medianGflops = programVariants->at(medianIndex)->gflops;
 
 		if (userOptions->perfseparaterow == false) {
 			outFile << programVariants->at(0)->config << ",";
 		}
 
 		outFile << maxGflops << "," << maxPolyKFlops << ","
-			<< numVariants << "," << maxPolyTopPercentFlops << endl;
+			<< numVariants << "," << maxPolyTopPercentFlops << ","
+			<< minGflops << "," << medianGflops << endl;
 
 	}
 }
