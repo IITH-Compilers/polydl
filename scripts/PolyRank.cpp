@@ -46,10 +46,12 @@ struct ProgramVariant {
 	long L2DataSetSize;
 	long L3DataSetSize;
 	long MemDataSetSize;
+	long TotalDataSetSize;
 	long PessiL1DataSetSize;
 	long PessiL2DataSetSize;
 	long PessiL3DataSetSize;
 	long PessiMemDataSetSize;
+	long PessiTotalDataSetSize;
 	int polyRank, actualRank;
 	double userDefinedCost;
 	double secondaryCost;
@@ -66,6 +68,7 @@ struct UserOptions {
 
 	bool decisiontree;
 	bool usepessidata;
+	bool computeattributeimportance;
 };
 
 typedef struct UserOptions UserOptions;
@@ -106,6 +109,7 @@ void AssignPolyRankBasedOnOrder(vector<ProgramVariant*> *programVariants);
 int FindWinner(ProgramVariant *a, ProgramVariant* b,
 	UserOptions* userOptions);
 bool ExceedsByAThreshold(long size1, long size2, double threshold = DATASETSIZETHRESHOLD);
+void ComputeAttributeImportance(vector<ProgramVariant*> *programVariants);
 /* Function declarations end */
 
 
@@ -121,11 +125,13 @@ UserOptions* ProcessInputArguments(int argc, char **argv) {
 	string PERF_SEPARATE_ROW = "--perfseparaterow";
 	string DECISION_TREE = "--decisiontree";
 	string USE_PESSI_DATA = "--usepessidata";
+	string COMPUTE_ATTRIBUTE_IMPORTANCE = "--computeattributeimportance";
 	UserOptions* userOptions = new UserOptions;
 	userOptions->headers = true;
 	userOptions->perfseparaterow = false;
 	userOptions->decisiontree = false;
 	userOptions->usepessidata = false;
+	userOptions->computeattributeimportance = false;
 
 	for (int i = 2; i < argc; i++) {
 		arg = argv[i];
@@ -144,6 +150,10 @@ UserOptions* ProcessInputArguments(int argc, char **argv) {
 
 		if (argv[i] == USE_PESSI_DATA) {
 			userOptions->usepessidata = true;
+		}
+
+		if (argv[i] == COMPUTE_ATTRIBUTE_IMPORTANCE) {
+			userOptions->computeattributeimportance = true;
 		}
 	}
 
@@ -264,10 +274,20 @@ void WriteRanksToFile(vector<ProgramVariant*> *programVariants,
 void RankProgramVariantsAndWriteResults(
 	vector<ProgramVariant*> *programVariants,
 	ofstream& outFile, ofstream& outFile2, UserOptions* userOptions) {
+
+	if (userOptions->computeattributeimportance) {
+		ComputeAttributeImportance(programVariants);
+	}
+
 	RankProgramVariants(programVariants, userOptions);
 	WriteRanksToFile(programVariants, outFile, userOptions);
 	WritePerfToFile(programVariants, outFile2, userOptions);
 	FreeProgramVariants(programVariants);
+}
+
+void ComputeAttributeImportance(vector<ProgramVariant*> *programVariants) {
+
+
 }
 
 void WritePerfToFile(vector<ProgramVariant*> *programVariants,
@@ -523,10 +543,17 @@ void ReadProgramVariants(string line, vector<ProgramVariant*> *programVariants, 
 			var->L2DataSetSize = stol(L2DataSetSize);
 			var->L3DataSetSize = stol(L3DataSetSize);
 			var->MemDataSetSize = stol(MemDataSetSize);
+			var->TotalDataSetSize = var->L1DataSetSize + var->L2DataSetSize
+				+ var->L3DataSetSize + var->MemDataSetSize;
+
 			var->PessiL1DataSetSize = stol(PessiL1DataSetSize);
 			var->PessiL2DataSetSize = stol(PessiL2DataSetSize);
 			var->PessiL3DataSetSize = stol(PessiL3DataSetSize);
 			var->PessiMemDataSetSize = stol(PessiMemDataSetSize);
+			var->PessiTotalDataSetSize = var->PessiL1DataSetSize +
+				var->PessiL2DataSetSize + var->PessiL3DataSetSize
+				+ var->PessiMemDataSetSize;
+
 			InitializeRanks(var);
 			programVariants->push_back(var);
 		}
@@ -596,40 +623,43 @@ int FindWinner(ProgramVariant *a, ProgramVariant* b,
 	UserOptions* userOptions) {
 	int winner = 0;
 
-	long aL1DataSetSize, aL2DataSetSize, aL3DataSetSize, aMemDataSetSize;
-	long bL1DataSetSize, bL2DataSetSize, bL3DataSetSize, bMemDataSetSize;
+	long aL1DataSetSize, aL2DataSetSize, aL3DataSetSize, aMemDataSetSize,
+		aTotalDataSetSize;
+	long bL1DataSetSize, bL2DataSetSize, bL3DataSetSize, bMemDataSetSize,
+		bTotalDataSetSize;
 
 	if (userOptions->usepessidata == false) {
 		aL1DataSetSize = a->L1DataSetSize;
 		aL2DataSetSize = a->L2DataSetSize;
 		aL3DataSetSize = a->L3DataSetSize;
 		aMemDataSetSize = a->MemDataSetSize;
+		aTotalDataSetSize = a->TotalDataSetSize;
 		bL1DataSetSize = b->L1DataSetSize;
 		bL2DataSetSize = b->L2DataSetSize;
 		bL3DataSetSize = b->L3DataSetSize;
 		bMemDataSetSize = b->MemDataSetSize;
+		bTotalDataSetSize = b->TotalDataSetSize;
 	}
 	else {
 		aL1DataSetSize = a->PessiL1DataSetSize;
 		aL2DataSetSize = a->PessiL2DataSetSize;
 		aL3DataSetSize = a->PessiL3DataSetSize;
 		aMemDataSetSize = a->PessiMemDataSetSize;
+		aTotalDataSetSize = a->PessiTotalDataSetSize;
 		bL1DataSetSize = b->PessiL1DataSetSize;
 		bL2DataSetSize = b->PessiL2DataSetSize;
 		bL3DataSetSize = b->PessiL3DataSetSize;
 		bMemDataSetSize = b->PessiMemDataSetSize;
+		bTotalDataSetSize = b->PessiTotalDataSetSize;
 	}
 
-	if (ExceedsByAThreshold(aMemDataSetSize + aL3DataSetSize
-		+ aL2DataSetSize + aL1DataSetSize,
-		bMemDataSetSize + bL3DataSetSize
-		+ bL2DataSetSize + bL1DataSetSize,
+	if (ExceedsByAThreshold(aTotalDataSetSize,
+		bTotalDataSetSize,
 		TOTALDATASETSIZETHRESHOLD)) {
 		winner = 1;
 	}
-	else if (ExceedsByAThreshold(bMemDataSetSize + bL3DataSetSize
-		+ bL2DataSetSize + bL1DataSetSize, aMemDataSetSize + aL3DataSetSize
-		+ aL2DataSetSize + aL1DataSetSize,
+	else if (ExceedsByAThreshold(bTotalDataSetSize,
+		aTotalDataSetSize,
 		DATASETSIZETHRESHOLD)) {
 		winner = 0;
 	}
