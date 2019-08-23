@@ -7,7 +7,7 @@
 #include <algorithm>
 using namespace std;
 
-#define DEBUG 1
+#define DEBUG 0
 #define TOP_K 1
 #define TOP_PERCENT 0.05
 
@@ -100,6 +100,7 @@ void WritePerfToFile(vector<ProgramVariant*> *programVariants,
 	ofstream& outFile, UserOptions* userOptions);
 UserOptions* ProcessInputArguments(int argc, char **argv);
 void RankProgramVariantsAndWriteResults(
+	string inputFile,
 	vector<ProgramVariant*> *programVariants,
 	ofstream& outFile, ofstream& outFile2, UserOptions* userOptions);
 void RankUsingDecisionTree(vector<ProgramVariant*> *programVariants,
@@ -109,7 +110,10 @@ void AssignPolyRankBasedOnOrder(vector<ProgramVariant*> *programVariants);
 int FindWinner(ProgramVariant *a, ProgramVariant* b,
 	UserOptions* userOptions);
 bool ExceedsByAThreshold(long size1, long size2, double threshold = DATASETSIZETHRESHOLD);
-void ComputeAttributeImportance(vector<ProgramVariant*> *programVariants);
+void ComputeAttributeImportanceFromHigherToLower(string inputFile,
+	vector<ProgramVariant*> *programVariants);
+long GetSizeAtIndex(ProgramVariant* var, int index);
+string GetNameAtIndex(int index);
 /* Function declarations end */
 
 
@@ -233,13 +237,13 @@ void OrchestrateProgramVariantsRanking(int argc, char **argv) {
 		ReadProgramVariants(line, programVariants, userOptions);
 
 		if (userOptions->perfseparaterow == false) {
-			RankProgramVariantsAndWriteResults(programVariants,
+			RankProgramVariantsAndWriteResults(inputFile, programVariants,
 				outFile, outFile2, userOptions);
 		}
 	}
 
 	if (userOptions->perfseparaterow == true) {
-		RankProgramVariantsAndWriteResults(programVariants,
+		RankProgramVariantsAndWriteResults(inputFile, programVariants,
 			outFile, outFile2, userOptions);
 	}
 
@@ -248,6 +252,7 @@ void OrchestrateProgramVariantsRanking(int argc, char **argv) {
 
 	inFile.close();
 	outFile.close();
+	outFile2.close();
 }
 
 void WriteRanksToFile(vector<ProgramVariant*> *programVariants,
@@ -272,22 +277,18 @@ void WriteRanksToFile(vector<ProgramVariant*> *programVariants,
 }
 
 void RankProgramVariantsAndWriteResults(
+	string inputFile,
 	vector<ProgramVariant*> *programVariants,
 	ofstream& outFile, ofstream& outFile2, UserOptions* userOptions) {
 
 	if (userOptions->computeattributeimportance) {
-		ComputeAttributeImportance(programVariants);
+		ComputeAttributeImportanceFromHigherToLower(inputFile, programVariants);
 	}
 
 	RankProgramVariants(programVariants, userOptions);
 	WriteRanksToFile(programVariants, outFile, userOptions);
 	WritePerfToFile(programVariants, outFile2, userOptions);
 	FreeProgramVariants(programVariants);
-}
-
-void ComputeAttributeImportance(vector<ProgramVariant*> *programVariants) {
-
-
 }
 
 void WritePerfToFile(vector<ProgramVariant*> *programVariants,
@@ -607,7 +608,7 @@ void RankUsingDecisionTree(vector<ProgramVariant*> *programVariants,
 				if (winner == 0) {
 					programVariants->at(i)->wins += 1;
 				}
-				else {
+				else if (winner == 1) {
 					programVariants->at(j)->wins += 1;
 				}
 			}
@@ -617,6 +618,170 @@ void RankUsingDecisionTree(vector<ProgramVariant*> *programVariants,
 	sort(programVariants->begin(), programVariants->end(),
 		compareByWins);
 	AssignPolyRankBasedOnOrder(programVariants);
+}
+
+void ComputeAttributeImportanceFromHigherToLower(string inputFile, vector<ProgramVariant*> *programVariants) {
+	string suffix = "_attr_importance_hi_to_lo.csv";
+	ofstream outFile;
+	string outputFile = inputFile + suffix;
+	outFile.open(outputFile);
+
+	outFile <<
+		"Attribute,Accuracy,TotalPairs,Positive,PosPctDiff,"
+		<< "Negative,NegativePctDiff" << endl;
+	for (int index = 10; index >= 1; index--) {
+		// Find out the importance of TotalDataSetSize
+		long size1, size2;
+		double gflops1, gflops2;
+		double posPctDiff = 0, negPctDiff = 0;
+		int pos = 0, neg = 0;
+		int total = 0;
+		double accuracy = 0;
+		for (int i = 0; i < programVariants->size(); i++) {
+			for (int j = i + 1; j < programVariants->size(); j++) {
+				total++;
+				size1 = GetSizeAtIndex(programVariants->at(i), index);
+				size2 = GetSizeAtIndex(programVariants->at(j), index);
+
+				if (size1 > 0 && size2 > 0) {
+					gflops1 = programVariants->at(i)->gflops;
+					gflops2 = programVariants->at(j)->gflops;
+
+					if ((size1 < size2) && (gflops1 > gflops2)) {
+						// Positive case
+						pos++;
+						posPctDiff += ((double)(size2 - size1)) / ((double)size1);
+					}
+					else if ((size1 > size2) && (gflops1 < gflops2)) {
+						// Positive case
+						pos++;
+						posPctDiff += ((double)(size1 - size2)) / ((double)size2);
+					}
+					else if ((size1 < size2) && (gflops1 < gflops2)) {
+						// Negative case
+						neg++;
+						negPctDiff += ((double)(size2 - size1)) / ((double)size1);
+					}
+					else if ((size1 > size2) && (gflops1 > gflops2)) {
+						// Negative case
+						neg++;
+						negPctDiff += ((double)(size1 - size2)) / ((double)size2);
+					}
+
+					if (DEBUG) {
+						if (pos == 1) {
+							cout << "Positive case" << endl;
+							cout << "size1: " << size1 << " size2: " << size2
+								<< " gflops1: " << gflops1 << "gflops2: " << gflops2
+								<< " posPctDiff: " << posPctDiff << endl;
+						}
+
+						if (neg == 1) {
+							cout << "Negative case" << endl;
+							cout << "size1: " << size1 << " size2: " << size2
+								<< " gflops1: " << gflops1 << "gflops2: " << gflops2
+								<< " negPctDiff: " << negPctDiff << endl;
+						}
+					}
+				}
+			}
+		}
+
+		if (pos > 0) {
+			posPctDiff = (posPctDiff / (double)pos) * 100.0;
+		}
+
+		if (neg > 0) {
+			negPctDiff = (negPctDiff / (double)neg) * 100.0;
+		}
+
+		if (pos > 0 || neg > 0) {
+			accuracy = ((double)(pos)) / (((double)(pos)) + ((double)(neg)));
+		}
+
+		outFile << GetNameAtIndex(index) << "," << accuracy << ","
+			<< total << "," << pos
+			<< "," << posPctDiff << "," << neg << "," << negPctDiff << endl;
+	}
+
+	outFile.close();
+}
+
+
+long GetSizeAtIndex(ProgramVariant* var, int index) {
+	if (index == 1) {
+		return var->L1DataSetSize;
+	}
+	else if (index == 2) {
+		return var->L2DataSetSize;
+	}
+	else if (index == 3) {
+		return var->L3DataSetSize;
+	}
+	else if (index == 4) {
+		return var->MemDataSetSize;
+	}
+	else if (index == 5) {
+		return var->TotalDataSetSize;
+	}
+	else if (index == 6) {
+		return var->PessiL1DataSetSize;
+	}
+	else if (index == 7) {
+		return var->PessiL2DataSetSize;
+	}
+	else if (index == 8) {
+		return var->PessiL3DataSetSize;
+	}
+	else if (index == 9) {
+		return var->PessiMemDataSetSize;
+	}
+	else if (index == 10) {
+		return var->PessiTotalDataSetSize;
+	}
+	else {
+		cout << "Wrong index: " << index << endl;
+		exit(1);
+		return 0;
+	}
+}
+
+string GetNameAtIndex(int index) {
+	if (index == 1) {
+		return "L1DataSetSize";
+	}
+	else if (index == 2) {
+		return "L2DataSetSize";
+	}
+	else if (index == 3) {
+		return "L3DataSetSize";
+	}
+	else if (index == 4) {
+		return "MemDataSetSize";
+	}
+	else if (index == 5) {
+		return "TotalDataSetSize";
+	}
+	else if (index == 6) {
+		return "PessiL1DataSetSize";
+	}
+	else if (index == 7) {
+		return "PessiL2DataSetSize";
+	}
+	else if (index == 8) {
+		return "PessiL3DataSetSize";
+	}
+	else if (index == 9) {
+		return "PessiMemDataSetSize";
+	}
+	else if (index == 10) {
+		return "PessiTotalDataSetSize";
+	}
+	else {
+		cout << "Wrong index: " << index << endl;
+		exit(1);
+		return 0;
+	}
 }
 
 int FindWinner(ProgramVariant *a, ProgramVariant* b,
@@ -657,35 +822,56 @@ int FindWinner(ProgramVariant *a, ProgramVariant* b,
 		bTotalDataSetSize,
 		TOTALDATASETSIZETHRESHOLD)) {
 		winner = 1;
+		if (DEBUG)
+			cout << "TotalDataSetSize_Winner" << endl;
+
 	}
 	else if (ExceedsByAThreshold(bTotalDataSetSize,
 		aTotalDataSetSize,
 		DATASETSIZETHRESHOLD)) {
 		winner = 0;
+		if (DEBUG)
+			cout << "TotalDataSetSize_Winner" << endl;
 	}
 	else if (ExceedsByAThreshold(aMemDataSetSize, bMemDataSetSize)) {
 		winner = 1;
+		if (DEBUG)
+			cout << "MemDataSetSize_Winner" << endl;
 	}
 	else if (ExceedsByAThreshold(bMemDataSetSize, aMemDataSetSize)) {
 		winner = 0;
+		if (DEBUG)
+			cout << "MemDataSetSize_Winner" << endl;
 	}
 	else if (ExceedsByAThreshold(aL3DataSetSize, bL3DataSetSize)) {
 		winner = 1;
+		if (DEBUG)
+			cout << "L3DataSetSize_Winner" << endl;
 	}
 	else if (ExceedsByAThreshold(bL3DataSetSize, aL3DataSetSize)) {
 		winner = 0;
+		if (DEBUG)
+			cout << "L3DataSetSize_Winner" << endl;
 	}
 	else if (ExceedsByAThreshold(aL2DataSetSize, bL2DataSetSize)) {
 		winner = 1;
+		if (DEBUG)
+			cout << "L2DataSetSize_Winner" << endl;
 	}
 	else if (ExceedsByAThreshold(bL2DataSetSize, aL2DataSetSize)) {
 		winner = 0;
+		if (DEBUG)
+			cout << "L2DataSetSize_Winner" << endl;
 	}
 	else if (ExceedsByAThreshold(aL1DataSetSize, bL1DataSetSize)) {
 		winner = 1;
+		if (DEBUG)
+			cout << "L1DataSetSize_Winner" << endl;
 	}
 	else if (ExceedsByAThreshold(bL1DataSetSize, aL1DataSetSize)) {
 		winner = 0;
+		if (DEBUG)
+			cout << "L1DataSetSize_Winner" << endl;
 	}
 
 	return winner;
