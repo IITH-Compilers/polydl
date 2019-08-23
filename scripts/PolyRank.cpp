@@ -69,6 +69,7 @@ struct UserOptions {
 	bool decisiontree;
 	bool usepessidata;
 	bool computeattributeimportance;
+	bool lo_to_hi_decisiontree;
 };
 
 typedef struct UserOptions UserOptions;
@@ -114,6 +115,10 @@ void ComputeAttributeImportanceFromHigherToLower(string inputFile,
 	vector<ProgramVariant*> *programVariants);
 long GetSizeAtIndex(ProgramVariant* var, int index);
 string GetNameAtIndex(int index);
+void RankUsingLoToHiDecisionTree(vector<ProgramVariant*> *programVariants,
+	UserOptions* userOptions);
+int FindWinnerLoToHi(ProgramVariant *a, ProgramVariant* b,
+	UserOptions* userOptions);
 /* Function declarations end */
 
 
@@ -130,12 +135,14 @@ UserOptions* ProcessInputArguments(int argc, char **argv) {
 	string DECISION_TREE = "--decisiontree";
 	string USE_PESSI_DATA = "--usepessidata";
 	string COMPUTE_ATTRIBUTE_IMPORTANCE = "--computeattributeimportance";
+	string LO_TO_HI_DECISION_TREE = "--lo_to_hi_decisiontree";
 	UserOptions* userOptions = new UserOptions;
 	userOptions->headers = true;
 	userOptions->perfseparaterow = false;
 	userOptions->decisiontree = false;
 	userOptions->usepessidata = false;
 	userOptions->computeattributeimportance = false;
+	userOptions->lo_to_hi_decisiontree = false;
 
 	for (int i = 2; i < argc; i++) {
 		arg = argv[i];
@@ -158,6 +165,10 @@ UserOptions* ProcessInputArguments(int argc, char **argv) {
 
 		if (argv[i] == COMPUTE_ATTRIBUTE_IMPORTANCE) {
 			userOptions->computeattributeimportance = true;
+		}
+
+		if (argv[i] == LO_TO_HI_DECISION_TREE) {
+			userOptions->lo_to_hi_decisiontree = true;
 		}
 	}
 
@@ -367,6 +378,11 @@ The cardinality can be the weight of the reuse*/
 
 	if (userOptions->decisiontree) {
 		RankUsingDecisionTree(programVariants, userOptions);
+		return;
+	}
+
+	if (userOptions->lo_to_hi_decisiontree) {
+		RankUsingLoToHiDecisionTree(programVariants, userOptions);
 		return;
 	}
 
@@ -620,6 +636,29 @@ void RankUsingDecisionTree(vector<ProgramVariant*> *programVariants,
 	AssignPolyRankBasedOnOrder(programVariants);
 }
 
+void RankUsingLoToHiDecisionTree(vector<ProgramVariant*> *programVariants,
+	UserOptions* userOptions) {
+	int winner; // 0: first, 1: second
+	for (int i = 0; i < programVariants->size(); i++) {
+		for (int j = i + 1; j < programVariants->size(); j++) {
+			if (i != j) {
+				winner = FindWinnerLoToHi(programVariants->at(i),
+					programVariants->at(j), userOptions);
+				if (winner == 0) {
+					programVariants->at(i)->wins += 1;
+				}
+				else if (winner == 1) {
+					programVariants->at(j)->wins += 1;
+				}
+			}
+		}
+	}
+
+	sort(programVariants->begin(), programVariants->end(),
+		compareByWins);
+	AssignPolyRankBasedOnOrder(programVariants);
+}
+
 void ComputeAttributeImportanceFromHigherToLower(string inputFile, vector<ProgramVariant*> *programVariants) {
 	string suffix = "_attr_importance_hi_to_lo.csv";
 	ofstream outFile;
@@ -782,6 +821,99 @@ string GetNameAtIndex(int index) {
 		exit(1);
 		return 0;
 	}
+}
+
+int FindWinnerLoToHi(ProgramVariant *a, ProgramVariant* b,
+	UserOptions* userOptions) {
+	int winner = -1;
+
+	long aL1DataSetSize, aL2DataSetSize, aL3DataSetSize, aMemDataSetSize,
+		aTotalDataSetSize;
+	long bL1DataSetSize, bL2DataSetSize, bL3DataSetSize, bMemDataSetSize,
+		bTotalDataSetSize;
+
+	if (userOptions->usepessidata == false) {
+		aL1DataSetSize = a->L1DataSetSize;
+		aL2DataSetSize = a->L2DataSetSize;
+		aL3DataSetSize = a->L3DataSetSize;
+		aMemDataSetSize = a->MemDataSetSize;
+		aTotalDataSetSize = a->TotalDataSetSize;
+		bL1DataSetSize = b->L1DataSetSize;
+		bL2DataSetSize = b->L2DataSetSize;
+		bL3DataSetSize = b->L3DataSetSize;
+		bMemDataSetSize = b->MemDataSetSize;
+		bTotalDataSetSize = b->TotalDataSetSize;
+	}
+	else {
+		aL1DataSetSize = a->PessiL1DataSetSize;
+		aL2DataSetSize = a->PessiL2DataSetSize;
+		aL3DataSetSize = a->PessiL3DataSetSize;
+		aMemDataSetSize = a->PessiMemDataSetSize;
+		aTotalDataSetSize = a->PessiTotalDataSetSize;
+		bL1DataSetSize = b->PessiL1DataSetSize;
+		bL2DataSetSize = b->PessiL2DataSetSize;
+		bL3DataSetSize = b->PessiL3DataSetSize;
+		bMemDataSetSize = b->PessiMemDataSetSize;
+		bTotalDataSetSize = b->PessiTotalDataSetSize;
+	}
+
+	if (ExceedsByAThreshold(aL1DataSetSize, bL1DataSetSize)) {
+		winner = 0;
+		if (DEBUG)
+			cout << "L1DataSetSize_Winner" << endl;
+	}
+	else if (ExceedsByAThreshold(bL1DataSetSize, aL1DataSetSize)) {
+		winner = 1;
+		if (DEBUG)
+			cout << "L1DataSetSize_Winner" << endl;
+	}
+	else if (ExceedsByAThreshold(aL2DataSetSize, bL2DataSetSize)) {
+		winner = 0;
+		if (DEBUG)
+			cout << "L2DataSetSize_Winner" << endl;
+	}
+	else if (ExceedsByAThreshold(bL2DataSetSize, aL2DataSetSize)) {
+		winner = 1;
+		if (DEBUG)
+			cout << "L2DataSetSize_Winner" << endl;
+	}
+	else if (ExceedsByAThreshold(aL3DataSetSize, bL3DataSetSize)) {
+		winner = 0;
+		if (DEBUG)
+			cout << "L3DataSetSize_Winner" << endl;
+	}
+	else if (ExceedsByAThreshold(bL3DataSetSize, aL3DataSetSize)) {
+		winner = 1;
+		if (DEBUG)
+			cout << "L3DataSetSize_Winner" << endl;
+	}
+	else if (ExceedsByAThreshold(aMemDataSetSize, bMemDataSetSize)) {
+		winner = 0;
+		if (DEBUG)
+			cout << "MemDataSetSize_Winner" << endl;
+	}
+	else if (ExceedsByAThreshold(bMemDataSetSize, aMemDataSetSize)) {
+		winner = 1;
+		if (DEBUG)
+			cout << "MemDataSetSize_Winner" << endl;
+	}
+	else if (ExceedsByAThreshold(aTotalDataSetSize,
+		bTotalDataSetSize,
+		TOTALDATASETSIZETHRESHOLD)) {
+		winner = 0;
+		if (DEBUG)
+			cout << "TotalDataSetSize_Winner" << endl;
+
+	}
+	else if (ExceedsByAThreshold(bTotalDataSetSize,
+		aTotalDataSetSize,
+		TOTALDATASETSIZETHRESHOLD)) {
+		winner = 1;
+		if (DEBUG)
+			cout << "TotalDataSetSize_Winner" << endl;
+	}
+
+	return winner;
 }
 
 int FindWinner(ProgramVariant *a, ProgramVariant* b,
