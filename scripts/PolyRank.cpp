@@ -76,6 +76,7 @@ struct UserOptions {
 	bool computeattributeimportance;
 	bool lo_to_hi_decisiontree;
 	bool pessinormalizedatadecisiontree;
+	bool infogaindecisiontree;
 };
 
 typedef struct UserOptions UserOptions;
@@ -132,6 +133,11 @@ bool ExceedsByAThresholdPct(double pct1, double pct2,
 	double threshold);
 int FindWinnerOnNormalizedData(ProgramVariant *a, ProgramVariant* b,
 	UserOptions* userOptions);
+void RankUsingInfoGainDecisionTree(vector<ProgramVariant*> *programVariants,
+	UserOptions* userOptions);
+int FindWinnerUsingInfoGainDecisionTree(ProgramVariant *a,
+	ProgramVariant* b,
+	UserOptions* userOptions);
 /* Function declarations end */
 
 
@@ -151,6 +157,7 @@ UserOptions* ProcessInputArguments(int argc, char **argv) {
 	string LO_TO_HI_DECISION_TREE = "--lo_to_hi_decisiontree";
 	string PESSI_NORMALIZED_DATA_DECISION_TREE
 		= "--pessinormalizedatadecisiontree";
+	string INFO_GAIN_DECISION_TREE = "--infogaindecisiontree";
 
 	UserOptions* userOptions = new UserOptions;
 	userOptions->headers = true;
@@ -160,6 +167,7 @@ UserOptions* ProcessInputArguments(int argc, char **argv) {
 	userOptions->computeattributeimportance = false;
 	userOptions->lo_to_hi_decisiontree = false;
 	userOptions->pessinormalizedatadecisiontree = false;
+	userOptions->infogaindecisiontree = false;
 
 	for (int i = 2; i < argc; i++) {
 		arg = argv[i];
@@ -190,6 +198,10 @@ UserOptions* ProcessInputArguments(int argc, char **argv) {
 
 		if (argv[i] == PESSI_NORMALIZED_DATA_DECISION_TREE) {
 			userOptions->pessinormalizedatadecisiontree = true;
+		}
+
+		if (argv[i] == INFO_GAIN_DECISION_TREE) {
+			userOptions->infogaindecisiontree = true;
 		}
 	}
 
@@ -409,6 +421,11 @@ The cardinality can be the weight of the reuse*/
 
 	if (userOptions->pessinormalizedatadecisiontree) {
 		RankUsingDecisionTreeOnNormalizedData(programVariants, userOptions);
+		return;
+	}
+
+	if (userOptions->infogaindecisiontree) {
+		RankUsingInfoGainDecisionTree(programVariants, userOptions);
 		return;
 	}
 
@@ -674,6 +691,31 @@ void RankUsingDecisionTree(vector<ProgramVariant*> *programVariants,
 	AssignPolyRankBasedOnOrder(programVariants);
 }
 
+void RankUsingInfoGainDecisionTree(vector<ProgramVariant*> *programVariants,
+	UserOptions* userOptions) {
+	cout << "RankUsingInfoGainDecisionTree" << endl;
+	int winner; // 0: first, 1: second
+	for (int i = 0; i < programVariants->size(); i++) {
+		for (int j = i + 1; j < programVariants->size(); j++) {
+			if (i != j) {
+				winner = FindWinnerUsingInfoGainDecisionTree(
+					programVariants->at(i),
+					programVariants->at(j), userOptions);
+				if (winner == 0) {
+					programVariants->at(i)->wins += 1;
+				}
+				else if (winner == 1) {
+					programVariants->at(j)->wins += 1;
+				}
+			}
+		}
+	}
+
+	sort(programVariants->begin(), programVariants->end(),
+		compareByWins);
+	AssignPolyRankBasedOnOrder(programVariants);
+}
+
 void RankUsingDecisionTreeOnNormalizedData(
 	vector<ProgramVariant*> *programVariants,
 	UserOptions* userOptions) {
@@ -885,6 +927,64 @@ string GetNameAtIndex(int index) {
 		exit(1);
 		return 0;
 	}
+}
+
+int FindWinnerUsingInfoGainDecisionTree(ProgramVariant *a,
+	ProgramVariant* b,
+	UserOptions* userOptions) {
+	/*
+	Attribute name, lower bounds :
+1) PessiTotalDataSetSize -> 0.05793398372676597
+2) L1DataSetSize -> 0.32351810160558725
+3) PessiMemDataSetSize -> 0.010677157546227745
+	*/
+	int winner = -1;
+
+	double TOTALDATATHRESHOLDPCT = 0.058;
+	double L1DATASETSIZETHRESHOLDPCT = 0.32;
+	double MEMDATASETSIZETHRESHOLDPCT = 0.011;
+
+	if (ExceedsByAThreshold(a->PessiTotalDataSetSize,
+		b->PessiTotalDataSetSize,
+		TOTALDATATHRESHOLDPCT)) {
+		winner = 1;
+		if (DEBUG)
+			cout << "PessiTotalDataSetSize_Winner" << endl;
+
+	}
+	else if (ExceedsByAThreshold(b->PessiTotalDataSetSize,
+		a->PessiTotalDataSetSize,
+		TOTALDATATHRESHOLDPCT)) {
+		winner = 0;
+		if (DEBUG)
+			cout << "PessiTotalDataSetSize_Winner" << endl;
+	}
+	else if (ExceedsByAThresholdPct(a->L1DataSetSize,
+		b->L1DataSetSize, L1DATASETSIZETHRESHOLDPCT)) {
+		winner = 1;
+		if (DEBUG)
+			cout << "L1DataSetSize_Winner" << endl;
+	}
+	else if (ExceedsByAThresholdPct(b->L1DataSetSize,
+		a->L1DataSetSize, L1DATASETSIZETHRESHOLDPCT)) {
+		winner = 0;
+		if (DEBUG)
+			cout << "L1DataSetSize_Winner" << endl;
+	}
+	else if (ExceedsByAThresholdPct(a->PessiMemDataSetSize,
+		b->PessiMemDataSetSize, MEMDATASETSIZETHRESHOLDPCT)) {
+		winner = 1;
+		if (DEBUG)
+			cout << "PessiMemDataSetSize_Winner" << endl;
+	}
+	else if (ExceedsByAThresholdPct(b->PessiMemDataSetSize,
+		a->PessiMemDataSetSize, MEMDATASETSIZETHRESHOLDPCT)) {
+		winner = 0;
+		if (DEBUG)
+			cout << "PessiMemDataSetSize_Winner" << endl;
+	}
+
+	return winner;
 }
 
 int FindWinnerOnNormalizedData(ProgramVariant *a, ProgramVariant* b,
