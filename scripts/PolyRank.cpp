@@ -17,6 +17,7 @@ using namespace std;
 
 #define DATASETSIZETHRESHOLD 0.05
 #define TOTALDATASETSIZETHRESHOLD 0.5
+#define MEMDATASETSIZETHRESHOLD 0.05
 /*Latency related*/
 #define L1Cost 4
 #define L2Cost 14 // 26
@@ -52,6 +53,10 @@ struct ProgramVariant {
 	long PessiL3DataSetSize;
 	long PessiMemDataSetSize;
 	long PessiTotalDataSetSize;
+	double PessiL1DataSetSizeFrac;
+	double PessiL2DataSetSizeFrac;
+	double PessiL3DataSetSizeFrac;
+	double PessiMemDataSetSizeFrac;
 	int polyRank, actualRank;
 	double userDefinedCost;
 	double secondaryCost;
@@ -70,6 +75,7 @@ struct UserOptions {
 	bool usepessidata;
 	bool computeattributeimportance;
 	bool lo_to_hi_decisiontree;
+	bool pessinormalizedatadecisiontree;
 };
 
 typedef struct UserOptions UserOptions;
@@ -119,6 +125,13 @@ void RankUsingLoToHiDecisionTree(vector<ProgramVariant*> *programVariants,
 	UserOptions* userOptions);
 int FindWinnerLoToHi(ProgramVariant *a, ProgramVariant* b,
 	UserOptions* userOptions);
+void RankUsingDecisionTreeOnNormalizedData(
+	vector<ProgramVariant*> *programVariants,
+	UserOptions* userOptions);
+bool ExceedsByAThresholdPct(double pct1, double pct2,
+	double threshold);
+int FindWinnerOnNormalizedData(ProgramVariant *a, ProgramVariant* b,
+	UserOptions* userOptions);
 /* Function declarations end */
 
 
@@ -136,6 +149,9 @@ UserOptions* ProcessInputArguments(int argc, char **argv) {
 	string USE_PESSI_DATA = "--usepessidata";
 	string COMPUTE_ATTRIBUTE_IMPORTANCE = "--computeattributeimportance";
 	string LO_TO_HI_DECISION_TREE = "--lo_to_hi_decisiontree";
+	string PESSI_NORMALIZED_DATA_DECISION_TREE
+		= "--pessinormalizedatadecisiontree";
+
 	UserOptions* userOptions = new UserOptions;
 	userOptions->headers = true;
 	userOptions->perfseparaterow = false;
@@ -143,6 +159,7 @@ UserOptions* ProcessInputArguments(int argc, char **argv) {
 	userOptions->usepessidata = false;
 	userOptions->computeattributeimportance = false;
 	userOptions->lo_to_hi_decisiontree = false;
+	userOptions->pessinormalizedatadecisiontree = false;
 
 	for (int i = 2; i < argc; i++) {
 		arg = argv[i];
@@ -169,6 +186,10 @@ UserOptions* ProcessInputArguments(int argc, char **argv) {
 
 		if (argv[i] == LO_TO_HI_DECISION_TREE) {
 			userOptions->lo_to_hi_decisiontree = true;
+		}
+
+		if (argv[i] == PESSI_NORMALIZED_DATA_DECISION_TREE) {
+			userOptions->pessinormalizedatadecisiontree = true;
 		}
 	}
 
@@ -386,6 +407,11 @@ The cardinality can be the weight of the reuse*/
 		return;
 	}
 
+	if (userOptions->pessinormalizedatadecisiontree) {
+		RankUsingDecisionTreeOnNormalizedData(programVariants, userOptions);
+		return;
+	}
+
 	for (int i = 0; i < programVariants->size(); i++) {
 		double totalReuses = programVariants->at(i)->L1 +
 			programVariants->at(i)->L2 +
@@ -571,6 +597,18 @@ void ReadProgramVariants(string line, vector<ProgramVariant*> *programVariants, 
 				var->PessiL2DataSetSize + var->PessiL3DataSetSize
 				+ var->PessiMemDataSetSize;
 
+			var->PessiL1DataSetSizeFrac =
+				((double)var->PessiL1DataSetSize)
+				/ ((double)var->PessiTotalDataSetSize);
+			var->PessiL2DataSetSizeFrac =
+				((double)var->PessiL2DataSetSize)
+				/ ((double)var->PessiTotalDataSetSize);
+			var->PessiL3DataSetSizeFrac =
+				((double)var->PessiL3DataSetSize)
+				/ ((double)var->PessiTotalDataSetSize);
+			var->PessiMemDataSetSizeFrac =
+				((double)var->PessiMemDataSetSize)
+				/ ((double)var->PessiTotalDataSetSize);
 			InitializeRanks(var);
 			programVariants->push_back(var);
 		}
@@ -620,6 +658,32 @@ void RankUsingDecisionTree(vector<ProgramVariant*> *programVariants,
 		for (int j = i + 1; j < programVariants->size(); j++) {
 			if (i != j) {
 				winner = FindWinner(programVariants->at(i),
+					programVariants->at(j), userOptions);
+				if (winner == 0) {
+					programVariants->at(i)->wins += 1;
+				}
+				else if (winner == 1) {
+					programVariants->at(j)->wins += 1;
+				}
+			}
+		}
+	}
+
+	sort(programVariants->begin(), programVariants->end(),
+		compareByWins);
+	AssignPolyRankBasedOnOrder(programVariants);
+}
+
+void RankUsingDecisionTreeOnNormalizedData(
+	vector<ProgramVariant*> *programVariants,
+	UserOptions* userOptions) {
+	cout << "In RankUsingDecisionTreeOnNormalizedData" << endl;
+	int winner; // 0: first, 1: second
+	for (int i = 0; i < programVariants->size(); i++) {
+		for (int j = i + 1; j < programVariants->size(); j++) {
+			if (i != j) {
+				winner = FindWinnerOnNormalizedData(
+					programVariants->at(i),
 					programVariants->at(j), userOptions);
 				if (winner == 0) {
 					programVariants->at(i)->wins += 1;
@@ -823,6 +887,83 @@ string GetNameAtIndex(int index) {
 	}
 }
 
+int FindWinnerOnNormalizedData(ProgramVariant *a, ProgramVariant* b,
+	UserOptions* userOptions) {
+	int winner = -1;
+
+	double MEMTHRESHOLDPCT = 0.17;
+	double L3THRESHOLDPCT = 0.04;
+	double L2THRESHOLDPCT = 0.04;
+	double L1THRESHOLDPCT = 0.04;
+	double TOTALDATATHRESHOLDPCT = 0.10;
+
+	if (ExceedsByAThreshold(a->PessiTotalDataSetSize,
+		b->PessiTotalDataSetSize,
+		TOTALDATATHRESHOLDPCT)) {
+		winner = 1;
+		if (DEBUG)
+			cout << "TotalDataSetSize_Winner" << endl;
+
+	}
+	else if (ExceedsByAThreshold(b->PessiTotalDataSetSize,
+		a->PessiTotalDataSetSize,
+		TOTALDATATHRESHOLDPCT)) {
+		winner = 0;
+		if (DEBUG)
+			cout << "TotalDataSetSize_Winner" << endl;
+	}
+	else if (ExceedsByAThresholdPct(a->PessiMemDataSetSizeFrac,
+		b->PessiMemDataSetSizeFrac, MEMTHRESHOLDPCT)) {
+		winner = 1;
+		if (DEBUG)
+			cout << "PessiMemDataSetSizeFrac_Winner" << endl;
+	}
+	else if (ExceedsByAThresholdPct(b->PessiMemDataSetSizeFrac,
+		a->PessiMemDataSetSizeFrac, MEMTHRESHOLDPCT)) {
+		winner = 0;
+		if (DEBUG)
+			cout << "PessiMemDataSetSizeFrac_Winner" << endl;
+	}
+	else if (ExceedsByAThresholdPct(a->PessiL3DataSetSizeFrac,
+		b->PessiL3DataSetSizeFrac, L3THRESHOLDPCT)) {
+		winner = 1;
+		if (DEBUG)
+			cout << "PessiL3DataSetSizeFrac_Winner" << endl;
+	}
+	else if (ExceedsByAThresholdPct(b->PessiL3DataSetSizeFrac,
+		a->PessiL3DataSetSizeFrac, L3THRESHOLDPCT)) {
+		winner = 0;
+		if (DEBUG)
+			cout << "PessiL3DataSetSizeFrac_Winner" << endl;
+	}
+	else if (ExceedsByAThresholdPct(a->PessiL2DataSetSizeFrac,
+		b->PessiL2DataSetSizeFrac, L2THRESHOLDPCT)) {
+		winner = 1;
+		if (DEBUG)
+			cout << "PessiL2DataSetSizeFrac_Winner" << endl;
+	}
+	else if (ExceedsByAThresholdPct(b->PessiL2DataSetSizeFrac,
+		a->PessiL2DataSetSizeFrac, L2THRESHOLDPCT)) {
+		winner = 0;
+		if (DEBUG)
+			cout << "PessiL2DataSetSizeFrac_Winner" << endl;
+	}
+	else if (ExceedsByAThresholdPct(a->PessiL1DataSetSizeFrac,
+		b->PessiL1DataSetSizeFrac, L1THRESHOLDPCT)) {
+		winner = 1;
+		if (DEBUG)
+			cout << "PessiL1DataSetSizeFrac_Winner" << endl;
+	}
+	else if (ExceedsByAThresholdPct(b->PessiL1DataSetSizeFrac,
+		a->PessiL1DataSetSizeFrac, L1THRESHOLDPCT)) {
+		winner = 0;
+		if (DEBUG)
+			cout << "PessiL1DataSetSizeFrac_Winner" << endl;
+	}
+
+	return winner;
+}
+
 int FindWinnerLoToHi(ProgramVariant *a, ProgramVariant* b,
 	UserOptions* userOptions) {
 	int winner = -1;
@@ -918,7 +1059,7 @@ int FindWinnerLoToHi(ProgramVariant *a, ProgramVariant* b,
 
 int FindWinner(ProgramVariant *a, ProgramVariant* b,
 	UserOptions* userOptions) {
-	int winner = 0;
+	int winner = -1; // FIXME: Set it to 0
 
 	long aL1DataSetSize, aL2DataSetSize, aL3DataSetSize, aMemDataSetSize,
 		aTotalDataSetSize;
@@ -960,17 +1101,19 @@ int FindWinner(ProgramVariant *a, ProgramVariant* b,
 	}
 	else if (ExceedsByAThreshold(bTotalDataSetSize,
 		aTotalDataSetSize,
-		DATASETSIZETHRESHOLD)) {
+		TOTALDATASETSIZETHRESHOLD)) { // FIXME: Set it to DATASETSIZETHRESHOLD
 		winner = 0;
 		if (DEBUG)
 			cout << "TotalDataSetSize_Winner" << endl;
 	}
-	else if (ExceedsByAThreshold(aMemDataSetSize, bMemDataSetSize)) {
+	else if (ExceedsByAThreshold(aMemDataSetSize, bMemDataSetSize,
+		MEMDATASETSIZETHRESHOLD)) {
 		winner = 1;
 		if (DEBUG)
 			cout << "MemDataSetSize_Winner" << endl;
 	}
-	else if (ExceedsByAThreshold(bMemDataSetSize, aMemDataSetSize)) {
+	else if (ExceedsByAThreshold(bMemDataSetSize, aMemDataSetSize,
+		MEMDATASETSIZETHRESHOLD)) {
 		winner = 0;
 		if (DEBUG)
 			cout << "MemDataSetSize_Winner" << endl;
@@ -1012,6 +1155,16 @@ int FindWinner(ProgramVariant *a, ProgramVariant* b,
 bool ExceedsByAThreshold(long size1, long size2,
 	double threshold) {
 	if (size1 > (1 + threshold) * size2) {
+		return true;
+	}
+	else {
+		return false;
+	}
+}
+
+bool ExceedsByAThresholdPct(double pct1, double pct2,
+	double threshold) {
+	if (pct1 > (1 + threshold) * pct2) {
 		return true;
 	}
 	else {
