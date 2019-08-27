@@ -77,6 +77,7 @@ struct UserOptions {
 	bool lo_to_hi_decisiontree;
 	bool pessinormalizedatadecisiontree;
 	bool infogaindecisiontree;
+	bool bwlat;
 };
 
 typedef struct UserOptions UserOptions;
@@ -158,6 +159,7 @@ UserOptions* ProcessInputArguments(int argc, char **argv) {
 	string PESSI_NORMALIZED_DATA_DECISION_TREE
 		= "--pessinormalizedatadecisiontree";
 	string INFO_GAIN_DECISION_TREE = "--infogaindecisiontree";
+	string BWLAT = "--bwlat";
 
 	UserOptions* userOptions = new UserOptions;
 	userOptions->headers = true;
@@ -168,6 +170,7 @@ UserOptions* ProcessInputArguments(int argc, char **argv) {
 	userOptions->lo_to_hi_decisiontree = false;
 	userOptions->pessinormalizedatadecisiontree = false;
 	userOptions->infogaindecisiontree = false;
+	userOptions->bwlat = false;
 
 	for (int i = 2; i < argc; i++) {
 		arg = argv[i];
@@ -202,6 +205,10 @@ UserOptions* ProcessInputArguments(int argc, char **argv) {
 
 		if (argv[i] == INFO_GAIN_DECISION_TREE) {
 			userOptions->infogaindecisiontree = true;
+		}
+
+		if (argv[i] == BWLAT) {
+			userOptions->bwlat = true;
 		}
 	}
 
@@ -430,46 +437,63 @@ The cardinality can be the weight of the reuse*/
 	}
 
 	for (int i = 0; i < programVariants->size(); i++) {
-		double totalReuses = programVariants->at(i)->L1 +
-			programVariants->at(i)->L2 +
-			programVariants->at(i)->L3 +
-			programVariants->at(i)->Mem;
-
 		if (userOptions->usepessidata == false) {
-			programVariants->at(i)->userDefinedCost =
-				(programVariants->at(i)->L1DataSetSize) * L1Cost +
-				(programVariants->at(i)->L2DataSetSize) * L2Cost +
-				(programVariants->at(i)->L3DataSetSize) * L3Cost +
-				(programVariants->at(i)->MemDataSetSize) * MemCost;
+			if (userOptions->bwlat == true) {
+				cout << "Using bwlat setting" << endl;
+				programVariants->at(i)->userDefinedCost =
+					(programVariants->at(i)->L1DataSetSize) * L1Cost * SecondaryL1Cost +
+					(programVariants->at(i)->L2DataSetSize) * L2Cost * SecondaryL2Cost +
+					(programVariants->at(i)->L3DataSetSize) * L3Cost * SecondaryL3Cost +
+					(programVariants->at(i)->MemDataSetSize) * MemCost * SecondaryMemCost;
 
+				programVariants->at(i)->secondaryCost = 0;
+			}
+			else {
+				programVariants->at(i)->userDefinedCost =
+					(programVariants->at(i)->L1DataSetSize) * L1Cost +
+					(programVariants->at(i)->L2DataSetSize) * L2Cost +
+					(programVariants->at(i)->L3DataSetSize) * L3Cost +
+					(programVariants->at(i)->MemDataSetSize) * MemCost;
 
-			programVariants->at(i)->secondaryCost =
-				(programVariants->at(i)->L1DataSetSize)
-				* SecondaryL1Cost +
-				(programVariants->at(i)->L2DataSetSize)
-				* SecondaryL2Cost +
-				(programVariants->at(i)->L3DataSetSize)
-				* SecondaryL3Cost +
-				(programVariants->at(i)->MemDataSetSize)
-				* SecondaryMemCost;
+				programVariants->at(i)->secondaryCost =
+					(programVariants->at(i)->L1DataSetSize)
+					* SecondaryL1Cost +
+					(programVariants->at(i)->L2DataSetSize)
+					* SecondaryL2Cost +
+					(programVariants->at(i)->L3DataSetSize)
+					* SecondaryL3Cost +
+					(programVariants->at(i)->MemDataSetSize)
+					* SecondaryMemCost;
+			}
 		}
 		else {
-			programVariants->at(i)->userDefinedCost =
-				(programVariants->at(i)->PessiL1DataSetSize) * L1Cost +
-				(programVariants->at(i)->PessiL2DataSetSize) * L2Cost +
-				(programVariants->at(i)->PessiL3DataSetSize) * L3Cost +
-				(programVariants->at(i)->PessiMemDataSetSize) * MemCost;
+			if (userOptions->bwlat == true) {
+				cout << "Using bwlat setting" << endl;
+				programVariants->at(i)->userDefinedCost =
+					(programVariants->at(i)->PessiL1DataSetSize) * L1Cost * SecondaryL1Cost +
+					(programVariants->at(i)->PessiL2DataSetSize) * L2Cost * SecondaryL2Cost +
+					(programVariants->at(i)->PessiL3DataSetSize) * L3Cost * SecondaryL3Cost +
+					(programVariants->at(i)->PessiMemDataSetSize) * MemCost * SecondaryMemCost;
 
+				programVariants->at(i)->secondaryCost = 0;
+			}
+			else {
+				programVariants->at(i)->userDefinedCost =
+					(programVariants->at(i)->PessiL1DataSetSize) * L1Cost +
+					(programVariants->at(i)->PessiL2DataSetSize) * L2Cost +
+					(programVariants->at(i)->PessiL3DataSetSize) * L3Cost +
+					(programVariants->at(i)->PessiMemDataSetSize) * MemCost;
 
-			programVariants->at(i)->secondaryCost =
-				(programVariants->at(i)->PessiL1DataSetSize)
-				* SecondaryL1Cost +
-				(programVariants->at(i)->PessiL2DataSetSize)
-				* SecondaryL2Cost +
-				(programVariants->at(i)->PessiL3DataSetSize)
-				* SecondaryL3Cost +
-				(programVariants->at(i)->PessiMemDataSetSize)
-				* SecondaryMemCost;
+				programVariants->at(i)->secondaryCost =
+					(programVariants->at(i)->PessiL1DataSetSize)
+					* SecondaryL1Cost +
+					(programVariants->at(i)->PessiL2DataSetSize)
+					* SecondaryL2Cost +
+					(programVariants->at(i)->PessiL3DataSetSize)
+					* SecondaryL3Cost +
+					(programVariants->at(i)->PessiMemDataSetSize)
+					* SecondaryMemCost;
+			}
 		}
 	}
 
