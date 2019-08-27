@@ -30,12 +30,14 @@ L1: 192 B/cycle : R/W together
 L2: 64 B/cycle : R/W together: 96 B/cycle
 L3: 8 B/cycle : R/W together: 16 B/cycle
 Mem: 4 B/cycle
-
+Mem: 256(?) GB/s
+Mem: The STREAM triad figure: 148 GB/s
+148 / 2.7 = 55 B/cycle
 */
 #define SecondaryL1Cost (1.0/192.0)
 #define SecondaryL2Cost (1.0/96.0)
 #define SecondaryL3Cost (1.0/16.0)
-#define SecondaryMemCost (1.0/4.0)
+#define SecondaryMemCost (1.0/55.0)
 
 
 struct ProgramVariant {
