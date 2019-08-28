@@ -514,7 +514,12 @@ bool compareByUserDefinedCost(const ProgramVariant* a,
 	5. L1DataSetSize */
 
 	if (a->userDefinedCost == b->userDefinedCost) {
-		return a->secondaryCost < b->secondaryCost;
+		if (a->secondaryCost == b->secondaryCost) {
+			return a->gflops > b->gflops;
+		}
+		else {
+			return a->secondaryCost < b->secondaryCost;
+		}
 	}
 	else {
 		return a->userDefinedCost < b->userDefinedCost;
