@@ -1185,7 +1185,7 @@ int FindWinnerLoToHi(ProgramVariant *a, ProgramVariant* b,
 
 int FindWinner(ProgramVariant *a, ProgramVariant* b,
 	UserOptions* userOptions) {
-	int winner = -1; // FIXME: Set it to 0
+	int winner = 0; // FIXME: Set it to 0
 
 	long aL1DataSetSize, aL2DataSetSize, aL3DataSetSize, aMemDataSetSize,
 		aTotalDataSetSize;
