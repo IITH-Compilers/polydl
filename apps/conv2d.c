@@ -86,6 +86,42 @@ void naive_conv_fp_stride_1(
 	}
 }
 
+void naive_conv_fp(
+	int nImg, int nIfm, int nOfm, int ifhp, int ifwp, int ofhp, int ofwp, int ifh, int ifw,
+	int ofh, int ofw, int pad_h, int pad_w, int pad_h_in, int pad_w_in, int pad_h_out,
+	int pad_w_out, int kh, int kw, int stride_h, int stride_w,
+	const float input[nImg][nIfm][ifhp][ifwp], float output[nImg][nOfm][ofhp][ofwp], const float filter[nOfm][nIfm][kh][kw])
+{
+	/* loop counters */
+	int img, ofm, ifm, oj, oi, ij, ii, kj, ki;
+
+	/*
+	float input[nImg][nIfm][ifhp][ifwp];
+	float output[nImg][nOfm][ofhp][ofwp];
+	float filter[nOfm][nIfm][kh][kw];
+	*/
+
+	for (img = 0; img < nImg; ++img) {
+		for (ofm = 0; ofm < nOfm; ++ofm) {
+			for (ifm = 0; ifm < nIfm; ++ifm) {
+				for (oj = 0; oj < ofh; ++oj) {
+					ij = oj * stride_h - pad_h;
+					for (oi = 0; oi < ofw; ++oi) {
+						ii = oi * stride_w - pad_w;
+						for (kj = 0; kj < kh; ++kj) {
+							if (ij + kj < 0 || ij + kj >= ifh) continue;
+							for (ki = 0; ki < kw; ++ki) {
+								if (ii + ki < 0 || ii + ki >= ifw) continue;
+								output[img][ofm][oj][oi] += input[img][ifm][ij + kj][ii + ki]
+									* filter[ofm][ifm][kj][ki];
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+}
 
 /* With libxsmm parameters*/
 void padded_conv_fp_stride_1_tiled_loop_order_1(int nImg, int nIfm, int nOfm, int ifhp, int ifwp, int ofhp, int ofwp, int ifh, int ifw,
@@ -265,6 +301,56 @@ void padded_conv_fp_stride_1_libxsmm_core(int nImg, int nIfm, int nOfm, int ifhp
 #pragma endscop
 }
 
+void padded_conv_fp_libxsmm_core(int nImg, int nIfm, int nOfm, int ifhp, int ifwp, int ofhp, int ofwp, int ifh, int ifw,
+	int ofh, int ofw, int pad_h, int pad_w, int pad_h_in, int pad_w_in, int pad_h_out,
+	int pad_w_out, int kh, int kw, int stride_h, int stride_w,
+	const float pad_gemm_input[nImg][nIfm / GEMM_BLOCK][ifhp + 2 * pad_h][ifwp + 2 * pad_w][GEMM_BLOCK], float output[nImg][nOfm / GEMM_BLOCK][ofhp][ofwp][GEMM_BLOCK], const float filter[nOfm / GEMM_BLOCK][nIfm / GEMM_BLOCK][kh][kw][GEMM_BLOCK][GEMM_BLOCK], int iters)
+{
+	/* loop counters */
+	int img, ofm_tile, ofm, ifm_tile, ifm, oj, oi, ij, ii, kj, ki, i;
+
+#pragma scop
+	for (i = 0; i < iters; i++) {
+#pragma omp parallel for private(ofm_tile, ifm_tile, ij, oj, kj, ki)
+		for (img = 0; img < nImg; ++img) {
+			// printf("thread id = %d\n", omp_get_thread_num());
+			// #pragma omp parallel for private(ofm_tile, ifm_tile, oj, kj, ki)
+			for (ofm_tile = 0; ofm_tile < nOfm / GEMM_BLOCK; ++ofm_tile) {
+				for (ifm_tile = 0; ifm_tile < nIfm / GEMM_BLOCK; ++ifm_tile) {
+					for (oj = 0; oj < ofh; ++oj) {
+						ij = oj * stride_h;
+						for (kj = 0; kj < kh; ++kj) {
+							for (ki = 0; ki < kw; ++ki) {
+
+
+								fwd_gemm(&filter[ofm_tile][ifm_tile][kj][ki][0][0],
+									&pad_gemm_input[img][ifm_tile][ij + kj][ki][0],
+									&output[img][ofm_tile][oj][0][0]);
+
+
+								//GEMM
+							/*
+							for (oi = 0; oi < ofw; ++oi) {
+								for (ofm = 0; ofm < GEMM_BLOCK; ++ofm) {
+									for (ifm = 0; ifm < GEMM_BLOCK; ++ifm) {
+										output[img][ofm_tile][oj][oi][ofm] +=
+											filter[ofm_tile][ifm_tile][kj][ki][ifm][ofm] * pad_gemm_input[img][ifm_tile][oj + kj][oi + ki][ifm];
+									}
+								}
+							}
+							*/
+
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+#pragma endscop
+}
+
+
 void padded_conv_fp_stride_1_libxsmm_core2(int nImg, int nIfm, int nOfm, int ifhp, int ifwp, int ofhp, int ofwp, int ifh, int ifw,
 	int ofh, int ofw, int pad_h, int pad_w, int pad_h_in, int pad_w_in, int pad_h_out,
 	int pad_w_out, int kh, int kw, int stride_h, int stride_w,
@@ -433,7 +519,42 @@ void padded_conv_fp_stride_1_core(int nImg, int nIfm, int nOfm, int ifhp, int if
 #pragma endscop
 }
 
+void padded_conv_fp_core(int nImg, int nIfm, int nOfm, int ifhp, int ifwp, int ofhp, int ofwp, int ifh, int ifw,
+	int ofh, int ofw, int pad_h, int pad_w, int pad_h_in, int pad_w_in, int pad_h_out,
+	int pad_w_out, int kh, int kw, int stride_h, int stride_w,
+	const float pad_gemm_input[nImg][nIfm / GEMM_BLOCK][ifhp + 2 * pad_h][ifwp + 2 * pad_w][GEMM_BLOCK], float output[nImg][nOfm / GEMM_BLOCK][ofhp][ofwp][GEMM_BLOCK], const float filter[nOfm / GEMM_BLOCK][nIfm / GEMM_BLOCK][kh][kw][GEMM_BLOCK][GEMM_BLOCK], int iters)
+{
+	/* loop counters */
+	int img, ofm_tile, ofm, ifm_tile, ifm, oj, oi, ij, ii, kj, ki, i;
 
+#pragma scop
+	for (i = 0; i < iters; i++) {
+		for (img = 0; img < nImg; ++img) {
+			for (ofm_tile = 0; ofm_tile < nOfm / GEMM_BLOCK; ++ofm_tile) {
+				for (ifm_tile = 0; ifm_tile < nIfm / GEMM_BLOCK; ++ifm_tile) {
+					for (oj = 0; oj < ofh; ++oj) {
+						ij = oj * stride_h - pad_h;
+						for (kj = 0; kj < kh; ++kj) {
+							for (ki = 0; ki < kw; ++ki) {
+								//GEMM
+								for (oi = 0; oi < ofw; ++oi) {
+									ii = oi * stride_w - pad_w;
+									for (ofm = 0; ofm < GEMM_BLOCK; ++ofm) {
+										for (ifm = 0; ifm < GEMM_BLOCK; ++ifm) {
+											output[img][ofm_tile][oj][oi][ofm] +=
+												filter[ofm_tile][ifm_tile][kj][ki][ifm][ofm] * pad_gemm_input[img][ifm_tile][ij + kj][ii + ki][ifm];
+										}
+									}
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+#pragma endscop
+}
 
 void init_buf(float* buf, long size)
 {
@@ -458,7 +579,7 @@ double padded_conv_fp_stride_1(
 {
 	unsigned long long l_start, l_end;
 	double l_total = 0.0;
-	/* declare a physcial padded buffer */
+	/* declare a physical padded buffer */
 
 	/*
 	float pad_gemm_input[nImg][nIfm / GEMM_BLOCK][ifhp + 2 * pad_h][ifwp + 2 * pad_w][GEMM_BLOCK];
@@ -523,6 +644,101 @@ double padded_conv_fp_stride_1(
 	else if (version == 6) {
 		l_start = libxsmm_timer_tick();
 		padded_conv_fp_stride_1_core(nImg, nIfm, nOfm, ifhp, ifwp, ofhp, ofwp, ifh, ifw,
+			ofh, ofw, pad_h, pad_w, pad_h_in, pad_w_in, pad_h_out,
+			pad_w_out, kh, kw, stride_h, stride_w, pad_gemm_input, output, filter, iters);
+		l_end = libxsmm_timer_tick();
+	}
+	else if (version == 7) {
+		l_start = libxsmm_timer_tick();
+		padded_conv_fp_stride_1_libxsmm_core_pluto(nImg, nIfm, nOfm, ifhp, ifwp, ofhp, ofwp, ifh, ifw,
+			ofh, ofw, pad_h, pad_w, pad_h_in, pad_w_in, pad_h_out,
+			pad_w_out, kh, kw, stride_h, stride_w, pad_gemm_input, output, filter, iters);
+		l_end = libxsmm_timer_tick();
+	}
+	else {
+		printf("Incorrect version\n");
+		libxsmm_free(pad_gemm_input);
+		exit(0);
+	}
+
+	libxsmm_free(pad_gemm_input);
+	l_total = libxsmm_timer_duration(l_start, l_end);
+	return l_total;
+}
+
+double padded_conv_fp(
+	int nImg, int nIfm, int nOfm, int ifhp, int ifwp, int ofhp, int ofwp, int ifh, int ifw,
+	int ofh, int ofw, int pad_h, int pad_w, int pad_h_in, int pad_w_in, int pad_h_out,
+	int pad_w_out, int kh, int kw, int stride_h, int stride_w,
+	const float input[nImg][nIfm / GEMM_BLOCK][ifhp][ifwp][GEMM_BLOCK], float output[nImg][nOfm / GEMM_BLOCK][ofhp][ofwp][GEMM_BLOCK], const float filter[nOfm / GEMM_BLOCK][nIfm / GEMM_BLOCK][kh][kw][GEMM_BLOCK][GEMM_BLOCK], int version, int iters)
+{
+	unsigned long long l_start, l_end;
+	double l_total = 0.0;
+	/* declare a physical padded buffer */
+
+	/*
+	float pad_gemm_input[nImg][nIfm / GEMM_BLOCK][ifhp + 2 * pad_h][ifwp + 2 * pad_w][GEMM_BLOCK];
+	*/
+	float(*pad_gemm_input)[nIfm / GEMM_BLOCK][ifhp + 2 * pad_h][ifwp + 2 * pad_w][GEMM_BLOCK] = (float*)libxsmm_aligned_malloc(nImg*nIfm*(ifhp + 2 * pad_h)*(ifwp + 2 * pad_w) * sizeof(float), 2097152);
+	// printf("pad_gemm_input = %p\n", pad_gemm_input);
+	zero_buf(&pad_gemm_input[0][0][0][0][0], (nImg)*(nIfm / GEMM_BLOCK)*(ifhp + 2 * pad_h)*(ifwp + 2 * pad_w) * GEMM_BLOCK);
+
+
+
+	// printf("Calling copy_GEMM_to_PADDED_GEMM\n");
+	copy_GEMM_to_PADDED_GEMM(nImg, ifhp, ifwp, nIfm, pad_h, pad_w, input, pad_gemm_input);
+
+	if (version == 0) {
+		// printf("padded_conv_fp_stride_1_core\n");
+		l_start = libxsmm_timer_tick();
+		padded_conv_fp_stride_1_tiled_loop_order_0(nImg, nIfm, nOfm, ifhp, ifwp, ofhp, ofwp, ifh, ifw,
+			ofh, ofw, pad_h, pad_w, pad_h_in, pad_w_in, pad_h_out,
+			pad_w_out, kh, kw, stride_h, stride_w, pad_gemm_input, output, filter, iters);
+		l_end = libxsmm_timer_tick();
+	}
+	else if (version == 1) {
+		// printf("padded_conv_fp_stride_1_tiled_core\n");
+		l_start = libxsmm_timer_tick();
+		padded_conv_fp_stride_1_tiled_loop_order_1(nImg, nIfm, nOfm, ifhp, ifwp, ofhp, ofwp, ifh, ifw,
+			ofh, ofw, pad_h, pad_w, pad_h_in, pad_w_in, pad_h_out,
+			pad_w_out, kh, kw, stride_h, stride_w, pad_gemm_input, output, filter, iters);
+		l_end = libxsmm_timer_tick();
+	}
+	else if (version == 2) {
+		// printf("padded_conv_fp_stride_1_libxsmm_core\n");
+		l_start = libxsmm_timer_tick();
+		padded_conv_fp_libxsmm_core(nImg, nIfm, nOfm, ifhp, ifwp, ofhp, ofwp, ifh, ifw,
+			ofh, ofw, pad_h, pad_w, pad_h_in, pad_w_in, pad_h_out,
+			pad_w_out, kh, kw, stride_h, stride_w, pad_gemm_input, output, filter, iters);
+		l_end = libxsmm_timer_tick();
+	}
+	else if (version == 3) {
+		// printf("padded_conv_fp_stride_1_libxsmm_core\n");
+		l_start = libxsmm_timer_tick();
+		padded_conv_fp_stride_1_libxsmm_core2(nImg, nIfm, nOfm, ifhp, ifwp, ofhp, ofwp, ifh, ifw,
+			ofh, ofw, pad_h, pad_w, pad_h_in, pad_w_in, pad_h_out,
+			pad_w_out, kh, kw, stride_h, stride_w, pad_gemm_input, output, filter, iters);
+		l_end = libxsmm_timer_tick();
+	}
+	else if (version == 4) {
+		// printf("padded_conv_fp_stride_1_libxsmm_core\n");
+		l_start = libxsmm_timer_tick();
+		padded_conv_fp_stride_1_libxsmm_core3(nImg, nIfm, nOfm, ifhp, ifwp, ofhp, ofwp, ifh, ifw,
+			ofh, ofw, pad_h, pad_w, pad_h_in, pad_w_in, pad_h_out,
+			pad_w_out, kh, kw, stride_h, stride_w, pad_gemm_input, output, filter, iters);
+		l_end = libxsmm_timer_tick();
+	}
+	else if (version == 5) {
+		// printf("padded_conv_fp_stride_1_libxsmm_core\n");
+		l_start = libxsmm_timer_tick();
+		padded_conv_fp_stride_1_libxsmm_core4(nImg, nIfm, nOfm, ifhp, ifwp, ofhp, ofwp, ifh, ifw,
+			ofh, ofw, pad_h, pad_w, pad_h_in, pad_w_in, pad_h_out,
+			pad_w_out, kh, kw, stride_h, stride_w, pad_gemm_input, output, filter, iters);
+		l_end = libxsmm_timer_tick();
+	}
+	else if (version == 6) {
+		l_start = libxsmm_timer_tick();
+		padded_conv_fp_core(nImg, nIfm, nOfm, ifhp, ifwp, ofhp, ofwp, ifh, ifw,
 			ofh, ofw, pad_h, pad_w, pad_h_in, pad_w_in, pad_h_out,
 			pad_w_out, kh, kw, stride_h, stride_w, pad_gemm_input, output, filter, iters);
 		l_end = libxsmm_timer_tick();
@@ -656,9 +872,9 @@ void compare_buf(float* ref, float* test, long size, correctness_t* norms)
 		}
 #endif
 
-		}
-	norms->l2_rel_err = sqrt(norms->l2_rel_err);
 	}
+	norms->l2_rel_err = sqrt(norms->l2_rel_err);
+}
 
 int main(int argc, char **argv) {
 	int ifhp, ifwp, ofhp, ofwp, ofh, ofw;
@@ -707,11 +923,6 @@ int main(int argc, char **argv) {
 
 	printf("version = %d\n", version);
 
-	if (stride != 1) {
-		printf("A non-unit stride is not supported yet\n");
-		exit(0);
-	}
-
 	/* apply stride in both dimensions */
 	stride_w = stride;
 	stride_h = stride;
@@ -756,7 +967,11 @@ int main(int argc, char **argv) {
 /* JIT GEMM kernel */
 #if defined(USE_LIBXSMM)
 	int ldx;
-	ldx = GEMM_BLOCK;
+	ldx = stride_w * GEMM_BLOCK;
+	int* ldx_ptr = NULL;
+	if (stride_w > 1) {
+		ldx_ptr = ldx;
+	}
 
 	if (version == 0 || version == 1) {
 		// LIBXSMM tiled
@@ -765,10 +980,10 @@ int main(int argc, char **argv) {
 			return -1;
 		}
 
-		fwd_gemm = libxsmm_smmdispatch(GEMM_BLOCK, T_oi, GEMM_BLOCK, NULL, NULL /* &ldx */, NULL, NULL, NULL, NULL, NULL);
+		fwd_gemm = libxsmm_smmdispatch(GEMM_BLOCK, T_oi, GEMM_BLOCK, NULL, ldx_ptr, NULL, NULL, NULL, NULL, NULL);
 	}
 	else {
-		fwd_gemm = libxsmm_smmdispatch(GEMM_BLOCK, ofwp, GEMM_BLOCK, NULL, /* &ldx */ NULL, NULL, NULL, NULL, NULL, NULL);
+		fwd_gemm = libxsmm_smmdispatch(GEMM_BLOCK, ofwp, GEMM_BLOCK, NULL, ldx_ptr, NULL, NULL, NULL, NULL, NULL);
 	}
 
 #endif
@@ -819,19 +1034,19 @@ int main(int argc, char **argv) {
 		printf("##########################################\n");
 		printf("#   Correctness - FWD (custom-Storage)   #\n");
 		printf("##########################################\n");
-		printf("Calling naive_conv_fp_stride_1\n");
+		printf("Calling naive_conv_fp\n");
 		start = clock();
 
-		naive_conv_fp_stride_1(nImg, nIfm, nOfm, ifhp, ifwp, ofhp, ofwp, ifh, ifw,
+		naive_conv_fp(nImg, nIfm, nOfm, ifhp, ifwp, ofhp, ofwp, ifh, ifw,
 			ofh, ofw, pad_h, pad_w, pad_h_in, pad_w_in, pad_h_out,
 			pad_w_out, kh, kw, stride_h, stride_w, naive_input, naive_output, naive_filter);
 
 		end = clock();
 		exec_time = (double)(end - start) / CLOCKS_PER_SEC;
-		printf("Total time of naive_conv_fp_stride_1 = %f seconds\n", exec_time);
+		printf("Total time of naive_conv_fp = %f seconds\n", exec_time);
 
-		printf("Calling padded_conv_fp_stride_1\n");
-		padded_conv_fp_stride_1(nImg, nIfm, nOfm, ifhp, ifwp, ofhp, ofwp, ifh, ifw,
+		printf("Calling padded_conv_fp\n");
+		padded_conv_fp(nImg, nIfm, nOfm, ifhp, ifwp, ofhp, ofwp, ifh, ifw,
 			ofh, ofw, pad_h, pad_w, pad_h_in, pad_w_in, pad_h_out,
 			pad_w_out, kh, kw, stride_h, stride_w, gemm_input, gemm_output, gemm_filter, version, 1 /*iters*/);
 
@@ -862,7 +1077,7 @@ int main(int argc, char **argv) {
 	}
 	else {
 		/* Warm up */
-		padded_conv_fp_stride_1(nImg, nIfm, nOfm, ifhp, ifwp, ofhp, ofwp, ifh, ifw,
+		padded_conv_fp(nImg, nIfm, nOfm, ifhp, ifwp, ofhp, ofwp, ifh, ifw,
 			ofh, ofw, pad_h, pad_w, pad_h_in, pad_w_in, pad_h_out,
 			pad_w_out, kh, kw, stride_h, stride_w, gemm_input, gemm_output, gemm_filter, version, 100 /*iters*/);
 
@@ -872,23 +1087,24 @@ int main(int argc, char **argv) {
 	printf("#   Performance - FWD (custom-Storage)   #\n");
 	printf("##########################################\n");
 
-        int trial;
+	int trial;
 	double min_l_total = 0.0;
-        for (trial = 0; trial < NUM_TRIALS; trial++) {
-		l_total = padded_conv_fp_stride_1(nImg, nIfm, nOfm, ifhp, ifwp, ofhp, ofwp, ifh, ifw,
-		ofh, ofw, pad_h, pad_w, pad_h_in, pad_w_in, pad_h_out,
-		pad_w_out, kh, kw, stride_h, stride_w, gemm_input, gemm_output, gemm_filter, version, iters);
+	for (trial = 0; trial < NUM_TRIALS; trial++) {
+		l_total = padded_conv_fp(nImg, nIfm, nOfm, ifhp, ifwp, ofhp, ofwp, ifh, ifw,
+			ofh, ofw, pad_h, pad_w, pad_h_in, pad_w_in, pad_h_out,
+			pad_w_out, kh, kw, stride_h, stride_w, gemm_input, gemm_output, gemm_filter, version, iters);
 
 		if (trial == 0) {
 			min_l_total = l_total;
-		} else {
+		}
+		else {
 			min_l_total = min(min_l_total, l_total);
 		}
 	}
 
 	l_total = min_l_total;
 
-	printf("Elapsed time of padded_conv_fp_stride_1 = %f seconds\n", l_total);
+	printf("Elapsed time of padded_conv_fp = %f seconds\n", l_total);
 	printf("GFLOP  = %.5g\n", flops*1e-9 / (double)iters);
 	printf("fp time = %.5g\n", ((double)(l_total / iters)));
 	printf("GFLOPS =%.5g\n", (flops*1e-9) / l_total);
