@@ -8,4 +8,4 @@ datatype_size
 
 params
 ofw ofh nIfm nOfm kw kh pad_w pad_h nImg ifwp ifhp ofwp ofhp
-7   7   1024   512 1 1 0 0 1 7 7 7 7
+7   7   1024   512 1 1 0 0 1 14 14 7 7 2 2

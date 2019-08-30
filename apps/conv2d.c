@@ -1218,6 +1218,9 @@ int main(int argc, char **argv) {
 	ofhp = ofh + 2 * pad_h_out;
 	ofwp = ofw + 2 * pad_w_out;
 
+
+	printf("PolyScientist config: %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d\n", ofw, ofh, nIfm, nOfm, kw, kh, pad_w, pad_h, nImg, ifwp, ifhp, ofwp, ofhp, stride_w, stride_h);
+
 	/* some empty lines at the beginning */
 	printf("\n\n\n");
 

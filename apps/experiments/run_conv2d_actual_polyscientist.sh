@@ -3,22 +3,23 @@ export LD_LIBRARY_PATH=/nfs_home/stavarag/work/software/barvinok/barvinok-0.41.2
 
 OUT=poly_perf.csv
 
+#config0='1000  224  224  3  64 7 7 3 3 2'
 config1='1000  56  56  64  256 1 1 0 0 1'
 config2='1000  56  56  64  64 1 1 0 0 1'
 config3='1000  56  56  64  64 3 3 1 1 1'
 config4='1000  56  56  256  64 1 1 0 0 1'
-config5='1000  28  28  256   512 1 1 0 0 1'
-config6='1000  28  28  256   128 1 1 0 0 1'
+config5='1000  56  56  256  512 1 1 0 0 2'
+config6='1000  56  56  256   128 1 1 0 0 2'
 config7='1000  28  28  128   128 3 3 1 1 1'
 config8='1000  28  28  128   512 1 1 0 0 1'
 config9='1000  28  28  512   128 1 1 0 0 1'
-config10='1000  14  14  512  1024 1 1 0 0 1'
-config11='1000  14  14  512   256 1 1 0 0 1'
+config10='1000  28  28  512  1024 1 1 0 0 2'
+config11='1000  28  28  512   256 1 1 0 0 2'
 config12='1000  14  14  256   256 3 3 1 1 1'
 config13='1000  14  14  256  1024 1 1 0 0 1'
 config14='1000  14  14  1024   256 1 1 0 0 1'
-config15='1000  7   7   1024  2048 1 1 0 0 1'
-config16='1000  7   7   1024   512 1 1 0 0 1'
+config15='1000  14   14   1024  2048 1 1 0 0 2'
+config16='1000  14   14   1024   512 1 1 0 0 2'
 config17='1000  7   7   512   512 3 3 1 1 1'
 config18='1000  7   7   512  2048 1 1 0 0 1'
 config19='1000  7   7   2048   512 1 1 0 0 1'
@@ -74,12 +75,12 @@ do
 					rm ${TEMP}/temp.c
 					if [ $version -eq 0 ] 
 					then
-					cp ../padded_conv_fp_stride_1_tiled_loop_order_0.c ${TEMP}/temp.c
+					cp ../padded_conv_fp_tiled_loop_order_0.c ${TEMP}/temp.c
 					fi
 
 					if [ $version -eq 1 ] 
 					then
-					cp ../padded_conv_fp_stride_1_tiled_loop_order_1.c ${TEMP}/temp.c
+					cp ../padded_conv_fp_tiled_loop_order_1.c ${TEMP}/temp.c
 					fi
 
 					rm tile_sizes.c
@@ -111,22 +112,22 @@ do
                                 rm ${TEMP}/temp.c
                                 if [ $version -eq 2 ]
                                 then
-                                cp ../padded_conv_fp_stride_1_libxsmm_core.c ${TEMP}/temp.c
+                                cp ../padded_conv_fp_libxsmm_core.c ${TEMP}/temp.c
                                 fi
 
                                 if [ $version -eq 3 ]
                                 then
-                                cp ../padded_conv_fp_stride_1_libxsmm_core2.c ${TEMP}/temp.c
+                                cp ../padded_conv_fp_libxsmm_core2.c ${TEMP}/temp.c
                                 fi
 
                                 if [ $version -eq 4 ]
                                 then
-                                cp ../padded_conv_fp_stride_1_libxsmm_core3.c ${TEMP}/temp.c
+                                cp ../padded_conv_fp_libxsmm_core3.c ${TEMP}/temp.c
                                 fi
 
                                 if [ $version -eq 5 ]
                                 then
-                                cp ../padded_conv_fp_stride_1_libxsmm_core4.c ${TEMP}/temp.c
+                                cp ../padded_conv_fp_libxsmm_core4.c ${TEMP}/temp.c
                                 fi
 
                                 config_file=${config_num}_${images}_conv_config.txt
