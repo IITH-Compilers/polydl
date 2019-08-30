@@ -328,18 +328,19 @@ void padded_conv_fp_libxsmm_core(int nImg, int nIfm, int nOfm, int ifhp, int ifw
 									&output[img][ofm_tile][oj][0][0]);
 
 
+
 								//GEMM
-								/*
-								for (oi = 0; oi < ofw; ++oi) {
-									ii = oi * stride_w;
-									for (ofm = 0; ofm < GEMM_BLOCK; ++ofm) {
-										for (ifm = 0; ifm < GEMM_BLOCK; ++ifm) {
-											output[img][ofm_tile][oj][oi][ofm] +=
-												filter[ofm_tile][ifm_tile][kj][ki][ifm][ofm] * pad_gemm_input[img][ifm_tile][ij + kj][ii + ki][ifm];
-										}
+							/*
+							for (oi = 0; oi < ofw; ++oi) {
+								ii = oi * stride_w;
+								for (ofm = 0; ofm < GEMM_BLOCK; ++ofm) {
+									for (ifm = 0; ifm < GEMM_BLOCK; ++ifm) {
+										output[img][ofm_tile][oj][oi][ofm] +=
+											filter[ofm_tile][ifm_tile][kj][ki][ifm][ofm] * pad_gemm_input[img][ifm_tile][ij + kj][ii + ki][ifm];
 									}
 								}
-								*/
+							}
+							*/
 
 							}
 						}
@@ -396,6 +397,52 @@ void padded_conv_fp_stride_1_libxsmm_core2(int nImg, int nIfm, int nOfm, int ifh
 #pragma endscop
 }
 
+void padded_conv_fp_libxsmm_core2(int nImg, int nIfm, int nOfm, int ifhp, int ifwp, int ofhp, int ofwp, int ifh, int ifw,
+	int ofh, int ofw, int pad_h, int pad_w, int pad_h_in, int pad_w_in, int pad_h_out,
+	int pad_w_out, int kh, int kw, int stride_h, int stride_w,
+	const float pad_gemm_input[nImg][nIfm / GEMM_BLOCK][ifhp + 2 * pad_h][ifwp + 2 * pad_w][GEMM_BLOCK], float output[nImg][nOfm / GEMM_BLOCK][ofhp][ofwp][GEMM_BLOCK], const float filter[nOfm / GEMM_BLOCK][nIfm / GEMM_BLOCK][kh][kw][GEMM_BLOCK][GEMM_BLOCK], int iters)
+{
+	/* loop counters */
+	int img, ofm_tile, ofm, ifm_tile, ifm, oj, oi, ij, ii, kj, ki, i;
+
+#pragma scop
+	for (i = 0; i < iters; i++) {
+#pragma omp parallel for private(ofm_tile, ifm_tile, oj, kj, ki, ij, ii)
+		for (img = 0; img < nImg; ++img) {
+			for (oj = 0; oj < ofh; ++oj) {
+				ij = oj * stride_h;
+				for (kj = 0; kj < kh; ++kj) {
+					for (ki = 0; ki < kw; ++ki) {
+						for (ofm_tile = 0; ofm_tile < nOfm / GEMM_BLOCK; ++ofm_tile) {
+							for (ifm_tile = 0; ifm_tile < nIfm / GEMM_BLOCK; ++ifm_tile) {
+
+								fwd_gemm(&filter[ofm_tile][ifm_tile][kj][ki][0][0],
+									&pad_gemm_input[img][ifm_tile][ij + kj][ki][0],
+									&output[img][ofm_tile][oj][0][0]);
+
+								//GEMM
+							/*
+							for (oi = 0; oi < ofw; ++oi) {
+								ii = oi * stride_w;
+								for (ofm = 0; ofm < GEMM_BLOCK; ++ofm) {
+									for (ifm = 0; ifm < GEMM_BLOCK; ++ifm) {
+										output[img][ofm_tile][oj][oi][ofm] +=
+											filter[ofm_tile][ifm_tile][kj][ki][ifm][ofm] * pad_gemm_input[img][ifm_tile][ij + kj][ii + ki][ifm];
+									}
+								}
+							}
+							*/
+
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+#pragma endscop
+}
+
 
 void padded_conv_fp_stride_1_libxsmm_core3(int nImg, int nIfm, int nOfm, int ifhp, int ifwp, int ofhp, int ofwp, int ifh, int ifw,
 	int ofh, int ofw, int pad_h, int pad_w, int pad_h_in, int pad_w_in, int pad_h_out,
@@ -441,6 +488,52 @@ void padded_conv_fp_stride_1_libxsmm_core3(int nImg, int nIfm, int nOfm, int ifh
 #pragma endscop
 }
 
+void padded_conv_fp_libxsmm_core3(int nImg, int nIfm, int nOfm, int ifhp, int ifwp, int ofhp, int ofwp, int ifh, int ifw,
+	int ofh, int ofw, int pad_h, int pad_w, int pad_h_in, int pad_w_in, int pad_h_out,
+	int pad_w_out, int kh, int kw, int stride_h, int stride_w,
+	const float pad_gemm_input[nImg][nIfm / GEMM_BLOCK][ifhp + 2 * pad_h][ifwp + 2 * pad_w][GEMM_BLOCK], float output[nImg][nOfm / GEMM_BLOCK][ofhp][ofwp][GEMM_BLOCK], const float filter[nOfm / GEMM_BLOCK][nIfm / GEMM_BLOCK][kh][kw][GEMM_BLOCK][GEMM_BLOCK], int iters)
+{
+	/* loop counters */
+	int img, ofm_tile, ofm, ifm_tile, ifm, oj, oi, ij, ii, kj, ki, i;
+
+#pragma scop
+	for (i = 0; i < iters; i++) {
+#pragma omp parallel for private(ofm_tile, ifm_tile, oj, kj, ki, ij, ii)
+		for (img = 0; img < nImg; ++img) {
+			for (ofm_tile = 0; ofm_tile < nOfm / GEMM_BLOCK; ++ofm_tile) {
+				for (kj = 0; kj < kh; ++kj) {
+					for (ki = 0; ki < kw; ++ki) {
+						for (ifm_tile = 0; ifm_tile < nIfm / GEMM_BLOCK; ++ifm_tile) {
+							for (oj = 0; oj < ofh; ++oj) {
+								ij = oj * stride_h;
+
+								fwd_gemm(&filter[ofm_tile][ifm_tile][kj][ki][0][0],
+									&pad_gemm_input[img][ifm_tile][ij + kj][ki][0],
+									&output[img][ofm_tile][oj][0][0]);
+
+								//GEMM
+							/*
+							for (oi = 0; oi < ofw; ++oi) {
+								ii = oi * stride_w;
+								for (ofm = 0; ofm < GEMM_BLOCK; ++ofm) {
+									for (ifm = 0; ifm < GEMM_BLOCK; ++ifm) {
+										output[img][ofm_tile][oj][oi][ofm] +=
+											filter[ofm_tile][ifm_tile][kj][ki][ifm][ofm] * pad_gemm_input[img][ifm_tile][ij + kj][ii + ki][ifm];
+									}
+								}
+							}
+							*/
+
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+#pragma endscop
+}
+
 void padded_conv_fp_stride_1_libxsmm_core4(int nImg, int nIfm, int nOfm, int ifhp, int ifwp, int ofhp, int ofwp, int ifh, int ifw,
 	int ofh, int ofw, int pad_h, int pad_w, int pad_h_in, int pad_w_in, int pad_h_out,
 	int pad_w_out, int kh, int kw, int stride_h, int stride_w,
@@ -475,6 +568,52 @@ void padded_conv_fp_stride_1_libxsmm_core4(int nImg, int nIfm, int nOfm, int ifh
 								}
 
 								*/
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+#pragma endscop
+}
+
+void padded_conv_fp_libxsmm_core4(int nImg, int nIfm, int nOfm, int ifhp, int ifwp, int ofhp, int ofwp, int ifh, int ifw,
+	int ofh, int ofw, int pad_h, int pad_w, int pad_h_in, int pad_w_in, int pad_h_out,
+	int pad_w_out, int kh, int kw, int stride_h, int stride_w,
+	const float pad_gemm_input[nImg][nIfm / GEMM_BLOCK][ifhp + 2 * pad_h][ifwp + 2 * pad_w][GEMM_BLOCK], float output[nImg][nOfm / GEMM_BLOCK][ofhp][ofwp][GEMM_BLOCK], const float filter[nOfm / GEMM_BLOCK][nIfm / GEMM_BLOCK][kh][kw][GEMM_BLOCK][GEMM_BLOCK], int iters)
+{
+	/* loop counters */
+	int img, ofm_tile, ofm, ifm_tile, ifm, oj, oi, ij, ii, kj, ki, i;
+
+#pragma scop
+	for (i = 0; i < iters; i++) {
+#pragma omp parallel for private(ofm_tile, ifm_tile, oj, kj, ki, ii, ij)
+		for (img = 0; img < nImg; ++img) {
+			for (ifm_tile = 0; ifm_tile < nIfm / GEMM_BLOCK; ++ifm_tile) {
+				for (kj = 0; kj < kh; ++kj) {
+					for (ki = 0; ki < kw; ++ki) {
+						for (oj = 0; oj < ofh; ++oj) {
+							ij = oj * stride_h;
+							for (ofm_tile = 0; ofm_tile < nOfm / GEMM_BLOCK; ++ofm_tile) {
+
+								fwd_gemm(&filter[ofm_tile][ifm_tile][kj][ki][0][0],
+									&pad_gemm_input[img][ifm_tile][ij + kj][ki][0],
+									&output[img][ofm_tile][oj][0][0]);
+
+								//GEMM
+							/*
+							for (oi = 0; oi < ofw; ++oi) {
+								ii = oi * stride_w;
+								for (ofm = 0; ofm < GEMM_BLOCK; ++ofm) {
+									for (ifm = 0; ifm < GEMM_BLOCK; ++ifm) {
+										output[img][ofm_tile][oj][oi][ofm] +=
+											filter[ofm_tile][ifm_tile][kj][ki][ifm][ofm] * pad_gemm_input[img][ifm_tile][ij + kj][ii + ki][ifm];
+									}
+								}
+							}
+							*/
+
 							}
 						}
 					}
@@ -716,7 +855,7 @@ double padded_conv_fp(
 	else if (version == 3) {
 		// printf("padded_conv_fp_stride_1_libxsmm_core\n");
 		l_start = libxsmm_timer_tick();
-		padded_conv_fp_stride_1_libxsmm_core2(nImg, nIfm, nOfm, ifhp, ifwp, ofhp, ofwp, ifh, ifw,
+		padded_conv_fp_libxsmm_core2(nImg, nIfm, nOfm, ifhp, ifwp, ofhp, ofwp, ifh, ifw,
 			ofh, ofw, pad_h, pad_w, pad_h_in, pad_w_in, pad_h_out,
 			pad_w_out, kh, kw, stride_h, stride_w, pad_gemm_input, output, filter, iters);
 		l_end = libxsmm_timer_tick();
@@ -724,7 +863,7 @@ double padded_conv_fp(
 	else if (version == 4) {
 		// printf("padded_conv_fp_stride_1_libxsmm_core\n");
 		l_start = libxsmm_timer_tick();
-		padded_conv_fp_stride_1_libxsmm_core3(nImg, nIfm, nOfm, ifhp, ifwp, ofhp, ofwp, ifh, ifw,
+		padded_conv_fp_libxsmm_core3(nImg, nIfm, nOfm, ifhp, ifwp, ofhp, ofwp, ifh, ifw,
 			ofh, ofw, pad_h, pad_w, pad_h_in, pad_w_in, pad_h_out,
 			pad_w_out, kh, kw, stride_h, stride_w, pad_gemm_input, output, filter, iters);
 		l_end = libxsmm_timer_tick();
@@ -732,7 +871,7 @@ double padded_conv_fp(
 	else if (version == 5) {
 		// printf("padded_conv_fp_stride_1_libxsmm_core\n");
 		l_start = libxsmm_timer_tick();
-		padded_conv_fp_stride_1_libxsmm_core4(nImg, nIfm, nOfm, ifhp, ifwp, ofhp, ofwp, ifh, ifw,
+		padded_conv_fp_libxsmm_core4(nImg, nIfm, nOfm, ifhp, ifwp, ofhp, ofwp, ifh, ifw,
 			ofh, ofw, pad_h, pad_w, pad_h_in, pad_w_in, pad_h_out,
 			pad_w_out, kh, kw, stride_h, stride_w, pad_gemm_input, output, filter, iters);
 		l_end = libxsmm_timer_tick();
@@ -746,6 +885,8 @@ double padded_conv_fp(
 	}
 	else if (version == 7) {
 		l_start = libxsmm_timer_tick();
+		printf("Non-unit stride is not supported in PLUTO code\n");
+		exit(1);
 		padded_conv_fp_stride_1_libxsmm_core_pluto(nImg, nIfm, nOfm, ifhp, ifwp, ofhp, ofwp, ifh, ifw,
 			ofh, ofw, pad_h, pad_w, pad_h_in, pad_w_in, pad_h_out,
 			pad_w_out, kh, kw, stride_h, stride_w, pad_gemm_input, output, filter, iters);
