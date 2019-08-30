@@ -311,7 +311,7 @@ void padded_conv_fp_libxsmm_core(int nImg, int nIfm, int nOfm, int ifhp, int ifw
 
 #pragma scop
 	for (i = 0; i < iters; i++) {
-#pragma omp parallel for private(ofm_tile, ifm_tile, ij, oj, kj, ki)
+#pragma omp parallel for private(ofm_tile, ifm_tile, ij, oj, kj, ki, ii)
 		for (img = 0; img < nImg; ++img) {
 			// printf("thread id = %d\n", omp_get_thread_num());
 			// #pragma omp parallel for private(ofm_tile, ifm_tile, oj, kj, ki)
@@ -329,16 +329,17 @@ void padded_conv_fp_libxsmm_core(int nImg, int nIfm, int nOfm, int ifhp, int ifw
 
 
 								//GEMM
-							/*
-							for (oi = 0; oi < ofw; ++oi) {
-								for (ofm = 0; ofm < GEMM_BLOCK; ++ofm) {
-									for (ifm = 0; ifm < GEMM_BLOCK; ++ifm) {
-										output[img][ofm_tile][oj][oi][ofm] +=
-											filter[ofm_tile][ifm_tile][kj][ki][ifm][ofm] * pad_gemm_input[img][ifm_tile][oj + kj][oi + ki][ifm];
+								/*
+								for (oi = 0; oi < ofw; ++oi) {
+									ii = oi * stride_w;
+									for (ofm = 0; ofm < GEMM_BLOCK; ++ofm) {
+										for (ifm = 0; ifm < GEMM_BLOCK; ++ifm) {
+											output[img][ofm_tile][oj][oi][ofm] +=
+												filter[ofm_tile][ifm_tile][kj][ki][ifm][ofm] * pad_gemm_input[img][ifm_tile][ij + kj][ii + ki][ifm];
+										}
 									}
 								}
-							}
-							*/
+								*/
 
 							}
 						}
@@ -970,7 +971,7 @@ int main(int argc, char **argv) {
 	ldx = stride_w * GEMM_BLOCK;
 	int* ldx_ptr = NULL;
 	if (stride_w > 1) {
-		ldx_ptr = ldx;
+		ldx_ptr = &ldx;
 	}
 
 	if (version == 0 || version == 1) {
