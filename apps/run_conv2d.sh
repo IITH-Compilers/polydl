@@ -29,7 +29,7 @@ for images in 1 28
 do
 echo -n ${images}, >> ${OUT}
 export OMP_NUM_THREADS=${images}
-for version in 0 1 2 3 4 5
+for version in 0 1 2 3 4 5 7
 do
 echo "Config: " $config ${images} ${version}
 GFLOPS=`./conv2d $config ${images} ${version} |  grep GFLOPS |  cut -d= -f2`
@@ -40,6 +40,4 @@ done
 done
 echo >> ${OUT}
 done
-
-
 
