@@ -356,9 +356,7 @@ void SimplifyWorkingSetSizes(vector<WorkingSetSize*>* workingSetSizes,
 	file.open(fullFileName);
 
 	if (file.is_open()) {
-		if (DEBUG) {
-			cout << "Writing to file " << fullFileName << endl;
-		}
+		cout << "Writing to file " << fullFileName << endl;
 	}
 	else {
 		cout << "Could not open the file: " << fullFileName << endl;
@@ -488,9 +486,7 @@ void SimplifyWorkingSetSizesInteractively(vector<WorkingSetSize*>* workingSetSiz
 	file.open(fullFileName);
 
 	if (file.is_open()) {
-		if (DEBUG) {
-			cout << "Writing to file " << fullFileName << endl;
-		}
+		cout << "Writing to file " << fullFileName << endl;
 	}
 	else {
 		cout << "Could not open the file: " << fullFileName << endl;

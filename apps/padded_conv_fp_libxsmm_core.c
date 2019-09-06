@@ -1,3 +1,11 @@
+#ifndef STRIDE_H
+#define STRIDE_H 1
+#endif // !STRIDE_H
+
+#ifndef STRIDE_W
+#define STRIDE_W 1
+#endif // !STRIDE_W
+
 #define GEMM_BLOCK 64
 void padded_conv_fp_libxsmm_core(int nImg, int nIfm, int nOfm, int ifhp, int ifwp, int ofhp, int ofwp, int ifh, int ifw,
 	int ofh, int ofw, int pad_h, int pad_w, int pad_h_in, int pad_w_in, int pad_h_out,
@@ -9,27 +17,27 @@ void padded_conv_fp_libxsmm_core(int nImg, int nIfm, int nOfm, int ifhp, int ifw
 
 #pragma scop
 #pragma omp parallel for private(ofm_tile, ifm_tile, ij, oj, kj, ki, ii)
-		for (img = 0; img < nImg; ++img) {
-			// printf("thread id = %d\n", omp_get_thread_num());
-			// #pragma omp parallel for private(ofm_tile, ifm_tile, oj, kj, ki)
-			for (ofm_tile = 0; ofm_tile < nOfm / GEMM_BLOCK; ++ofm_tile) {
-				for (ifm_tile = 0; ifm_tile < nIfm / GEMM_BLOCK; ++ifm_tile) {
-					for (oj = 0; oj < ofh; ++oj) {
-						ij = oj * stride_h;
-						for (kj = 0; kj < kh; ++kj) {
-							for (ki = 0; ki < kw; ++ki) {
+	for (img = 0; img < nImg; ++img) {
+		// printf("thread id = %d\n", omp_get_thread_num());
+		// #pragma omp parallel for private(ofm_tile, ifm_tile, oj, kj, ki)
+		for (ofm_tile = 0; ofm_tile < nOfm / GEMM_BLOCK; ++ofm_tile) {
+			for (ifm_tile = 0; ifm_tile < nIfm / GEMM_BLOCK; ++ifm_tile) {
+				for (oj = 0; oj < ofh; ++oj) {
+					ij = oj * STRIDE_H;
+					for (kj = 0; kj < kh; ++kj) {
+						for (ki = 0; ki < kw; ++ki) {
 
-/*
-								fwd_gemm(&filter[ofm_tile][ifm_tile][kj][ki][0][0],
-									&pad_gemm_input[img][ifm_tile][ij + kj][ki][0],
-									&output[img][ofm_tile][oj][0][0]);
-*/
+							/*
+															fwd_gemm(&filter[ofm_tile][ifm_tile][kj][ki][0][0],
+																&pad_gemm_input[img][ifm_tile][ij + kj][ki][0],
+																&output[img][ofm_tile][oj][0][0]);
+							*/
 
 
-								//GEMM
-							
+							//GEMM
+
 							for (oi = 0; oi < ofw; ++oi) {
-								ii = oi * stride_w;
+								ii = oi * STRIDE_W;
 								for (ofm = 0; ofm < GEMM_BLOCK; ++ofm) {
 									for (ifm = 0; ifm < GEMM_BLOCK; ++ifm) {
 										output[img][ofm_tile][oj][oi][ofm] +=
@@ -37,13 +45,13 @@ void padded_conv_fp_libxsmm_core(int nImg, int nIfm, int nOfm, int ifhp, int ifw
 									}
 								}
 							}
-							
 
-							}
+
 						}
 					}
 				}
 			}
 		}
+	}
 #pragma endscop
 }
