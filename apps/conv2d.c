@@ -9,6 +9,9 @@
 #include "padded_conv_fp_libxsmm_core3.c"
 #include "padded_conv_fp_libxsmm_core4.c"
 #include "padded_conv_fp_orig.c"
+#include "padded_conv_fp5.c"
+#include "padded_conv_fp_tiled_loop_order_0.c"
+#include "padded_conv_fp_tiled_loop_order_1.c"
 
 #define USE_LIBXSMM
 
@@ -1028,6 +1031,26 @@ double padded_conv_fp(
 
 		l_end = libxsmm_timer_tick();
 	}
+	else if (version == 20) {
+		l_start = libxsmm_timer_tick();
+		for (i = 0; i < iters; i++) {
+			padded_conv_fp_tiled_loop_order_0_fn(nImg, nIfm, nOfm, ifhp, ifwp, ofhp, ofwp, ifh, ifw,
+				ofh, ofw, pad_h, pad_w, pad_h_in, pad_w_in, pad_h_out,
+				pad_w_out, kh, kw, stride_h, stride_w, pad_gemm_input, output, filter, iters);
+		}
+
+		l_end = libxsmm_timer_tick();
+	}
+	else if (version == 21) {
+		l_start = libxsmm_timer_tick();
+		for (i = 0; i < iters; i++) {
+			padded_conv_fp_tiled_loop_order_1_fn(nImg, nIfm, nOfm, ifhp, ifwp, ofhp, ofwp, ifh, ifw,
+				ofh, ofw, pad_h, pad_w, pad_h_in, pad_w_in, pad_h_out,
+				pad_w_out, kh, kw, stride_h, stride_w, pad_gemm_input, output, filter, iters);
+		}
+
+		l_end = libxsmm_timer_tick();
+	}
 	else if (version == 22) {
 		l_start = libxsmm_timer_tick();
 		for (i = 0; i < iters; i++) {
@@ -1062,6 +1085,16 @@ double padded_conv_fp(
 		l_start = libxsmm_timer_tick();
 		for (i = 0; i < iters; i++) {
 			padded_conv_fp_libxsmm_core4_fn(nImg, nIfm, nOfm, ifhp, ifwp, ofhp, ofwp, ifh, ifw,
+				ofh, ofw, pad_h, pad_w, pad_h_in, pad_w_in, pad_h_out,
+				pad_w_out, kh, kw, stride_h, stride_w, pad_gemm_input, output, filter, iters);
+		}
+
+		l_end = libxsmm_timer_tick();
+	}
+	else if (version == 26) {
+		l_start = libxsmm_timer_tick();
+		for (i = 0; i < iters; i++) {
+			padded_conv_fp5_fn(nImg, nIfm, nOfm, ifhp, ifwp, ofhp, ofwp, ifh, ifw,
 				ofh, ofw, pad_h, pad_w, pad_h_in, pad_w_in, pad_h_out,
 				pad_w_out, kh, kw, stride_h, stride_w, pad_gemm_input, output, filter, iters);
 		}
