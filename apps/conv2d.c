@@ -955,6 +955,7 @@ double padded_conv_fp(
 {
 	unsigned long long l_start, l_end;
 	double l_total = 0.0;
+	int i;
 	/* declare a physical padded buffer */
 
 	/*
@@ -1019,37 +1020,52 @@ double padded_conv_fp(
 	}
 	else if (version == 101) {
 		l_start = libxsmm_timer_tick();
-		padded_conv_fp_orig_fn(nImg, nIfm, nOfm, ifhp, ifwp, ofhp, ofwp, ifh, ifw,
-			ofh, ofw, pad_h, pad_w, pad_h_in, pad_w_in, pad_h_out,
-			pad_w_out, kh, kw, stride_h, stride_w, pad_gemm_input, output, filter, iters);
+		for (i = 0; i < iters; i++) {
+			padded_conv_fp_orig_fn(nImg, nIfm, nOfm, ifhp, ifwp, ofhp, ofwp, ifh, ifw,
+				ofh, ofw, pad_h, pad_w, pad_h_in, pad_w_in, pad_h_out,
+				pad_w_out, kh, kw, stride_h, stride_w, pad_gemm_input, output, filter, iters);
+		}
+
 		l_end = libxsmm_timer_tick();
 	}
 	else if (version == 22) {
 		l_start = libxsmm_timer_tick();
-		padded_conv_fp_libxsmm_core_fn(nImg, nIfm, nOfm, ifhp, ifwp, ofhp, ofwp, ifh, ifw,
-			ofh, ofw, pad_h, pad_w, pad_h_in, pad_w_in, pad_h_out,
-			pad_w_out, kh, kw, stride_h, stride_w, pad_gemm_input, output, filter, iters);
+		for (i = 0; i < iters; i++) {
+			padded_conv_fp_libxsmm_core_fn(nImg, nIfm, nOfm, ifhp, ifwp, ofhp, ofwp, ifh, ifw,
+				ofh, ofw, pad_h, pad_w, pad_h_in, pad_w_in, pad_h_out,
+				pad_w_out, kh, kw, stride_h, stride_w, pad_gemm_input, output, filter, iters);
+		}
+
 		l_end = libxsmm_timer_tick();
 	}
 	else if (version == 23) {
 		l_start = libxsmm_timer_tick();
-		padded_conv_fp_libxsmm_core2_fn(nImg, nIfm, nOfm, ifhp, ifwp, ofhp, ofwp, ifh, ifw,
-			ofh, ofw, pad_h, pad_w, pad_h_in, pad_w_in, pad_h_out,
-			pad_w_out, kh, kw, stride_h, stride_w, pad_gemm_input, output, filter, iters);
+		for (i = 0; i < iters; i++) {
+			padded_conv_fp_libxsmm_core2_fn(nImg, nIfm, nOfm, ifhp, ifwp, ofhp, ofwp, ifh, ifw,
+				ofh, ofw, pad_h, pad_w, pad_h_in, pad_w_in, pad_h_out,
+				pad_w_out, kh, kw, stride_h, stride_w, pad_gemm_input, output, filter, iters);
+		}
+
 		l_end = libxsmm_timer_tick();
 	}
 	else if (version == 24) {
 		l_start = libxsmm_timer_tick();
-		padded_conv_fp_libxsmm_core3_fn(nImg, nIfm, nOfm, ifhp, ifwp, ofhp, ofwp, ifh, ifw,
-			ofh, ofw, pad_h, pad_w, pad_h_in, pad_w_in, pad_h_out,
-			pad_w_out, kh, kw, stride_h, stride_w, pad_gemm_input, output, filter, iters);
+		for (i = 0; i < iters; i++) {
+			padded_conv_fp_libxsmm_core3_fn(nImg, nIfm, nOfm, ifhp, ifwp, ofhp, ofwp, ifh, ifw,
+				ofh, ofw, pad_h, pad_w, pad_h_in, pad_w_in, pad_h_out,
+				pad_w_out, kh, kw, stride_h, stride_w, pad_gemm_input, output, filter, iters);
+		}
+
 		l_end = libxsmm_timer_tick();
 	}
 	else if (version == 25) {
 		l_start = libxsmm_timer_tick();
-		padded_conv_fp_libxsmm_core4_fn(nImg, nIfm, nOfm, ifhp, ifwp, ofhp, ofwp, ifh, ifw,
-			ofh, ofw, pad_h, pad_w, pad_h_in, pad_w_in, pad_h_out,
-			pad_w_out, kh, kw, stride_h, stride_w, pad_gemm_input, output, filter, iters);
+		for (i = 0; i < iters; i++) {
+			padded_conv_fp_libxsmm_core4_fn(nImg, nIfm, nOfm, ifhp, ifwp, ofhp, ofwp, ifh, ifw,
+				ofh, ofw, pad_h, pad_w, pad_h_in, pad_w_in, pad_h_out,
+				pad_w_out, kh, kw, stride_h, stride_w, pad_gemm_input, output, filter, iters);
+		}
+
 		l_end = libxsmm_timer_tick();
 	}
 	else {
@@ -1174,9 +1190,9 @@ void compare_buf(float* ref, float* test, long size, correctness_t* norms)
 		}
 #endif
 
-}
+	}
 	norms->l2_rel_err = sqrt(norms->l2_rel_err);
-		}
+}
 
 int main(int argc, char **argv) {
 	int ifhp, ifwp, ofhp, ofwp, ofh, ofw;
