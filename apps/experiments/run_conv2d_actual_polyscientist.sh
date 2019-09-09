@@ -143,7 +143,7 @@ do
                                 echo -n "${version},${GFLOPS}," | cat - ${output_file} >> ${CONFIG_OUT}
 			fi
 		done
-		../../scripts/polyrank ${CONFIG_OUT}  --noheader --perfseparaterow
+		../../scripts/polyrank ${CONFIG_OUT}  --noheader --perfseparaterow --usepessidata
 	done
 	((config_num++))
 done
