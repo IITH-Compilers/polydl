@@ -30,6 +30,9 @@ check_correctness=0
 PERF_DIR=perf_data
 CONFIG_DIR=configs
 TEMP=temp
+GEMM_VERSIONS='0 1 2 3 4 5'
+NONGEMM_VERSIONS='101 22 23 24 25 26 27'    
+
 mkdir ${PERF_DIR}
 mkdir ${TEMP}
 for config in "$config1" "$config2" "$config3" "$config4" "$config5" "$config6" "$config7" "$config8" "$config9" "$config10" "$config11" "$config12" "$config13" "$config14" "$config15" "$config16" "$config17" "$config18" "$config19" #FIXME 
@@ -47,7 +50,7 @@ do
 	        rm ${CONFIG_OUT}
 
 		export OMP_NUM_THREADS=${images}
-		for version in 2 3 4 5 #0 1
+		for version in $NONGEMM_VERSIONS #FIXME
 		do
 			#We will first do an actual run
 			if [ $version -eq 0 -o $version -eq 1 ]
@@ -69,7 +72,7 @@ do
                                 if [ `expr $nOfm % $T_ofm_tile` -eq 0 ]
                                 then
 
-					(cd .. && make clean && make MACROFLAGS="-DT_oi=$T_oi -DT_oj=$T_oj -DT_ifm_tile=$T_ifm_tile -DT_ofm_tile=$T_ofm_tile")
+					(cd .. && make clean && make MACROFLAGS="-DSTRIDE_H=$stride -DSTRIDE_W=$stride -DT_oi=$T_oi -DT_oj=$T_oj -DT_ifm_tile=$T_ifm_tile -DT_ofm_tile=$T_ofm_tile")
      					# do something
 					echo  $T_oi " " $T_oj " " $T_ifm_tile " " $T_ofm_tile
 					GFLOPS=`../conv2d $config ${images} ${version} ${check_correctness} |  grep GFLOPS |  cut -d= -f2`
@@ -111,29 +114,45 @@ do
 				done
 				echo
 			else
-				(cd .. && make clean && make) 	
+				(cd .. && make clean && make MACROFLAGS="-DSTRIDE_H=$stride -DSTRIDE_W=$stride") 	
 				GFLOPS=`../conv2d $config ${images} ${version} ${check_correctness} |  grep GFLOPS |  cut -d= -f2`
                                 rm ${TEMP}/temp.c
                                 echo "#define STRIDE_H ${stride}" >> ${TEMP}/temp.c
                                 echo "#define STRIDE_W ${stride}" >> ${TEMP}/temp.c
-                                if [ $version -eq 2 ]
+                                if [ $version -eq 2 ] || [ $version -eq 22 ]
                                 then
                                 cat ../padded_conv_fp_libxsmm_core.c >> ${TEMP}/temp.c
                                 fi
 
-                                if [ $version -eq 3 ]
+                                if [ $version -eq 3 ] || [ $version -eq 23 ]
                                 then
                                 cat ../padded_conv_fp_libxsmm_core2.c >> ${TEMP}/temp.c
                                 fi
 
-                                if [ $version -eq 4 ]
+                                if [ $version -eq 4 ] [ $version -eq 24 ]
                                 then
                                 cat ../padded_conv_fp_libxsmm_core3.c >> ${TEMP}/temp.c
                                 fi
 
-                                if [ $version -eq 5 ]
+                                if [ $version -eq 5 ] [ $version -eq 25 ]
                                 then
                                 cat ../padded_conv_fp_libxsmm_core4.c >> ${TEMP}/temp.c
+                                fi
+
+
+                                if [ $version -eq 26 ]
+                                then
+                                cat ../padded_conv_fp5.c >> ${TEMP}/temp.c
+                                fi
+
+                                if [ $version -eq 27 ]
+                                then
+                                cat ../padded_conv_fp6.c >> ${TEMP}/temp.c
+                                fi
+
+                                if [ $version -eq 101 ]
+                                then
+                                cat ../padded_conv_fp_orig.c >> ${TEMP}/temp.c
                                 fi
 
                                 config_file=${config_num}_${images}_conv_config.txt

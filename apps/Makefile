@@ -1,5 +1,5 @@
 CC=icc
-CFLAGS=-O3 -I./libxsmm/include -qopenmp -fno-alias
+CFLAGS=-O3 -I./libxsmm/include -qopenmp -fno-alias -xCOMMON-AVX512 -mkl=sequential
 LDFLAGS=-L./libxsmm/lib -lxsmm -lxsmmext -lpthread
 MACROFLAGS=
 
