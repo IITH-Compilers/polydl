@@ -27,6 +27,9 @@
 
 #define GEMM_BLOCK 64
 
+#define min(X, Y) (((X) < (Y)) ? (X) : (Y))
+#define max(X, Y) (((X) > (Y)) ? (X) : (Y))
+
 void padded_conv_fp_tiled_loop_order_1_fn(int nImg, int nIfm, int nOfm, int ifhp, int ifwp, int ofhp, int ofwp, int ifh, int ifw,
 	int ofh, int ofw, int pad_h, int pad_w, int pad_h_in, int pad_w_in, int pad_h_out,
 	int pad_w_out, int kh, int kw, int stride_h, int stride_w,
