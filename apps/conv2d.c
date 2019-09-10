@@ -1112,6 +1112,17 @@ double padded_conv_fp(
 
 		l_end = libxsmm_timer_tick();
 	}
+	else if (version == 28) {
+		l_start = libxsmm_timer_tick();
+		for (i = 0; i < iters; i++) {
+			padded_conv_fp7_fn(nImg, nIfm, nOfm, ifhp, ifwp, ofhp, ofwp, ifh, ifw,
+				ofh, ofw, pad_h, pad_w, pad_h_in, pad_w_in, pad_h_out,
+				pad_w_out, kh, kw, stride_h, stride_w, pad_gemm_input, output, filter, iters);
+		}
+
+		l_end = libxsmm_timer_tick();
+	}
+
 	else {
 		printf("Incorrect version\n");
 		libxsmm_free(pad_gemm_input);
@@ -1338,7 +1349,7 @@ int main(int argc, char **argv) {
 		ldx_ptr = &ldx;
 	}
 
-	if (version == 0 || version == 1) {
+	if (version == 0 || version == 1 || version == 20 || version == 21 || version == 28) {
 		// LIBXSMM tiled
 		if (ofwp % T_oi != 0 || T_oi > ofwp) {
 			printf("The tiling factor %d for oi loop should divide ofwp = %d\n. Exiting\n", T_oi, ofwp);
