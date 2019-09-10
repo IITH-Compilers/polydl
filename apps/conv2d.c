@@ -11,6 +11,7 @@
 #include "padded_conv_fp_orig.c"
 #include "padded_conv_fp5.c"
 #include "padded_conv_fp6.c"
+#include "padded_conv_fp7.c"
 #include "padded_conv_fp_tiled_loop_order_0.c"
 #include "padded_conv_fp_tiled_loop_order_1.c"
 

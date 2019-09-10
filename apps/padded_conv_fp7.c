@@ -17,10 +17,10 @@ void padded_conv_fp7_fn(int nImg, int nIfm, int nOfm, int ifhp, int ifwp, int of
 	const float pad_gemm_input[nImg][nIfm / GEMM_BLOCK][ifhp + 2 * pad_h][ifwp + 2 * pad_w][GEMM_BLOCK], float output[nImg][nOfm / GEMM_BLOCK][ofhp][ofwp][GEMM_BLOCK], const float filter[nOfm / GEMM_BLOCK][nIfm / GEMM_BLOCK][kh][kw][GEMM_BLOCK][GEMM_BLOCK], int iters)
 {
 	/* loop counters */
-	int img, ofm_tile, ofm, ifm_tile, ifm, oj, oi, ij, ii, kj, ki, i;
+	int img, ofm_tile, ofm, ifm_tile, ifm, oj, oi, ij, ii, kj, ki, i, t_oi;
 
 #pragma scop
-#pragma omp parallel for private(ofm_tile, ifm_tile, ij, oj, kj, ki, ii)
+#pragma omp parallel for private(ofm_tile, ifm_tile, ij, oj, kj, ki, ii, t_oi)
 	for (img = 0; img < nImg; ++img) {
 		// printf("thread id = %d\n", omp_get_thread_num());
 		// #pragma omp parallel for private(ofm_tile, ifm_tile, oj, kj, ki)
