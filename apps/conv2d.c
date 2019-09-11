@@ -842,18 +842,20 @@ void padded_conv_fp_core(int nImg, int nIfm, int nOfm, int ifhp, int ifwp, int o
 #pragma endscop
 }
 
-void init_buf(float* buf, long size)
-{
-	int i;
-	for (i = 0; i < size; ++i) {
-		buf[i] = drand48();
-	}
-}
 
 void zero_buf(float* buf, long size) {
 	int i;
 	for (i = 0; i < size; ++i) {
 		buf[i] = 0.0f;
+	}
+}
+
+void init_buf(float* buf, long size, int initPos, int initOne)
+{
+	int i;
+	zero_buf(buf, size);
+	for (i = 0; i < size; ++i) {
+		buf[i] = (float)((initOne != 0) ? 1.0 : ((initPos != 0) ? drand48() : (0.05 - drand48() / 10.0)));
 	}
 }
 
@@ -1250,6 +1252,23 @@ void compare_buf(float* ref, float* test, long size, correctness_t* norms)
 	norms->l2_rel_err = sqrt(norms->l2_rel_err);
 }
 
+void set_zeropad_nchw(int N, int C, int H, int W, int pad_h, int pad_w, float input[N][C][H][W])
+{
+	int n, h, w, c;
+
+	for (n = 0; n < N; n++) {
+		for (c = 0; c < C; c++) {
+			for (h = 0; h < H; h++) {
+				for (w = 0; w < W; w++) {
+					if (h < pad_h || h >= H - pad_h || w < pad_w || w >= W - pad_w)
+						input[n][c][h][w] = 0.0;
+				}
+			}
+		}
+	}
+}
+
+
 int main(int argc, char **argv) {
 	int ifhp, ifwp, ofhp, ofwp, ofh, ofw;
 	int stride_h, stride_w, pad_h, pad_w, pad_h_in, pad_w_in, pad_h_out, pad_w_out;
@@ -1391,11 +1410,10 @@ int main(int argc, char **argv) {
 	*/
 	printf("Initializing data\n");
 	/* initialize data */
-	srand48(100);
-	init_buf(&naive_input[0][0][0][0], nImg*nIfm*ifhp*ifwp);
-	init_buf(&gemm_input[0][0][0][0], nImg*nIfm*ifhp*ifwp);
-	init_buf(&naive_filter[0][0][0][0], nOfm*nIfm*kh*kw);
-	init_buf(&gemm_filter[0][0][0][0], nOfm*nIfm*kh*kw);
+	srand48(1);
+	init_buf(&naive_input[0][0][0][0], nImg*nIfm*ifhp*ifwp, 0, 0);
+	set_zeropad_nchw(nImg, nIfm, ifhp, ifwp, pad_h, pad_w, naive_input);
+	init_buf(&naive_filter[0][0][0][0], nOfm*nIfm*kh*kw, 0, 0);
 	zero_buf(&naive_output[0][0][0][0], nImg*nOfm*ofhp*ofwp);
 	zero_buf(&gemm_output[0][0][0][0][0], nImg*nOfm*ofhp*ofwp);
 	zero_buf(&check_output[0][0][0][0], nImg*nOfm*ofhp*ofwp);
