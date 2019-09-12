@@ -2,6 +2,7 @@
 #include <iostream>
 #include <isl/union_set.h>
 #include <isl/flow.h>
+#include <isl/id.h>
 #include <stdlib.h>
 #include <barvinok/isl.h>
 #include <string.h>
@@ -18,7 +19,7 @@ using namespace std;
 
 
 #define IGNORE_WS_SIZE_ONE 1
-#define DEBUG 0
+#define DEBUG 1
 
 /* Function header declarations begin */
 struct WorkingSetSize {
@@ -113,6 +114,8 @@ void UpdatePessimisticProgramCharacteristics(long minSize, long maxSize,
 	SystemConfig* systemConfig,
 	ProgramCharacteristics* programChar);
 bool compareByMinMaxSize(const MinMaxTuple* a, const MinMaxTuple* b);
+void CollectArrayNames(isl_union_map *may_reads, isl_union_map *may_writes, vector<string>* arrayNames);
+void CollectArrayNamesFromUnionMap(isl_union_map* orig_map, vector<string>* arrayNames);
 /* Function header declarations end */
 
 int main(int argc, char **argv) {
@@ -971,6 +974,37 @@ void FreeWorkingSetSizes(vector<WorkingSetSize*>* workingSetSizes) {
 	delete workingSetSizes;
 }
 
+void CollectArrayNamesFromUnionMap(isl_union_map* orig_map, vector<string>* arrayNames) {
+
+	isl_union_map* map = isl_union_map_copy(orig_map);
+	isl_union_set* set = isl_union_map_range(map);
+
+	isl_basic_set_list *basicSetList =
+		isl_union_set_get_basic_set_list(set);
+
+	isl_size size = isl_basic_set_list_size(basicSetList);
+	for (int i = 0; i < size; i++) {
+		isl_basic_set* basicSet = isl_basic_set_list_get_at(basicSetList, i);
+		const char* name = isl_basic_set_get_tuple_name(basicSet);
+
+		if (find(arrayNames->begin(), arrayNames->end(), name) == arrayNames->end()) {
+			arrayNames->push_back(name);
+		}
+
+		isl_basic_set_free(basicSet);
+	}
+
+	isl_basic_set_list_free(basicSetList);
+	isl_union_set_free(set);
+}
+
+
+void CollectArrayNames(isl_union_map *may_reads, isl_union_map *may_writes, vector<string>* arrayNames) {
+	CollectArrayNamesFromUnionMap(may_reads, arrayNames);
+	CollectArrayNamesFromUnionMap(may_writes, arrayNames);
+}
+
+
 isl_union_map* ComputeDataDependences(isl_ctx* ctx, pet_scop* scop,
 	Config *config) {
 	/*TODO: Print the array because of which the dependence is formed -
@@ -978,6 +1012,21 @@ isl_union_map* ComputeDataDependences(isl_ctx* ctx, pet_scop* scop,
 	isl_schedule* schedule = pet_scop_get_schedule(scop);
 	isl_union_map *may_reads = pet_scop_get_may_reads(scop);
 	isl_union_map *may_writes = pet_scop_get_may_writes(scop);
+
+	cout << "May Reads: " << endl;
+	PrintUnionMap(may_reads);
+
+	cout << "Calling CollectArrayNames()" << endl;
+	vector<string>* arrayNames = new vector<string>();
+	CollectArrayNames(may_reads, may_writes, arrayNames);
+	cout << "The array names are: " << endl;
+	for (int k = 0; k < arrayNames->size(); k++) {
+		cout << arrayNames->at(k) << " ";
+	}
+
+	cout << endl;
+	delete arrayNames;
+	cout << "Returned from CollectArrayNames()" << endl;
 
 	if (config && config->programParameterVector &&
 		config->programParameterVector->size() == 1) {

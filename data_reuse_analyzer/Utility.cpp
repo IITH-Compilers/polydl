@@ -23,6 +23,15 @@ void PrintBasicMap(isl_basic_map* map) {
 	isl_printer_free(printer);
 }
 
+void PrintScopOriginal(isl_ctx *ctx, pet_scop* scop) {
+	/*FIXME: The following doesn't quite print the scop*/
+	isl_printer *printer = isl_printer_to_file(ctx, stdout);
+	printer = isl_printer_set_output_format(printer, ISL_FORMAT_C);
+	printer = pet_scop_print_original(scop, printer);
+	cout << endl;
+	isl_printer_free(printer);
+}
+
 void PrintMap(isl_map* map) {
 	isl_printer *printer = isl_printer_to_file(
 		isl_map_get_ctx(map), stdout);
@@ -55,6 +64,15 @@ void PrintSet(isl_set* set) {
 		isl_set_get_ctx(set), stdout);
 	printer = isl_printer_set_output_format(printer, ISL_FORMAT_ISL);
 	isl_printer_print_set(printer, set);
+	cout << endl;
+	isl_printer_free(printer);
+}
+
+void PrintBasicSet(isl_basic_set* set) {
+	isl_printer *printer = isl_printer_to_file(
+		isl_basic_set_get_ctx(set), stdout);
+	printer = isl_printer_set_output_format(printer, ISL_FORMAT_ISL);
+	isl_printer_print_basic_set(printer, set);
 	cout << endl;
 	isl_printer_free(printer);
 }

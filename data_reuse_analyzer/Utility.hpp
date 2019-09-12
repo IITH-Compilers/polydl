@@ -17,4 +17,6 @@ void PrintUnionSet(isl_union_set* set);
 void PrintSet(isl_set* set);
 void PrintUnionPwQpolynomial(isl_union_pw_qpolynomial* poly);
 void PrintSpace(isl_space* space);
+void PrintScopOriginal(isl_ctx *ctx, pet_scop* scop);
+void PrintBasicSet(isl_basic_set* set);
 #endif
