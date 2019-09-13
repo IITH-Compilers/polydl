@@ -6,6 +6,10 @@
 #include <isl/flow.h>
 #include <barvinok/isl.h>
 #include <isl/space.h>
+#include <string>
+#include <algorithm>
+#include <vector>
+using namespace std;
 
 void PrintScop(isl_ctx* ctx, struct pet_scop *scop);
 void PrintExpressions(isl_printer *printer, pet_expr *expr);
@@ -19,4 +23,6 @@ void PrintUnionPwQpolynomial(isl_union_pw_qpolynomial* poly);
 void PrintSpace(isl_space* space);
 void PrintScopOriginal(isl_ctx *ctx, pet_scop* scop);
 void PrintBasicSet(isl_basic_set* set);
+void CollectArrayNames(isl_union_map *may_reads, isl_union_map *may_writes, vector<string>* arrayNames);
+void CollectArrayNamesFromUnionMap(isl_union_map* orig_map, vector<string>* arrayNames);
 #endif

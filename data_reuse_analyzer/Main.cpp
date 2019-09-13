@@ -114,8 +114,6 @@ void UpdatePessimisticProgramCharacteristics(long minSize, long maxSize,
 	SystemConfig* systemConfig,
 	ProgramCharacteristics* programChar);
 bool compareByMinMaxSize(const MinMaxTuple* a, const MinMaxTuple* b);
-void CollectArrayNames(isl_union_map *may_reads, isl_union_map *may_writes, vector<string>* arrayNames);
-void CollectArrayNamesFromUnionMap(isl_union_map* orig_map, vector<string>* arrayNames);
 /* Function header declarations end */
 
 int main(int argc, char **argv) {
@@ -974,36 +972,10 @@ void FreeWorkingSetSizes(vector<WorkingSetSize*>* workingSetSizes) {
 	delete workingSetSizes;
 }
 
-void CollectArrayNamesFromUnionMap(isl_union_map* orig_map, vector<string>* arrayNames) {
-
-	isl_union_map* map = isl_union_map_copy(orig_map);
-	isl_union_set* set = isl_union_map_range(map);
-
-	isl_basic_set_list *basicSetList =
-		isl_union_set_get_basic_set_list(set);
-
-	isl_size size = isl_basic_set_list_size(basicSetList);
-	for (int i = 0; i < size; i++) {
-		isl_basic_set* basicSet = isl_basic_set_list_get_at(basicSetList, i);
-		const char* name = isl_basic_set_get_tuple_name(basicSet);
-
-		if (find(arrayNames->begin(), arrayNames->end(), name) == arrayNames->end()) {
-			arrayNames->push_back(name);
-		}
-
-		isl_basic_set_free(basicSet);
-	}
-
-	isl_basic_set_list_free(basicSetList);
-	isl_union_set_free(set);
+isl_union_map* IntersetMapWithSet(isl_union_map* map, isl_set* set) {
+	return isl_union_map_intersect_range(isl_union_map_copy(map),
+		isl_union_set_from_set(isl_set_copy(set)));
 }
-
-
-void CollectArrayNames(isl_union_map *may_reads, isl_union_map *may_writes, vector<string>* arrayNames) {
-	CollectArrayNamesFromUnionMap(may_reads, arrayNames);
-	CollectArrayNamesFromUnionMap(may_writes, arrayNames);
-}
-
 
 isl_union_map* ComputeDataDependences(isl_ctx* ctx, pet_scop* scop,
 	Config *config) {
@@ -1013,20 +985,30 @@ isl_union_map* ComputeDataDependences(isl_ctx* ctx, pet_scop* scop,
 	isl_union_map *may_reads = pet_scop_get_may_reads(scop);
 	isl_union_map *may_writes = pet_scop_get_may_writes(scop);
 
-	cout << "May Reads: " << endl;
-	PrintUnionMap(may_reads);
+	/*New additions begin*/
+	cout << "scop->n_array: " << scop->n_array << endl;
+	for (int i = 0; i < scop->n_array; i++) {
 
-	cout << "Calling CollectArrayNames()" << endl;
-	vector<string>* arrayNames = new vector<string>();
-	CollectArrayNames(may_reads, may_writes, arrayNames);
-	cout << "The array names are: " << endl;
-	for (int k = 0; k < arrayNames->size(); k++) {
-		cout << arrayNames->at(k) << " ";
+		if (scop->arrays[i]->extent) {
+			cout << "scop->arrays[i]->extent: " << endl;
+			PrintSet(scop->arrays[i]->extent);
+
+			isl_union_map* per_array_may_reads = IntersetMapWithSet(may_reads, scop->arrays[i]->extent);
+
+			isl_union_map* per_array_may_writes = IntersetMapWithSet(may_writes, scop->arrays[i]->extent);
+
+			cout << "Per-array reads: " << endl;
+			PrintUnionMap(per_array_may_reads);
+			cout << "Per-array writes: " << endl;
+			PrintUnionMap(per_array_may_writes);
+
+			isl_union_map_free(per_array_may_reads);
+			isl_union_map_free(per_array_may_writes);
+		}
+
+
 	}
-
-	cout << endl;
-	delete arrayNames;
-	cout << "Returned from CollectArrayNames()" << endl;
+	/*New additions end*/
 
 	if (config && config->programParameterVector &&
 		config->programParameterVector->size() == 1) {

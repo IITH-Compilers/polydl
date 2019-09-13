@@ -213,3 +213,33 @@ void PrintExpressions(isl_printer *printer, pet_expr *expr) {
 		}
 	}
 }
+
+void CollectArrayNamesFromUnionMap(isl_union_map* orig_map, vector<string>* arrayNames) {
+
+	isl_union_map* map = isl_union_map_copy(orig_map);
+	isl_union_set* set = isl_union_map_range(map);
+
+	isl_basic_set_list *basicSetList =
+		isl_union_set_get_basic_set_list(set);
+
+	isl_size size = isl_basic_set_list_size(basicSetList);
+	for (int i = 0; i < size; i++) {
+		isl_basic_set* basicSet = isl_basic_set_list_get_at(basicSetList, i);
+		const char* name = isl_basic_set_get_tuple_name(basicSet);
+
+		if (find(arrayNames->begin(), arrayNames->end(), name) == arrayNames->end()) {
+			arrayNames->push_back(name);
+		}
+
+		isl_basic_set_free(basicSet);
+	}
+
+	isl_basic_set_list_free(basicSetList);
+	isl_union_set_free(set);
+}
+
+
+void CollectArrayNames(isl_union_map *may_reads, isl_union_map *may_writes, vector<string>* arrayNames) {
+	CollectArrayNamesFromUnionMap(may_reads, arrayNames);
+	CollectArrayNamesFromUnionMap(may_writes, arrayNames);
+}
