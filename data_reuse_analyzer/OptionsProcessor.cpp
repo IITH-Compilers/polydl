@@ -14,9 +14,12 @@ void ReadUserInput(int argc, char **argv, UserInput *userInput) {
 	string configPrefix = "--config";
 	string diagnostic = "--diagnostic";
 	string minimalOutput = "--minout";
+	string perarray = "--perarray";
 
 	userInput->interactive = false;
 	userInput->minOutput = false;
+	userInput->perarray = false;
+
 	for (i = 1; i < argc;) {
 		if (argv[i] == inputPrefix) {
 			userInput->inputFile = argv[i + 1];
@@ -32,6 +35,10 @@ void ReadUserInput(int argc, char **argv, UserInput *userInput) {
 		}
 		else if (argv[i] == minimalOutput) {
 			userInput->minOutput = true;
+			i++;
+		}
+		else if (argv[i] == perarray) {
+			userInput->perarray = true;
 			i++;
 		}
 		else {

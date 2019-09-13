@@ -8,6 +8,7 @@ struct UserInput {
 	std::string configFile;
 	bool interactive;
 	bool minOutput;
+	bool perarray;
 };
 
 typedef struct UserInput UserInput;
