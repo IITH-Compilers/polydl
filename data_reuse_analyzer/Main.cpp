@@ -265,17 +265,22 @@ isl_stat ComputeWorkingSetSizesForDependence(isl_map* dep, void *user) {
 isl_stat ComputeWorkingSetSizesForDependenceBasicMap(isl_basic_map* dep,
 	void *user) {
 
-	if (DEBUG) {
-		cout << "Data_dependence: " << endl;
-		PrintBasicMap(dep);
-	}
-
 	ArgComputeWorkingSetSizesForDependence* arg =
 		(ArgComputeWorkingSetSizesForDependence*)user;
 	pet_scop *scop = arg->scop;
 	isl_union_map* may_reads = arg->may_reads;
 	isl_union_map* may_writes = arg->may_writes;
 	vector<WorkingSetSize*>* workingSetSizes = arg->workingSetSizes;
+
+
+	if (DEBUG) {
+		cout << "Data_dependence: " << endl;
+		PrintBasicMap(dep);
+		cout << "May_writes: " << endl;
+		PrintUnionMap(may_writes);
+		cout << "May_reads: " << endl;
+		PrintUnionMap(may_reads);
+	}
 
 	isl_basic_set* sourceDomain = isl_basic_map_domain(
 		isl_basic_map_copy(dep));
@@ -456,8 +461,13 @@ void SimplifyWorkingSetSizes(vector<WorkingSetSize*>* workingSetSizes,
 		sort(minMaxTupleVector->begin(), minMaxTupleVector->end(),
 			compareByMinMaxSize);
 		for (int i = 0; i < minMaxTupleVector->size(); i++) {
-			UpdateProgramCharacteristics(minMaxTupleVector->at(i)->min, config->systemConfig, programChar);
-			UpdateProgramCharacteristics(minMaxTupleVector->at(i)->max, config->systemConfig, programChar);
+			UpdateProgramCharacteristics(minMaxTupleVector->at(i)->min,
+				config->systemConfig, programChar);
+			if (minMaxTupleVector->at(i)->max != minMaxTupleVector->at(i)->min) {
+				UpdateProgramCharacteristics(minMaxTupleVector->at(i)->max,
+					config->systemConfig, programChar);
+			}
+
 			UpdatePessimisticProgramCharacteristics(minMaxTupleVector->at(i)->min,
 				minMaxTupleVector->at(i)->max,
 				config->systemConfig,
@@ -622,8 +632,14 @@ void SimplifyWorkingSetSizesInteractively(vector<WorkingSetSize*>* workingSetSiz
 		sort(minMaxTupleVector->begin(), minMaxTupleVector->end(),
 			compareByMinMaxSize);
 		for (int i = 0; i < minMaxTupleVector->size(); i++) {
-			UpdateProgramCharacteristics(minMaxTupleVector->at(i)->min, config->systemConfig, programChar);
-			UpdateProgramCharacteristics(minMaxTupleVector->at(i)->max, config->systemConfig, programChar);
+			UpdateProgramCharacteristics(minMaxTupleVector->at(i)->min,
+				config->systemConfig, programChar);
+
+			if (minMaxTupleVector->at(i)->min != minMaxTupleVector->at(i)->max) {
+				UpdateProgramCharacteristics(minMaxTupleVector->at(i)->max,
+					config->systemConfig, programChar);
+			}
+
 			UpdatePessimisticProgramCharacteristics(minMaxTupleVector->at(i)->min,
 				minMaxTupleVector->at(i)->max,
 				config->systemConfig,

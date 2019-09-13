@@ -1,0 +1,20 @@
+params,L1,L2,L3,Mem
+ofhp = 56 ofwp = 56 kw = 1 ofw = 56 pad_w = 0 nIfm = 64 nOfm = 256 ofh = 56 ifwp = 56 kh = 1 pad_h = 0 nImg = 28 ifhp = 56 ,8,4,0,2
+ofhp = 56 ofwp = 56 kw = 1 ofw = 56 pad_w = 0 nIfm = 64 nOfm = 64 ofh = 56 ifwp = 56 kh = 1 pad_h = 0 nImg = 28 ifhp = 56 ,8,2,0,2
+ofhp = 56 ofwp = 56 kw = 3 ofw = 56 pad_w = 1 nIfm = 64 nOfm = 64 ofh = 56 ifwp = 56 kh = 3 pad_h = 1 nImg = 28 ifhp = 56 ,8,2,0,14
+ofhp = 56 ofwp = 56 kw = 1 ofw = 56 pad_w = 0 nIfm = 256 nOfm = 64 ofh = 56 ifwp = 56 kh = 1 pad_h = 0 nImg = 28 ifhp = 56 ,8,2,0,6
+ofhp = 28 ofwp = 28 kw = 1 ofw = 28 pad_w = 0 nIfm = 256 nOfm = 512 ofh = 28 ifwp = 28 kh = 1 pad_h = 0 nImg = 28 ifhp = 28 ,10,2,0,6
+ofhp = 28 ofwp = 28 kw = 1 ofw = 28 pad_w = 0 nIfm = 256 nOfm = 128 ofh = 28 ifwp = 28 kh = 1 pad_h = 0 nImg = 28 ifhp = 28 ,10,6,2,0
+ofhp = 28 ofwp = 28 kw = 3 ofw = 28 pad_w = 1 nIfm = 128 nOfm = 128 ofh = 28 ifwp = 28 kh = 3 pad_h = 1 nImg = 28 ifhp = 28 ,10,18,0,2
+ofhp = 28 ofwp = 28 kw = 1 ofw = 28 pad_w = 0 nIfm = 128 nOfm = 512 ofh = 28 ifwp = 28 kh = 1 pad_h = 0 nImg = 28 ifhp = 28 ,10,2,0,6
+ofhp = 28 ofwp = 28 kw = 1 ofw = 28 pad_w = 0 nIfm = 512 nOfm = 128 ofh = 28 ifwp = 28 kh = 1 pad_h = 0 nImg = 28 ifhp = 28 ,10,6,0,2
+ofhp = 14 ofwp = 14 kw = 1 ofw = 14 pad_w = 0 nIfm = 512 nOfm = 1024 ofh = 14 ifwp = 14 kh = 1 pad_h = 0 nImg = 28 ifhp = 14 ,10,2,4,2
+ofhp = 14 ofwp = 14 kw = 1 ofw = 14 pad_w = 0 nIfm = 512 nOfm = 256 ofh = 14 ifwp = 14 kh = 1 pad_h = 0 nImg = 28 ifhp = 14 ,10,6,2,0
+ofhp = 14 ofwp = 14 kw = 3 ofw = 14 pad_w = 1 nIfm = 256 nOfm = 256 ofh = 14 ifwp = 14 kh = 3 pad_h = 1 nImg = 28 ifhp = 14 ,10,18,0,2
+ofhp = 14 ofwp = 14 kw = 1 ofw = 14 pad_w = 0 nIfm = 256 nOfm = 1024 ofh = 14 ifwp = 14 kh = 1 pad_h = 0 nImg = 28 ifhp = 14 ,10,2,4,2
+ofhp = 14 ofwp = 14 kw = 1 ofw = 14 pad_w = 0 nIfm = 1024 nOfm = 256 ofh = 14 ifwp = 14 kh = 1 pad_h = 0 nImg = 28 ifhp = 14 ,10,6,0,2
+ofhp = 7 ofwp = 7 kw = 1 ofw = 7 pad_w = 0 nIfm = 1024 nOfm = 2048 ofh = 7 ifwp = 7 kh = 1 pad_h = 0 nImg = 28 ifhp = 7 ,10,6,0,2
+ofhp = 7 ofwp = 7 kw = 1 ofw = 7 pad_w = 0 nIfm = 1024 nOfm = 512 ofh = 7 ifwp = 7 kh = 1 pad_h = 0 nImg = 28 ifhp = 7 ,10,6,0,2
+ofhp = 7 ofwp = 7 kw = 3 ofw = 7 pad_w = 1 nIfm = 512 nOfm = 512 ofh = 7 ifwp = 28 kh = 3 pad_h = 1 nImg = 1 ifhp = 7 ,10,14,4,0
+ofhp = 7 ofwp = 7 kw = 1 ofw = 7 pad_w = 0 nIfm = 512 nOfm = 2048 ofh = 7 ifwp = 28 kh = 1 pad_h = 0 nImg = 1 ifhp = 7 ,10,6,0,0
+ofhp = 7 ofwp = 7 kw = 1 ofw = 7 pad_w = 0 nIfm = 2048 nOfm = 512 ofh = 7 ifwp = 28 kh = 1 pad_h = 0 nImg = 1 ifhp = 7 ,10,6,0,0

@@ -1,0 +1,20 @@
+params,L1,L2,L3,Mem
+ofhp = 56 ofwp = 56 kw = 1 ofw = 56 pad_w = 0 nIfm = 64 nOfm = 256 ofh = 56 ifwp = 56 kh = 1 pad_h = 0 nImg = 1 ifhp = 56 ,5,2,3,0,34592,89608,6475784,0
+ofhp = 56 ofwp = 56 kw = 1 ofw = 56 pad_w = 0 nIfm = 64 nOfm = 64 ofh = 56 ifwp = 56 kh = 1 pad_h = 0 nImg = 1 ifhp = 56 ,5,2,1,0,34592,89608,1593344,0
+ofhp = 56 ofwp = 56 kw = 3 ofw = 56 pad_w = 1 nIfm = 64 nOfm = 64 ofh = 56 ifwp = 56 kh = 3 pad_h = 1 nImg = 1 ifhp = 56 ,5,2,9,0,34592,89608,14794248,0
+ofhp = 56 ofwp = 56 kw = 1 ofw = 56 pad_w = 0 nIfm = 256 nOfm = 64 ofh = 56 ifwp = 56 kh = 1 pad_h = 0 nImg = 1 ifhp = 56 ,5,2,3,0,34592,89608,6475784,0
+ofhp = 28 ofwp = 28 kw = 1 ofw = 28 pad_w = 0 nIfm = 256 nOfm = 512 ofh = 28 ifwp = 28 kh = 1 pad_h = 0 nImg = 1 ifhp = 28 ,7,3,2,0,95528,1673224,3735560,0
+ofhp = 28 ofwp = 28 kw = 1 ofw = 28 pad_w = 0 nIfm = 256 nOfm = 128 ofh = 28 ifwp = 28 kh = 1 pad_h = 0 nImg = 1 ifhp = 28 ,7,3,2,0,95528,1673224,2138112,0
+ofhp = 28 ofwp = 28 kw = 3 ofw = 28 pad_w = 1 nIfm = 128 nOfm = 128 ofh = 28 ifwp = 28 kh = 3 pad_h = 1 nImg = 1 ifhp = 28 ,7,13,0,0,95528,8680456,0,0
+ofhp = 28 ofwp = 28 kw = 1 ofw = 28 pad_w = 0 nIfm = 128 nOfm = 512 ofh = 28 ifwp = 28 kh = 1 pad_h = 0 nImg = 1 ifhp = 28 ,7,4,1,0,95528,1873928,2035712,0
+ofhp = 28 ofwp = 28 kw = 1 ofw = 28 pad_w = 0 nIfm = 512 nOfm = 128 ofh = 28 ifwp = 28 kh = 1 pad_h = 0 nImg = 1 ifhp = 28 ,7,2,3,0,95528,821256,5595136,0
+ofhp = 14 ofwp = 14 kw = 1 ofw = 14 pad_w = 0 nIfm = 512 nOfm = 1024 ofh = 14 ifwp = 14 kh = 1 pad_h = 0 nImg = 1 ifhp = 14 ,7,4,1,0,81192,1325072,3120128,0
+ofhp = 14 ofwp = 14 kw = 1 ofw = 14 pad_w = 0 nIfm = 512 nOfm = 256 ofh = 14 ifwp = 14 kh = 1 pad_h = 0 nImg = 1 ifhp = 14 ,7,5,0,0,81192,2270224,0,0
+ofhp = 14 ofwp = 14 kw = 3 ofw = 14 pad_w = 1 nIfm = 256 nOfm = 256 ofh = 14 ifwp = 14 kh = 3 pad_h = 1 nImg = 1 ifhp = 14 ,7,12,1,0,81192,4765720,2182144,0
+ofhp = 14 ofwp = 14 kw = 1 ofw = 14 pad_w = 0 nIfm = 256 nOfm = 1024 ofh = 14 ifwp = 14 kh = 1 pad_h = 0 nImg = 1 ifhp = 14 ,7,4,1,0,81192,792592,1936384,0
+ofhp = 14 ofwp = 14 kw = 1 ofw = 14 pad_w = 0 nIfm = 1024 nOfm = 256 ofh = 14 ifwp = 14 kh = 1 pad_h = 0 nImg = 1 ifhp = 14 ,7,3,2,0,81192,1274888,2854920,0
+ofhp = 7 ofwp = 7 kw = 1 ofw = 7 pad_w = 0 nIfm = 1024 nOfm = 2048 ofh = 7 ifwp = 7 kh = 1 pad_h = 0 nImg = 1 ifhp = 7 ,7,4,1,0,74024,1001232,8716032,0
+ofhp = 7 ofwp = 7 kw = 1 ofw = 7 pad_w = 0 nIfm = 1024 nOfm = 512 ofh = 7 ifwp = 7 kh = 1 pad_h = 0 nImg = 1 ifhp = 7 ,7,4,1,0,74024,1001232,2123520,0
+ofhp = 7 ofwp = 7 kw = 3 ofw = 7 pad_w = 1 nIfm = 512 nOfm = 512 ofh = 7 ifwp = 7 kh = 3 pad_h = 1 nImg = 1 ifhp = 7 ,7,11,2,0,74024,3893776,9869320,0
+ofhp = 7 ofwp = 7 kw = 1 ofw = 7 pad_w = 0 nIfm = 512 nOfm = 2048 ofh = 7 ifwp = 7 kh = 1 pad_h = 0 nImg = 1 ifhp = 7 ,7,4,1,0,74024,538384,4552448,0
+ofhp = 7 ofwp = 7 kw = 1 ofw = 7 pad_w = 0 nIfm = 2048 nOfm = 512 ofh = 7 ifwp = 7 kh = 1 pad_h = 0 nImg = 1 ifhp = 7 ,7,4,1,0,74024,1926928,4159232,0
