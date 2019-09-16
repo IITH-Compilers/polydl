@@ -25,7 +25,9 @@
 #define T_oi 28
 #endif // !T_oi
 
+#ifndef GEMM_BLOCK
 #define GEMM_BLOCK 64
+#endif // !GEMM_BLOCK
 
 #define min(X, Y) (((X) < (Y)) ? (X) : (Y))
 #define max(X, Y) (((X) > (Y)) ? (X) : (Y))

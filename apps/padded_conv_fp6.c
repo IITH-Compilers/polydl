@@ -6,7 +6,10 @@
 #define STRIDE_W 1
 #endif // !STRIDE_W
 
+#ifndef GEMM_BLOCK
 #define GEMM_BLOCK 64
+#endif // !GEMM_BLOCK
+
 static inline void padded_conv_fp6_fn(int nImg, int nIfm, int nOfm, int ifhp, int ifwp, int ofhp, int ofwp, int ifh, int ifw,
 	int ofh, int ofw, int pad_h, int pad_w, int pad_h_in, int pad_w_in, int pad_h_out,
 	int pad_w_out, int kh, int kw, int stride_h, int stride_w,

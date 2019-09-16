@@ -3,18 +3,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <omp.h>
-#include "naive_conv_fp.c"
-#include "padded_conv_fp_stride_1_libxsmm_core_pluto.c"
-#include "padded_conv_fp_libxsmm_core.c"
-#include "padded_conv_fp_libxsmm_core2.c"
-#include "padded_conv_fp_libxsmm_core3.c"
-#include "padded_conv_fp_libxsmm_core4.c"
-#include "padded_conv_fp_orig.c"
-#include "padded_conv_fp5.c"
-#include "padded_conv_fp6.c"
-#include "padded_conv_fp7.c"
-#include "padded_conv_fp_tiled_loop_order_0.c"
-#include "padded_conv_fp_tiled_loop_order_1.c"
 
 #define USE_LIBXSMM
 
@@ -43,8 +31,24 @@ libxsmm_smmfunction fwd_gemm;
 #define T_oi 14
 #endif // !T_oi
 
+#ifndef GEMM_BLOCK
 #define GEMM_BLOCK 64
+#endif // !GEMM_BLOCK
+
 #define NUM_TRIALS 3
+
+#include "naive_conv_fp.c"
+#include "padded_conv_fp_stride_1_libxsmm_core_pluto.c"
+#include "padded_conv_fp_libxsmm_core.c"
+#include "padded_conv_fp_libxsmm_core2.c"
+#include "padded_conv_fp_libxsmm_core3.c"
+#include "padded_conv_fp_libxsmm_core4.c"
+#include "padded_conv_fp_orig.c"
+#include "padded_conv_fp5.c"
+#include "padded_conv_fp6.c"
+#include "padded_conv_fp7.c"
+#include "padded_conv_fp_tiled_loop_order_0.c"
+#include "padded_conv_fp_tiled_loop_order_1.c"
 
 typedef struct {
 	double max_rel_err;
@@ -149,16 +153,6 @@ double padded_conv_fp(
 			pad_w_out, kh, kw, stride_h, stride_w, pad_gemm_input, output, filter, iters);
 		l_end = libxsmm_timer_tick();
 	}
-	else if (version == 101) {
-		l_start = libxsmm_timer_tick();
-		for (i = 0; i < iters; i++) {
-			padded_conv_fp_orig_fn(nImg, nIfm, nOfm, ifhp, ifwp, ofhp, ofwp, ifh, ifw,
-				ofh, ofw, pad_h, pad_w, pad_h_in, pad_w_in, pad_h_out,
-				pad_w_out, kh, kw, stride_h, stride_w, pad_gemm_input, output, filter, iters);
-		}
-
-		l_end = libxsmm_timer_tick();
-	}
 	else if (version == 20) {
 		l_start = libxsmm_timer_tick();
 		for (i = 0; i < iters; i++) {
@@ -243,6 +237,16 @@ double padded_conv_fp(
 		l_start = libxsmm_timer_tick();
 		for (i = 0; i < iters; i++) {
 			padded_conv_fp7_fn(nImg, nIfm, nOfm, ifhp, ifwp, ofhp, ofwp, ifh, ifw,
+				ofh, ofw, pad_h, pad_w, pad_h_in, pad_w_in, pad_h_out,
+				pad_w_out, kh, kw, stride_h, stride_w, pad_gemm_input, output, filter, iters);
+		}
+
+		l_end = libxsmm_timer_tick();
+	}
+	else if (version == 29) {
+		l_start = libxsmm_timer_tick();
+		for (i = 0; i < iters; i++) {
+			padded_conv_fp8_fn(nImg, nIfm, nOfm, ifhp, ifwp, ofhp, ofwp, ifh, ifw,
 				ofh, ofw, pad_h, pad_w, pad_h_in, pad_w_in, pad_h_out,
 				pad_w_out, kh, kw, stride_h, stride_w, pad_gemm_input, output, filter, iters);
 		}
