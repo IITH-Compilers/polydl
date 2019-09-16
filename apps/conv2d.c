@@ -43,10 +43,10 @@ libxsmm_smmfunction fwd_gemm;
 #include "padded_conv_fp_libxsmm_core2.c"
 #include "padded_conv_fp_libxsmm_core3.c"
 #include "padded_conv_fp_libxsmm_core4.c"
-#include "padded_conv_fp_orig.c"
 #include "padded_conv_fp5.c"
 #include "padded_conv_fp6.c"
 #include "padded_conv_fp7.c"
+#include "padded_conv_fp8.c"
 #include "padded_conv_fp_tiled_loop_order_0.c"
 #include "padded_conv_fp_tiled_loop_order_1.c"
 
