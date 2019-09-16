@@ -93,17 +93,11 @@ double padded_conv_fp(
 	int i;
 	/* declare a physical padded buffer */
 
-	/*
-	float pad_gemm_input[nImg][nIfm / GEMM_BLOCK][ifhp + 2 * pad_h][ifwp + 2 * pad_w][GEMM_BLOCK];
-	*/
+
 	float(*pad_gemm_input)[nIfm / GEMM_BLOCK][ifhp + 2 * pad_h][ifwp + 2 * pad_w][GEMM_BLOCK] = (float*)libxsmm_aligned_malloc(nImg*nIfm*(ifhp + 2 * pad_h)*(ifwp + 2 * pad_w) * sizeof(float), 2097152);
-	// printf("pad_gemm_input = %p\n", pad_gemm_input);
 	zero_buf(&pad_gemm_input[0][0][0][0][0], (nImg)*(nIfm / GEMM_BLOCK)*(ifhp + 2 * pad_h)*(ifwp + 2 * pad_w) * GEMM_BLOCK);
-
-
-
-	// printf("Calling copy_GEMM_to_PADDED_GEMM\n");
 	copy_GEMM_to_PADDED_GEMM(nImg, ifhp, ifwp, nIfm, pad_h, pad_w, input, pad_gemm_input);
+
 
 	if (version == 0) {
 		// printf("padded_conv_fp_stride_1_core\n");
@@ -540,7 +534,7 @@ int main(int argc, char **argv) {
 	/* initialize data */
 	srand48(1);
 	init_buf(&naive_input[0][0][0][0], nImg*nIfm*ifhp*ifwp, 0, 0);
-	set_zeropad_nchw(nImg, nIfm, ifhp, ifwp, pad_h, pad_w, naive_input);
+	// set_zeropad_nchw(nImg, nIfm, ifhp, ifwp, pad_h, pad_w, naive_input);
 	init_buf(&naive_filter[0][0][0][0], nOfm*nIfm*kh*kw, 0, 0);
 	zero_buf(&naive_output[0][0][0][0], nImg*nOfm*ofhp*ofwp);
 	zero_buf(&gemm_output[0][0][0][0][0], nImg*nOfm*ofhp*ofwp);
