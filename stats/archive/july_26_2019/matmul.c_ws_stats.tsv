@@ -1,7 +1,0 @@
-Parameters: N = 100; M = 300; K = 200; 
-dependence 	 min_WS_size 	 max_WS_size
-[N, K, M] -> { S_3[i, j, k] -> S_3[i', j', k'] : i' = i and j' = j and 0 <= i < M and 0 <= j < N and k >= 0 and k < k' < K }	5	399
-[N, K, M] -> { S_3[i, j, k] -> S_3[i', j', k'] : i' = i and k' = k and 0 <= i < M and j >= 0 and 0 <= k < K and j < j' < N }	403	20099
-[N, K, M] -> { S_3[i, j, k] -> S_3[i', j', k'] : j' = j and k' = k and i >= 0 and 0 <= j < N and 0 <= k < K and i < i' < M }	20302	109700
-[N, K, M] -> { S_3[i, j, k] -> S_3[i', j', k'] : i' = i and j' = j and 0 <= i < M and 0 <= j < N and k >= 0 and k < k' < K }	5	399
-#reuses in L1, L2, L3:	6	2	0
