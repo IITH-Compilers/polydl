@@ -129,12 +129,12 @@ do
                                 cat ../padded_conv_fp_libxsmm_core2.c >> ${TEMP}/temp.c
                                 fi
 
-                                if [ $version -eq 4 ] [ $version -eq 24 ]
+                                if [ $version -eq 4 ] || [ $version -eq 24 ]
                                 then
                                 cat ../padded_conv_fp_libxsmm_core3.c >> ${TEMP}/temp.c
                                 fi
 
-                                if [ $version -eq 5 ] [ $version -eq 25 ]
+                                if [ $version -eq 5 ] || [ $version -eq 25 ]
                                 then
                                 cat ../padded_conv_fp_libxsmm_core4.c >> ${TEMP}/temp.c
                                 fi
