@@ -64,7 +64,10 @@ void copy_NCHW_to_GEMM(int N, int H, int W, int C, const float nchw[N][C][H][W],
 void copy_GEMM_to_PADDED_GEMM(int N, int H, int W, int C, int pad_h, int pad_w,
 	const float gemm[N][C / GEMM_BLOCK][H][W][GEMM_BLOCK], float pad_gemm[N][C / GEMM_BLOCK][H + 2 * pad_h][W + 2 * pad_w][GEMM_BLOCK]);
 void compare_buf(float* ref, float* test, long size, correctness_t* norms);
-
+void copy_NCHW_to_PADDED_NCHW(int N, int C, int H, int W, int pad_h,
+	int pad_w,
+	const float input[N][C][H][W],
+	float pad_input[N][C][H + 2 * pad_h][W + 2 * pad_w]);
 
 void zero_buf(float* buf, long size) {
 	int i;
@@ -251,7 +254,28 @@ double padded_conv_fp(
 
 		l_end = libxsmm_timer_tick();
 	}
+	else if (version == 101) {
+		copyGEMMOutputToNCHWformat = 0;
+		float(*pad_naive_input)[nIfm][ifhp + 2 * pad_h][ifwp + 2 * pad_w]
+			= (float*)libxsmm_aligned_malloc(nImg*nIfm*(ifhp + 2 * pad_h)*(ifwp + 2 * pad_w) * sizeof(float), 2097152);
 
+		zero_buf(&pad_naive_input[0][0][0][0],
+			nImg*nIfm*(ifhp + 2 * pad_h)*(ifwp + 2 * pad_w));
+
+		copy_NCHW_to_PADDED_NCHW(nImg, nIfm, ifhp, ifwp, pad_h, pad_w,
+			naive_input, pad_naive_input);
+
+		l_start = libxsmm_timer_tick();
+		for (i = 0; i < iters; i++) {
+			padded_naive_conv_fp_fn(nImg, nIfm, nOfm, ifhp, ifwp, ofhp, ofwp, ifh, ifw,
+				ofh, ofw, pad_h, pad_w, pad_h_in, pad_w_in, pad_h_out,
+				pad_w_out, kh, kw, stride_h, stride_w,
+				pad_naive_input, check_output, naive_filter);
+		}
+
+		l_end = libxsmm_timer_tick();
+		libxsmm_free(pad_naive_input);
+	}
 	else {
 		printf("Incorrect version\n");
 		libxsmm_free(pad_gemm_input);
@@ -281,6 +305,25 @@ void copy_GEMM_to_PADDED_GEMM(int N, int H, int W, int C, int pad_h, int pad_w,
 					for (c2 = 0; c2 < GEMM_BLOCK; c2++) {
 						pad_gemm[n][c1][h + pad_h][w + pad_w][c2] = gemm[n][c1][h][w][c2];
 					}
+				}
+			}
+		}
+	}
+}
+
+void copy_NCHW_to_PADDED_NCHW(int N, int C, int H, int W, int pad_h,
+	int pad_w,
+	const float input[N][C][H][W],
+	float pad_input[N][C][H + 2 * pad_h][W + 2 * pad_w])
+{
+	int n, h, w, c;
+
+	for (n = 0; n < N; n++) {
+		for (c = 0; c < C; c++) {
+			for (h = 0; h < H; h++) {
+				for (w = 0; w < W; w++) {
+					pad_input[n][c][h + pad_h][w + pad_w]
+						= input[n][c][h][w];
 				}
 			}
 		}
