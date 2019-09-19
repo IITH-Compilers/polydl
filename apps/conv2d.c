@@ -38,6 +38,7 @@ libxsmm_smmfunction fwd_gemm;
 #define NUM_TRIALS 3
 
 #include "naive_conv_fp.c"
+#include "padded_naive_conv_fp.c"
 #include "padded_conv_fp_stride_1_libxsmm_core_pluto.c"
 #include "padded_conv_fp_libxsmm_core.c"
 #include "padded_conv_fp_libxsmm_core2.c"
@@ -86,8 +87,11 @@ double padded_conv_fp(
 	int nImg, int nIfm, int nOfm, int ifhp, int ifwp, int ofhp, int ofwp, int ifh, int ifw,
 	int ofh, int ofw, int pad_h, int pad_w, int pad_h_in, int pad_w_in, int pad_h_out,
 	int pad_w_out, int kh, int kw, int stride_h, int stride_w,
-	const float input[nImg][nIfm / GEMM_BLOCK][ifhp][ifwp][GEMM_BLOCK], float output[nImg][nOfm / GEMM_BLOCK][ofhp][ofwp][GEMM_BLOCK], const float filter[nOfm / GEMM_BLOCK][nIfm / GEMM_BLOCK][kh][kw][GEMM_BLOCK][GEMM_BLOCK], int version, int iters)
+	const float input[nImg][nIfm / GEMM_BLOCK][ifhp][ifwp][GEMM_BLOCK], float output[nImg][nOfm / GEMM_BLOCK][ofhp][ofwp][GEMM_BLOCK], const float filter[nOfm / GEMM_BLOCK][nIfm / GEMM_BLOCK][kh][kw][GEMM_BLOCK][GEMM_BLOCK], int version, int iters,
+	const float naive_input[nImg][nIfm][ifhp][ifwp], const float naive_filter[nOfm][nIfm][kh][kw],
+	float check_output[nImg][nOfm][ofhp][ofwp])
 {
+	int copyGEMMOutputToNCHWformat = 1;
 	unsigned long long l_start, l_end;
 	double l_total = 0.0;
 	int i;
@@ -252,6 +256,11 @@ double padded_conv_fp(
 		printf("Incorrect version\n");
 		libxsmm_free(pad_gemm_input);
 		exit(0);
+	}
+
+	if (copyGEMMOutputToNCHWformat) {
+		printf("Calling copy_GEMM_to_NCHW\n");
+		copy_GEMM_to_NCHW(nImg, ofhp, ofwp, nOfm, output, check_output);
 	}
 
 	libxsmm_free(pad_gemm_input);
@@ -508,9 +517,14 @@ int main(int argc, char **argv) {
 
 	printf("Allocating data\n");
 	/* allocate data */
-	float naive_input[nImg][nIfm][ifhp][ifwp];
-	float naive_output[nImg][nOfm][ofhp][ofwp];
-	float naive_filter[nOfm][nIfm][kh][kw];
+	float(*naive_input)[nIfm][ifhp][ifwp] =
+		(float*)libxsmm_aligned_malloc(nImg*nIfm*ifhp*ifwp * sizeof(float), 2097152);
+
+	float(*naive_output)[nOfm][ofhp][ofwp] =
+		(float*)libxsmm_aligned_malloc(nImg*nOfm*ofhp*ofwp * sizeof(float), 2097152);
+
+	float(*naive_filter)[nIfm][kh][kw] =
+		(float*)libxsmm_aligned_malloc(nOfm*nIfm*kh*kw * sizeof(float), 2097152);
 
 	/*
 	float gemm_input[nImg][nIfm / GEMM_BLOCK][ifhp][ifwp][GEMM_BLOCK] __attribute__((aligned(2097152)));
@@ -520,9 +534,9 @@ int main(int argc, char **argv) {
 	*/
 
 	float(*gemm_input)[nIfm / GEMM_BLOCK][ifhp][ifwp][GEMM_BLOCK] = (float*)libxsmm_aligned_malloc(nImg*nIfm*ifhp*ifwp * sizeof(float), 2097152);
-	float(*gemm_output)[nOfm / GEMM_BLOCK][ifhp][ifwp][GEMM_BLOCK] = (float*)libxsmm_aligned_malloc(nImg*nOfm*ifhp*ifwp * sizeof(float), 2097152);
+	float(*gemm_output)[nOfm / GEMM_BLOCK][ofhp][ofwp][GEMM_BLOCK] = (float*)libxsmm_aligned_malloc(nImg*nOfm*ofhp*ofwp * sizeof(float), 2097152);
 	float(*gemm_filter)[nIfm / GEMM_BLOCK][kh][kw][GEMM_BLOCK][GEMM_BLOCK] = (float*)libxsmm_aligned_malloc(nOfm*nIfm*kh*kw * sizeof(float), 2097152);
-	float(*check_output)[nImg][nOfm][ofhp][ofwp] = (float*)libxsmm_aligned_malloc(nImg*nOfm*ofhp*ofwp * sizeof(float), 2097152);
+	float(*check_output)[nOfm][ofhp][ofwp] = (float*)libxsmm_aligned_malloc(nImg*nOfm*ofhp*ofwp * sizeof(float), 2097152);
 
 	/*
 	printf("gemm_input = %p\n", gemm_input);
@@ -565,10 +579,8 @@ int main(int argc, char **argv) {
 		printf("Calling padded_conv_fp\n");
 		padded_conv_fp(nImg, nIfm, nOfm, ifhp, ifwp, ofhp, ofwp, ifh, ifw,
 			ofh, ofw, pad_h, pad_w, pad_h_in, pad_w_in, pad_h_out,
-			pad_w_out, kh, kw, stride_h, stride_w, gemm_input, gemm_output, gemm_filter, version, 1 /*iters*/);
-
-		printf("Calling copy_GEMM_to_NCHW\n");
-		copy_GEMM_to_NCHW(nImg, ofhp, ofwp, nOfm, gemm_output, check_output);
+			pad_w_out, kh, kw, stride_h, stride_w, gemm_input, gemm_output, gemm_filter, version, 1 /*iters*/,
+			naive_input, naive_filter, check_output);
 
 		printf("Printing input values\n");
 		printf("%f %f %f\n", naive_input[0][0][0][0], naive_input[nImg / 2][nIfm / 2][ifhp / 2][ifwp / 2], naive_input[nImg - 1][nIfm - 1][ifhp - 1][ifwp - 1]);
@@ -596,7 +608,8 @@ int main(int argc, char **argv) {
 		/* Warm up */
 		padded_conv_fp(nImg, nIfm, nOfm, ifhp, ifwp, ofhp, ofwp, ifh, ifw,
 			ofh, ofw, pad_h, pad_w, pad_h_in, pad_w_in, pad_h_out,
-			pad_w_out, kh, kw, stride_h, stride_w, gemm_input, gemm_output, gemm_filter, version, 100 /*iters*/);
+			pad_w_out, kh, kw, stride_h, stride_w, gemm_input, gemm_output, gemm_filter, version, 1 /*iters*/,
+			naive_input, naive_filter, check_output);
 
 	}
 
@@ -609,7 +622,8 @@ int main(int argc, char **argv) {
 	for (trial = 0; trial < NUM_TRIALS; trial++) {
 		l_total = padded_conv_fp(nImg, nIfm, nOfm, ifhp, ifwp, ofhp, ofwp, ifh, ifw,
 			ofh, ofw, pad_h, pad_w, pad_h_in, pad_w_in, pad_h_out,
-			pad_w_out, kh, kw, stride_h, stride_w, gemm_input, gemm_output, gemm_filter, version, iters);
+			pad_w_out, kh, kw, stride_h, stride_w, gemm_input, gemm_output, gemm_filter, version, iters,
+			naive_input, naive_filter, check_output);
 
 		if (trial == 0) {
 			min_l_total = l_total;
