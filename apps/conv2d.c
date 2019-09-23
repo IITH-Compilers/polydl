@@ -527,11 +527,6 @@ int main(int argc, char **argv) {
 	printf("SIZE Output  (1): %10.2f MiB\n", (double)(1 * nOfm*ofhp*ofwp * sizeof(float)) / (1024.0*1024.0));
 	printf("SIZE Weight     : %10.2f MiB\n", (double)(nIfm*nOfm*kw*kh * sizeof(float)) / (1024.0*1024.0));
 
-	if ((nIfm % GEMM_BLOCK != 0) || (nOfm % GEMM_BLOCK != 0)) {
-		printf("\nThis code only works for ofm/ifm %d!\n\n\n", GEMM_BLOCK);
-		return -1;
-	}
-
 
 	/* apply stride in both dimensions */
 /* JIT GEMM kernel */
@@ -543,17 +538,25 @@ int main(int argc, char **argv) {
 		ldx_ptr = &ldx;
 	}
 
-	if (version == 0 || version == 1 || version == 20 || version == 21 || version == 28) {
-		// LIBXSMM tiled
-		if (ofwp % T_oi != 0 || T_oi > ofwp) {
-			printf("The tiling factor %d for oi loop should divide ofwp = %d\n. Exiting\n", T_oi, ofwp);
+
+	if (version == 0 || version == 1 || version == 2 || version == 3 || version == 4 || version == 5) {
+		if ((nIfm % GEMM_BLOCK != 0) || (nOfm % GEMM_BLOCK != 0)) {
+			printf("\nThis code only works for ofm/ifm %d!\n\n\n", GEMM_BLOCK);
 			return -1;
 		}
 
-		fwd_gemm = libxsmm_smmdispatch(GEMM_BLOCK, T_oi, GEMM_BLOCK, NULL, ldx_ptr, NULL, NULL, NULL, NULL, NULL);
-	}
-	else {
-		fwd_gemm = libxsmm_smmdispatch(GEMM_BLOCK, ofwp, GEMM_BLOCK, NULL, ldx_ptr, NULL, NULL, NULL, NULL, NULL);
+		if (version == 0 || version == 1 || version == 20 || version == 21 || version == 28) {
+			// LIBXSMM tiled
+			if (ofwp % T_oi != 0 || T_oi > ofwp) {
+				printf("The tiling factor %d for oi loop should divide ofwp = %d\n. Exiting\n", T_oi, ofwp);
+				return -1;
+			}
+
+			fwd_gemm = libxsmm_smmdispatch(GEMM_BLOCK, T_oi, GEMM_BLOCK, NULL, ldx_ptr, NULL, NULL, NULL, NULL, NULL);
+		}
+		else {
+			fwd_gemm = libxsmm_smmdispatch(GEMM_BLOCK, ofwp, GEMM_BLOCK, NULL, ldx_ptr, NULL, NULL, NULL, NULL, NULL);
+		}
 	}
 
 #endif
@@ -609,11 +612,15 @@ int main(int argc, char **argv) {
 		printf("#   Correctness - FWD (custom-Storage)   #\n");
 		printf("##########################################\n");
 		printf("Calling naive_conv_fp\n");
-		start = clock();
 
+		start = clock();
+		l_start = libxsmm_timer_tick();
 		naive_conv_fp_fn(nImg, nIfm, nOfm, ifhp, ifwp, ofhp, ofwp, ifh, ifw,
 			ofh, ofw, pad_h, pad_w, pad_h_in, pad_w_in, pad_h_out,
 			pad_w_out, kh, kw, stride_h, stride_w, naive_input, naive_output, naive_filter);
+		l_end = libxsmm_timer_tick();
+		l_total = libxsmm_timer_duration(l_start, l_end);
+		printf("Naive_GFLOPS =%.5g\n", (flops*1e-9) / l_total / (double)iters);
 
 		end = clock();
 		exec_time = (double)(end - start) / CLOCKS_PER_SEC;

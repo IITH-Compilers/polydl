@@ -13,6 +13,7 @@ void naive_conv_fp_fn(
 	float filter[nOfm][nIfm][kh][kw];
 	*/
 
+#pragma omp parallel for private(ofm, ifm, oj, ij, oi, ii, kj, ki)
 	for (img = 0; img < nImg; ++img) {
 		for (ofm = 0; ofm < nOfm; ++ofm) {
 			for (ifm = 0; ifm < nIfm; ++ifm) {
