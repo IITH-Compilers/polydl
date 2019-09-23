@@ -26,28 +26,36 @@ config19='1000  7   7   2048   512 1 1 0 0 1'
 
 GEMM_BLOCK=64
 config_num=1  #FIXME
-check_correctness=0
+check_correctness=1
 PERF_DIR=perf_data
 CONFIG_DIR=configs
 TEMP=temp
 GEMM_VERSIONS='0 1 2 3 4 5'
-NONGEMM_VERSIONS='101 22 23 24 25 26 27'    
+NONGEMM_VERSIONS='22 23 24 25 26 27 28 29 20 21'    
 
 mkdir ${PERF_DIR}
 mkdir ${TEMP}
 for config in "$config1" "$config2" "$config3" "$config4" "$config5" "$config6" "$config7" "$config8" "$config9" "$config10" "$config11" "$config12" "$config13" "$config14" "$config15" "$config16" "$config17" "$config18" "$config19" #FIXME 
 do
        params=( ${config} )
-       ofw=${params[1]}
-       ofh=${params[2]}
+       ifw=${params[1]}
+       ifh=${params[2]}
        nIfm=${params[3]}
        nOfm=${params[4]}
+       kw=${params[5]}
+       kh=${params[6]}
+       pad_w=${params[7]}
+       pad_h=${params[8]}
        stride=${params[9]}
+       let ofh="($ifh - $kh)/$stride + 1"
+       let ofw="($ifw - $kw)/$stride + 1"
 
 	for images in 1 28
 	do
 	        CONFIG_OUT=${PERF_DIR}/${config_num}_${images}_${OUT}
+		META_CONFIG_OUT=${PERF_DIR}/meta_${config_num}_${images}_${OUT}
 	        rm ${CONFIG_OUT}
+		rm ${META_CONFIG_OUT}
 
 		export OMP_NUM_THREADS=${images}
 		for version in $NONGEMM_VERSIONS #FIXME
@@ -55,19 +63,19 @@ do
 			#We will first do an actual run
 			if [ $version -eq 0 -o $version -eq 1 ]
 			then
-				for (( T_oi=7; T_oi<= ${ofw}; T_oi=T_oi*4 ))
+				for (( T_oi=${ofw}; T_oi<= ${ofw}; T_oi=T_oi*4 ))
 				do
 				if [ `expr $ofw % $T_oi` -eq 0 ] 
 				then
-				for (( T_oj=7; T_oj<= ${ofh}; T_oj=T_oj*4 ))
+				for (( T_oj=${ofh}; T_oj<= ${ofh}; T_oj=T_oj*4 ))
 				do
 				if [ `expr $ofh % $T_oj` -eq 0 ] 
 				then
-				for (( T_ifm_tile=1; T_ifm_tile<= ${nIfm}; T_ifm_tile=T_ifm_tile*4 ))
+				for (( T_ifm_tile=4; T_ifm_tile<= ${nIfm}; T_ifm_tile=T_ifm_tile*4 ))
                                 do
 				if [ `expr $nIfm % $T_ifm_tile` -eq 0 ]
 				then
-                                for (( T_ofm_tile=1; T_ofm_tile<= ${nOfm}; T_ofm_tile=T_ofm_tile*4 ))
+                                for (( T_ofm_tile=4; T_ofm_tile<= ${nOfm}; T_ofm_tile=T_ofm_tile*4 ))
                                 do
                                 if [ `expr $nOfm % $T_ofm_tile` -eq 0 ]
                                 then
@@ -75,8 +83,10 @@ do
 					(cd .. && make clean && make MACROFLAGS="-DSTRIDE_H=$stride -DSTRIDE_W=$stride -DT_oi=$T_oi -DT_oj=$T_oj -DT_ifm_tile=$T_ifm_tile -DT_ofm_tile=$T_ofm_tile")
      					# do something
 					echo  $T_oi " " $T_oj " " $T_ifm_tile " " $T_ofm_tile
-					GFLOPS=`../conv2d $config ${images} ${version} ${check_correctness} |  grep GFLOPS |  cut -d= -f2`
-
+					../conv2d $config ${images} ${version} ${check_correctness} &> run_output
+					GFLOPS=`cat run_output |  grep Real_GFLOPS |  cut -d= -f2`
+					NAIVE_GFLOPS=`cat run_output |  grep Naive_GFLOPS |  cut -d= -f2` 
+					ERROR=`cat run_output | grep "inf-norm of comp. abs. error" | cut -d: -f 2`
 					rm ${TEMP}/temp.c
 					if [ $version -eq 0 ] 
 					then
@@ -100,8 +110,9 @@ do
 					config_file=${config_num}_${images}_conv_config.txt
 					output_file=${TEMP}/temp.c${config_file}_ws_stats.csv
 					rm ${output_file}
-					../../data_reuse_analyzer/polyscientist --input ${TEMP}/temp.c --config ${CONFIG_DIR}/${config_file} --minout 
-					echo -n "${version}_${T_oi}_${T_oj}_${T_ifm_tile}_${T_ofm_tile},${GFLOPS}," | cat - ${output_file} >> ${CONFIG_OUT}
+					../../data_reuse_analyzer/polyscientist --input ${TEMP}/temp.c --config ${CONFIG_DIR}/${config_file} --minout --perarray 
+					{ echo -n "${version}_${T_oi}_${T_oj}_${T_ifm_tile}_${T_ofm_tile},${GFLOPS}," ;  cat - ${output_file} ; } >> ${CONFIG_OUT}
+					echo  "${NAIVE_GFLOPS},${ERROR}" >> ${META_CONFIG_OUT}
 
 
 				fi
@@ -115,7 +126,10 @@ do
 				echo
 			else
 				(cd .. && make clean && make MACROFLAGS="-DSTRIDE_H=$stride -DSTRIDE_W=$stride") 	
-				GFLOPS=`../conv2d $config ${images} ${version} ${check_correctness} |  grep GFLOPS |  cut -d= -f2`
+				../conv2d $config ${images} ${version} ${check_correctness} &> run_output
+				GFLOPS=`cat run_output |  grep Real_GFLOPS |  cut -d= -f2`
+				NAIVE_GFLOPS=`cat run_output |  grep Naive_GFLOPS |  cut -d= -f2`
+				ERROR=`cat run_output | grep "inf-norm of comp. abs. error" | cut -d: -f 2`
                                 rm ${TEMP}/temp.c
                                 echo "#define STRIDE_H ${stride}" >> ${TEMP}/temp.c
                                 echo "#define STRIDE_W ${stride}" >> ${TEMP}/temp.c
@@ -158,8 +172,10 @@ do
                                 config_file=${config_num}_${images}_conv_config.txt
                                 output_file=${TEMP}/temp.c${config_file}_ws_stats.csv
                                 rm ${output_file}
-                                ../../data_reuse_analyzer/polyscientist --input ${TEMP}/temp.c --config ${CONFIG_DIR}/${config_file} --minout
-                                echo -n "${version},${GFLOPS}," | cat - ${output_file} >> ${CONFIG_OUT}
+                                ../../data_reuse_analyzer/polyscientist --input ${TEMP}/temp.c --config ${CONFIG_DIR}/${config_file} --minout --perarray
+                                { echo -n "${version},${GFLOPS}," ; cat - ${output_file} ; } >> ${CONFIG_OUT}
+				echo  "${NAIVE_GFLOPS},${ERROR}" >> ${META_CONFIG_OUT}
+
 			fi
 		done
 		../../scripts/polyrank ${CONFIG_OUT}  --noheader --perfseparaterow --usepessidata

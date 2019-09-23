@@ -688,7 +688,7 @@ int main(int argc, char **argv) {
 	printf("Elapsed time of padded_conv_fp = %f seconds\n", l_total);
 	printf("GFLOP  = %.5g\n", flops*1e-9 / (double)iters);
 	printf("fp time = %.5g\n", ((double)(l_total / iters)));
-	printf("GFLOPS =%.5g\n", (flops*1e-9) / l_total);
+	printf("Real_GFLOPS =%.5g\n", (flops*1e-9) / l_total);
 
 	libxsmm_free(gemm_input);
 	libxsmm_free(gemm_output);
