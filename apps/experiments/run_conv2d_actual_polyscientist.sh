@@ -31,7 +31,7 @@ PERF_DIR=perf_data
 CONFIG_DIR=configs
 TEMP=temp
 GEMM_VERSIONS='0 1 2 3 4 5'
-NONGEMM_VERSIONS='22 23 24 25 26 27 28 29 20 21'    
+NONGEMM_VERSIONS='20 21 22 23 24 25 26 27 28 29'    
 
 mkdir ${PERF_DIR}
 mkdir ${TEMP}
@@ -61,7 +61,7 @@ do
 		for version in $NONGEMM_VERSIONS #FIXME
 		do
 			#We will first do an actual run
-			if [ $version -eq 0 -o $version -eq 1 ]
+			if [ $version -eq 0 -o $version -eq 1 -o $version -eq 20 -o $version -eq 21 ]
 			then
 				for (( T_oi=${ofw}; T_oi<= ${ofw}; T_oi=T_oi*4 ))
 				do
@@ -88,12 +88,12 @@ do
 					NAIVE_GFLOPS=`cat run_output |  grep Naive_GFLOPS |  cut -d= -f2` 
 					ERROR=`cat run_output | grep "inf-norm of comp. abs. error" | cut -d: -f 2`
 					rm ${TEMP}/temp.c
-					if [ $version -eq 0 ] 
+					if [ $version -eq 0 -o $version -eq 20 ] 
 					then
 					cp ../padded_conv_fp_tiled_loop_order_0.c ${TEMP}/temp.c
 					fi
 
-					if [ $version -eq 1 ] 
+					if [ $version -eq 1 -o $version -eq 21 ] 
 					then
 					cp ../padded_conv_fp_tiled_loop_order_1.c ${TEMP}/temp.c
 					fi
@@ -162,6 +162,16 @@ do
                                 if [ $version -eq 27 ]
                                 then
                                 cat ../padded_conv_fp6.c >> ${TEMP}/temp.c
+                                fi
+
+                                if [ $version -eq 28 ]
+                                then
+                                cat ../padded_conv_fp7.c >> ${TEMP}/temp.c
+                                fi
+
+                                if [ $version -eq 29 ]
+                                then
+                                cat ../padded_conv_fp8.c >> ${TEMP}/temp.c
                                 fi
 
                                 if [ $version -eq 101 ]
