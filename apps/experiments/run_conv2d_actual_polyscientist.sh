@@ -31,7 +31,7 @@ PERF_DIR=perf_data
 CONFIG_DIR=configs
 TEMP=temp
 GEMM_VERSIONS='0 1 2 3 4 5'
-NONGEMM_VERSIONS='20 21 22 23 24 25 26 27 28 29'    
+NONGEMM_VERSIONS='22 23 24 25 26 27 28 29'    
 
 mkdir ${PERF_DIR}
 mkdir ${TEMP}
@@ -58,7 +58,7 @@ do
 		rm ${META_CONFIG_OUT}
 
 		export OMP_NUM_THREADS=${images}
-		for version in $NONGEMM_VERSIONS #FIXME
+		for version in $GEMM_VERSIONS #FIXME
 		do
 			#We will first do an actual run
 			if [ $version -eq 0 -o $version -eq 1 -o $version -eq 20 -o $version -eq 21 ]
@@ -71,11 +71,11 @@ do
 				do
 				if [ `expr $ofh % $T_oj` -eq 0 ] 
 				then
-				for (( T_ifm_tile=4; T_ifm_tile<= ${nIfm}; T_ifm_tile=T_ifm_tile*4 ))
+				for (( T_ifm_tile=`expr $nIfm / 4`; T_ifm_tile<= ${nIfm}; T_ifm_tile=T_ifm_tile*2 ))
                                 do
 				if [ `expr $nIfm % $T_ifm_tile` -eq 0 ]
 				then
-                                for (( T_ofm_tile=4; T_ofm_tile<= ${nOfm}; T_ofm_tile=T_ofm_tile*4 ))
+                                for (( T_ofm_tile=`expr $nOfm / 4`; T_ofm_tile<= ${nOfm}; T_ofm_tile=T_ofm_tile*2 ))
                                 do
                                 if [ `expr $nOfm % $T_ofm_tile` -eq 0 ]
                                 then
@@ -110,7 +110,7 @@ do
 					config_file=${config_num}_${images}_conv_config.txt
 					output_file=${TEMP}/temp.c${config_file}_ws_stats.csv
 					rm ${output_file}
-					../../data_reuse_analyzer/polyscientist --input ${TEMP}/temp.c --config ${CONFIG_DIR}/${config_file} --minout --perarray 
+					../../data_reuse_analyzer/polyscientist --input ${TEMP}/temp.c --config ${CONFIG_DIR}/${config_file} --minout 
 					{ echo -n "${version}_${T_oi}_${T_oj}_${T_ifm_tile}_${T_ofm_tile},${GFLOPS}," ;  cat - ${output_file} ; } >> ${CONFIG_OUT}
 					echo  "${NAIVE_GFLOPS},${ERROR}" >> ${META_CONFIG_OUT}
 
@@ -182,7 +182,7 @@ do
                                 config_file=${config_num}_${images}_conv_config.txt
                                 output_file=${TEMP}/temp.c${config_file}_ws_stats.csv
                                 rm ${output_file}
-                                ../../data_reuse_analyzer/polyscientist --input ${TEMP}/temp.c --config ${CONFIG_DIR}/${config_file} --minout --perarray
+                                ../../data_reuse_analyzer/polyscientist --input ${TEMP}/temp.c --config ${CONFIG_DIR}/${config_file} --minout
                                 { echo -n "${version},${GFLOPS}," ; cat - ${output_file} ; } >> ${CONFIG_OUT}
 				echo  "${NAIVE_GFLOPS},${ERROR}" >> ${META_CONFIG_OUT}
 
