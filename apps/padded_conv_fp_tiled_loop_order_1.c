@@ -59,7 +59,6 @@ Fwd GEMM flags = 640
 	int img, ofm_tile, ofm, ifm_tile, ifm, oj, oi, ij, ii, kj, ki, i;
 	int t_ofm_tile, t_ifm_tile, t_oj, t_oi;
 
-#pragma scop
 #pragma omp parallel for private(img, t_ofm_tile, t_oj, oj, t_oi, ofm_tile, t_ifm_tile, ifm_tile, kj, ki, ii, ij)
 	for (img = 0; img < nImg; ++img) {
 		for (t_ofm_tile = 0; t_ofm_tile < nOfm / GEMM_BLOCK; t_ofm_tile += T_ofm_tile) {
@@ -102,7 +101,6 @@ Fwd GEMM flags = 640
 			}
 		}
 	}
-#pragma endscop
 }
 
 void padded_conv_fp_tiled_loop_order_1_gemm(int nImg, int nIfm, int nOfm, int ifhp, int ifwp, int ofhp, int ofwp, int ifh, int ifw,

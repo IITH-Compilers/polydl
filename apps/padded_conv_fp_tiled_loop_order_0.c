@@ -96,7 +96,6 @@ void padded_conv_fp_tiled_loop_order_0_gemm(int nImg, int nIfm, int nOfm, int if
 	int img, ofm_tile, ofm, ifm_tile, ifm, oj, oi, ij, ii, kj, ki, i;
 	int t_ofm_tile, t_ifm_tile, t_oj, t_oi;
 
-#pragma scop
 	for (i = 0; i < iters; i++) {
 #pragma omp parallel for private(img, t_ofm_tile, t_oj, oj, t_oi, ofm_tile, t_ifm_tile, ifm_tile, kj, ki, ii, ij)
 		for (img = 0; img < nImg; ++img) {
@@ -141,5 +140,4 @@ void padded_conv_fp_tiled_loop_order_0_gemm(int nImg, int nIfm, int nOfm, int if
 			}
 		}
 	}
-#pragma endscop
 }

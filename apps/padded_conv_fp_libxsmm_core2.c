@@ -63,7 +63,6 @@ void padded_conv_fp_libxsmm_core2_gemm(int nImg, int nIfm, int nOfm, int ifhp, i
 	/* loop counters */
 	int img, ofm_tile, ofm, ifm_tile, ifm, oj, oi, ij, ii, kj, ki, i;
 
-#pragma scop
 	for (i = 0; i < iters; i++) {
 #pragma omp parallel for private(ofm_tile, ifm_tile, oj, kj, ki, ij, ii)
 		for (img = 0; img < nImg; ++img) {
@@ -98,5 +97,4 @@ void padded_conv_fp_libxsmm_core2_gemm(int nImg, int nIfm, int nOfm, int ifhp, i
 			}
 		}
 	}
-#pragma endscop
 }
