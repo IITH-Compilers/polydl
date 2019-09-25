@@ -1057,6 +1057,14 @@ unordered_map<int, ArrayDataAccesses*>* ComputeDataDependences(
 	unordered_map<int, ArrayDataAccesses*>* dependenceMap =
 		new unordered_map<int, ArrayDataAccesses*>();
 
+	if (config && config->programParameterVector->size() == 1) {
+		/* Since there is only one set of parameters, we will simplify the read and write relations by
+		converting the parametric relations
+		to concrete ones*/
+		all_may_reads = SimplifyUnionMap(all_may_reads, config->programParameterVector->at(0));
+		all_may_writes = SimplifyUnionMap(all_may_writes, config->programParameterVector->at(0));
+	}
+
 	if (userInput->perarray) {
 		if (DEBUG) {
 			cout << "scop->n_array: " << scop->n_array << endl;
