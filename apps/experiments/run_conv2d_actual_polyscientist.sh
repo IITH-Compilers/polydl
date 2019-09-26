@@ -47,8 +47,8 @@ do
        pad_w=${params[7]}
        pad_h=${params[8]}
        stride=${params[9]}
-       let ofh="($ifh - $kh)/$stride + 1"
-       let ofw="($ifw - $kw)/$stride + 1"
+       let ofh="($ifh + 2 * $pad_h - $kh)/$stride + 1"
+       let ofw="($ifw + 2 * $pad_w - $kw)/$stride + 1"
 
 	for images in 1 28
 	do
@@ -67,15 +67,15 @@ do
 				do
 				if [ `expr $ofw % $T_oi` -eq 0 ] 
 				then
-				for (( T_oj=${ofh}; T_oj<= ${ofh}; T_oj=T_oj*4 ))
+				for (( T_oj=${ofh}; T_oj >= 1; T_oj=T_oj/2 ))
 				do
 				if [ `expr $ofh % $T_oj` -eq 0 ] 
 				then
-				for (( T_ifm_tile=`expr $nIfm / 4`; T_ifm_tile<= ${nIfm}; T_ifm_tile=T_ifm_tile*2 ))
+				for (( T_ifm_tile=${nIfm}; T_ifm_tile<= ${nIfm}; T_ifm_tile=T_ifm_tile*2 ))
                                 do
 				if [ `expr $nIfm % $T_ifm_tile` -eq 0 ]
 				then
-                                for (( T_ofm_tile=`expr $nOfm / 4`; T_ofm_tile<= ${nOfm}; T_ofm_tile=T_ofm_tile*2 ))
+                                for (( T_ofm_tile=${nOfm}; T_ofm_tile<= ${nOfm}; T_ofm_tile=T_ofm_tile*2 ))
                                 do
                                 if [ `expr $nOfm % $T_ofm_tile` -eq 0 ]
                                 then

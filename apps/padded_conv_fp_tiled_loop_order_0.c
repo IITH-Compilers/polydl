@@ -15,7 +15,7 @@
 #endif // !T_ifm_tile
 
 #ifndef T_oj
-#define T_oj 4
+#define T_oj 1
 #endif // !T_oj
 
 #ifndef T_oi
