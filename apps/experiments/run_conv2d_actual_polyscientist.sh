@@ -4,25 +4,25 @@ export LD_LIBRARY_PATH=/nfs_home/stavarag/work/software/barvinok/barvinok-0.41.2
 OUT=poly_perf.csv
 
 #config0='1000  224  224  3  64 7 7 3 3 2'
-config1='1000  56  56  64  256 1 1 0 0 1'
-config2='1000  56  56  64  64 1 1 0 0 1'
-config3='1000  56  56  64  64 3 3 1 1 1'
-config4='1000  56  56  256  64 1 1 0 0 1'
-config5='1000  56  56  256  512 1 1 0 0 2'
-config6='1000  56  56  256   128 1 1 0 0 2'
-config7='1000  28  28  128   128 3 3 1 1 1'
-config8='1000  28  28  128   512 1 1 0 0 1'
-config9='1000  28  28  512   128 1 1 0 0 1'
-config10='1000  28  28  512  1024 1 1 0 0 2'
-config11='1000  28  28  512   256 1 1 0 0 2'
-config12='1000  14  14  256   256 3 3 1 1 1'
-config13='1000  14  14  256  1024 1 1 0 0 1'
-config14='1000  14  14  1024   256 1 1 0 0 1'
-config15='1000  14   14   1024  2048 1 1 0 0 2'
-config16='1000  14   14   1024   512 1 1 0 0 2'
-config17='1000  7   7   512   512 3 3 1 1 1'
-config18='1000  7   7   512  2048 1 1 0 0 1'
-config19='1000  7   7   2048   512 1 1 0 0 1'
+config1='1  56  56  64  256 1 1 0 0 1'
+config2='1  56  56  64  64 1 1 0 0 1'
+config3='1  56  56  64  64 3 3 1 1 1'
+config4='1  56  56  256  64 1 1 0 0 1'
+config5='1  56  56  256  512 1 1 0 0 2'
+config6='1  56  56  256   128 1 1 0 0 2'
+config7='1  28  28  128   128 3 3 1 1 1'
+config8='1  28  28  128   512 1 1 0 0 1'
+config9='1  28  28  512   128 1 1 0 0 1'
+config10='1  28  28  512  1024 1 1 0 0 2'
+config11='1  28  28  512   256 1 1 0 0 2'
+config12='1  14  14  256   256 3 3 1 1 1'
+config13='1  14  14  256  1024 1 1 0 0 1'
+config14='1  14  14  1024   256 1 1 0 0 1'
+config15='1  14   14   1024  2048 1 1 0 0 2'
+config16='1  14   14   1024   512 1 1 0 0 2'
+config17='1  7   7   512   512 3 3 1 1 1'
+config18='1  7   7   512  2048 1 1 0 0 1'
+config19='1  7   7   2048   512 1 1 0 0 1'
 
 GEMM_BLOCK=64
 config_num=1  #FIXME
@@ -58,7 +58,7 @@ do
 		rm ${META_CONFIG_OUT}
 
 		export OMP_NUM_THREADS=${images}
-		for version in $GEMM_VERSIONS #FIXME
+		for version in $NONGEMM_VERSIONS #FIXME
 		do
 			#We will first do an actual run
 			if [ $version -eq 0 -o $version -eq 1 -o $version -eq 20 -o $version -eq 21 ]
