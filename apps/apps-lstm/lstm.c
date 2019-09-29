@@ -165,31 +165,6 @@ void lstm_fwd(int N,int C, int K,
 
 }
 
-/*
-TODo-
-
-ok 1) Moving the print statements to the main function. 
-
-ok 2) float(*pad_gemm_input)[nIfm / GEMM_BLOCK][ifhp + 2 * pad_h][ifwp + 2 * pad_w][GEMM_BLOCK] = 
-(float*)libxsmm_aligned_malloc(nImg*nIfm*(ifhp + 2 * pad_h)*(ifwp + 2 * pad_w) * sizeof(float), 2097152);
-
-ok 3) Add the timer code for LSMT_fwd
-at line number 268
-l_start = libxsmm_timer_tick();
-libxsmm_timer_duration
-
-ok 4) Recieve N,C,K and t values from command line.
-Line number 477
-	if (argc > i) iters = atoi(argv[i++]);
-	if (argc > i) ifw = atoi(argv[i++]);
-
-5) create apps_lstm folder under apps .
-Refer to the same libxsmm installation.
-#include <libxsmm.h>
-
-
-*/
-
 
 
 int main(int argc, char **argv)
@@ -205,9 +180,6 @@ int main(int argc, char **argv)
   if (argc > i) C     = atoi(argv[i++]);
   if (argc > i) K     = atoi(argv[i++]);
   if (argc > i) t     = atoi(argv[i++]);
-
-  float(*pad_gemm_input)[nIfm / GEMM_BLOCK][ifhp + 2 * pad_h][ifwp + 2 * pad_w][GEMM_BLOCK] = 
-(float*)libxsmm_aligned_malloc(nImg*nIfm*(ifhp + 2 * pad_h)*(ifwp + 2 * pad_w) * sizeof(float), 2097152);
 
   float(*wfgold)[K][C]=(float*)libxsmm_aligned_malloc(K*C* sizeof(float), 2097152);
   float(*wigold)[K][C]=(float*)libxsmm_aligned_malloc(K*C* sizeof(float), 2097152);
