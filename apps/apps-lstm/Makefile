@@ -1,4 +1,4 @@
-CC=gcc -std=c99
+CC=icc -std=c99
 CFLAGS=-O3 -I . -I../libxsmm/include
 LDFLAGS=-L../libxsmm/lib -lxsmm -lxsmmext -lpthread -lm
 MACROFLAGS=
