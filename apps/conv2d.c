@@ -157,7 +157,7 @@ double padded_conv_fp(
 	else if (version == 20) {
 		l_start = libxsmm_timer_tick();
 		for (i = 0; i < iters; i++) {
-			padded_conv_fp_tiled_loop_order_0_fn(nImg, nIfm, nOfm, ifhp, ifwp, ofhp, ofwp, ifh, ifw,
+			padded_conv_fp_tiled_loop_order_0_vanilla_gemm(nImg, nIfm, nOfm, ifhp, ifwp, ofhp, ofwp, ifh, ifw,
 				ofh, ofw, pad_h, pad_w, pad_h_in, pad_w_in, pad_h_out,
 				pad_w_out, kh, kw, stride_h, stride_w, pad_gemm_input, output, filter, iters);
 		}
@@ -167,7 +167,7 @@ double padded_conv_fp(
 	else if (version == 21) {
 		l_start = libxsmm_timer_tick();
 		for (i = 0; i < iters; i++) {
-			padded_conv_fp_tiled_loop_order_1_fn(nImg, nIfm, nOfm, ifhp, ifwp, ofhp, ofwp, ifh, ifw,
+			padded_conv_fp_tiled_loop_order_1_vanilla_gemm(nImg, nIfm, nOfm, ifhp, ifwp, ofhp, ofwp, ifh, ifw,
 				ofh, ofw, pad_h, pad_w, pad_h_in, pad_w_in, pad_h_out,
 				pad_w_out, kh, kw, stride_h, stride_w, pad_gemm_input, output, filter, iters);
 		}
@@ -187,7 +187,7 @@ double padded_conv_fp(
 	else if (version == 23) {
 		l_start = libxsmm_timer_tick();
 		for (i = 0; i < iters; i++) {
-			padded_conv_fp_libxsmm_core2_fn(nImg, nIfm, nOfm, ifhp, ifwp, ofhp, ofwp, ifh, ifw,
+			padded_conv_fp_libxsmm_core2_vanilla_gemm(nImg, nIfm, nOfm, ifhp, ifwp, ofhp, ofwp, ifh, ifw,
 				ofh, ofw, pad_h, pad_w, pad_h_in, pad_w_in, pad_h_out,
 				pad_w_out, kh, kw, stride_h, stride_w, pad_gemm_input, output, filter, iters);
 		}
@@ -197,7 +197,7 @@ double padded_conv_fp(
 	else if (version == 24) {
 		l_start = libxsmm_timer_tick();
 		for (i = 0; i < iters; i++) {
-			padded_conv_fp_libxsmm_core3_fn(nImg, nIfm, nOfm, ifhp, ifwp, ofhp, ofwp, ifh, ifw,
+			padded_conv_fp_libxsmm_core3_vanilla_gemm(nImg, nIfm, nOfm, ifhp, ifwp, ofhp, ofwp, ifh, ifw,
 				ofh, ofw, pad_h, pad_w, pad_h_in, pad_w_in, pad_h_out,
 				pad_w_out, kh, kw, stride_h, stride_w, pad_gemm_input, output, filter, iters);
 		}
@@ -207,7 +207,7 @@ double padded_conv_fp(
 	else if (version == 25) {
 		l_start = libxsmm_timer_tick();
 		for (i = 0; i < iters; i++) {
-			padded_conv_fp_libxsmm_core4_fn(nImg, nIfm, nOfm, ifhp, ifwp, ofhp, ofwp, ifh, ifw,
+			padded_conv_fp_libxsmm_core4_vanilla_gemm(nImg, nIfm, nOfm, ifhp, ifwp, ofhp, ofwp, ifh, ifw,
 				ofh, ofw, pad_h, pad_w, pad_h_in, pad_w_in, pad_h_out,
 				pad_w_out, kh, kw, stride_h, stride_w, pad_gemm_input, output, filter, iters);
 		}
