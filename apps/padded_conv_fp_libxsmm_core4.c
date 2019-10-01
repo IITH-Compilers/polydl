@@ -1,4 +1,3 @@
-#include <gemm.h>
 #ifndef STRIDE_H
 #define STRIDE_H 1
 #endif // !STRIDE_H
