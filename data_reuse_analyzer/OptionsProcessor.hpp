@@ -6,6 +6,9 @@
 struct UserInput {
 	std::string inputFile;
 	std::string configFile;
+	std::string parameters;
+	std::string cachesizes;
+	std::string datatypesize;
 	bool interactive;
 	bool minOutput;
 	bool perarray;

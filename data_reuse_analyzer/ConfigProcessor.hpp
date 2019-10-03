@@ -4,6 +4,7 @@
 #include<string.h>
 #include<vector>
 #include <unordered_map>
+#include <OptionsProcessor.hpp>
 
 struct SystemConfig {
 	long L1; // in bytes
@@ -21,7 +22,7 @@ struct Config {
 
 typedef struct Config Config;
 
-void ReadConfig(std::string configFile, Config* config);
+void ReadConfig(UserInput *userInput, Config* config);
 void FreeConfig(Config* config);
 void PrintConfig(Config* config);
 

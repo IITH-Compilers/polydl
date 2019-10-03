@@ -11,15 +11,54 @@ void InitializeConfig(Config* config);
 void ReadDataTypeConfig(ifstream& inFile, Config* config);
 void ReadParams(ifstream& inFile, Config* config);
 void PrintConfig(Config* config);
+void ReadConfigFromFile(string configFile, Config* config);
+void ReadConfigFromUserInput(UserInput *userInput, Config* config);
+void ReadCacheConfig(string cachesizes, Config* config);
+void ReadDataTypeConfig(string line, Config* config);
+void ReadParameterValues(string line, vector<string> *paramNames, Config* config);
+void ReadParams(string line, Config* config);
 
-void ReadConfig(string configFile, Config* config) {
-	const string CACHE_HEADER = "cache";
-	const string DATATYPE_SIZE_HEADER = "datatype_size";
-	const string PARAMS_HEADER = "params";
+void ReadConfig(UserInput *userInput, Config* config) {
+
+	string configFile = userInput->configFile;
 
 	/* Initialization */
 	InitializeConfig(config);
 	config->datatypeSize = -1;
+
+	if (!userInput->configFile.empty()) {
+		ReadConfigFromFile(userInput->configFile, config);
+	}
+	else {
+		ReadConfigFromUserInput(userInput, config);
+	}
+}
+
+void ReadConfigFromUserInput(UserInput *userInput, Config* config) {
+	if (userInput->parameters.empty()) {
+		cout << "Parameters not provided." << endl;
+		exit(1);
+	}
+
+	if (userInput->cachesizes.empty()) {
+		cout << "Cache sizes not provided." << endl;
+		exit(1);
+	}
+
+	if (userInput->datatypesize.empty()) {
+		cout << "Data type size not provided." << endl;
+		exit(1);
+	}
+
+	ReadCacheConfig(userInput->cachesizes, config);
+	ReadDataTypeConfig(userInput->datatypesize, config);
+	ReadParams(userInput->parameters, config);
+}
+
+void ReadConfigFromFile(string configFile, Config* config) {
+	const string CACHE_HEADER = "cache";
+	const string DATATYPE_SIZE_HEADER = "datatype_size";
+	const string PARAMS_HEADER = "params";
 
 	ifstream inFile;
 	inFile.open(configFile);
@@ -47,21 +86,12 @@ void ReadConfig(string configFile, Config* config) {
 	inFile.close();
 }
 
-void ReadCacheConfig(ifstream& inFile, Config* config) {
-	string line;
-	while (getline(inFile, line)) {
-		if (line == "\n" || line.empty()) {
-			break;
-		}
+void ReadCacheConfig(string cachesizes, Config* config) {
+	istringstream iss(cachesizes);
+	string cache;
+	string size;
 
-		istringstream iss(line);
-		string cache;
-		string size;
-		if (!(iss >> cache >> size)) {
-			cout << "Error reading the line in config file: " << line << endl;
-			exit(1);
-		}
-
+	while ((iss >> cache >> size)) {
 		try {
 			if (cache == "L1") {
 				config->systemConfig->L1 = stol(size, nullptr, 10);
@@ -84,58 +114,115 @@ void ReadCacheConfig(ifstream& inFile, Config* config) {
 	}
 }
 
+void ReadCacheConfig(ifstream& inFile, Config* config) {
+	string line;
+	while (getline(inFile, line)) {
+		if (line == "\n" || line.empty()) {
+			break;
+		}
+
+		ReadCacheConfig(line, config);
+	}
+}
+
+void ReadParameterNames(string line, vector<string> *paramNames) {
+	if (line == "\n" || line.empty()) {
+	}
+	else {
+		istringstream iss(line);
+
+		string paramName;
+		while (iss >> paramName) {
+			paramNames->push_back(paramName);
+		}
+	}
+}
+
+void ReadParameterValues(string line, vector<string> *paramNames, Config* config) {
+	unordered_map<std::string, int>* params = new unordered_map<std::string, int>();
+	istringstream iss(line);
+	string valueStr;
+	int i = 0;
+
+	while (iss >> valueStr) {
+		try {
+			int value = stoi(valueStr, nullptr, 10);
+			params->insert({ paramNames->at(i), value });
+		}
+		catch (const invalid_argument) {
+			cerr << "Invalid datatype size while reading the config file" << endl;
+			exit(1);
+		}
+
+		i++;
+	}
+
+	if (i != paramNames->size()) {
+		cout << "Parsing: " << line << endl;
+		cout << "Expected param values: " << paramNames->size() << " actual: "
+			<< i << endl;
+		exit(1);
+	}
+
+	config->programParameterVector->push_back(params);
+}
+
+void ReadParams(string line, Config* config) {
+	/*The input is of the form:
+	M N K : 1000 2000 3000
+	*/
+
+	vector<string> *paramNames = new vector<string>();
+	try {
+		int pos = line.find(":");
+		string paramNamesString = line.substr(0, pos);
+		string paramValuesString = line.substr(pos + 1);
+
+		ReadParameterNames(paramNamesString, paramNames);
+
+		if (paramNames->size() > 0) {
+			ReadParameterValues(paramValuesString, paramNames, config);
+		}
+	}
+	catch (...) {
+		cerr << "Exception reading the parameter string: " << line << endl;
+	}
+
+	delete paramNames;
+}
+
 void ReadParams(ifstream& inFile, Config* config) {
 	string line;
 
-	vector<string> paramNames;
+	vector<string> *paramNames = new vector<string>();
 	if (getline(inFile, line)) {
-		if (line == "\n" || line.empty()) {
-		}
-		else {
-			istringstream iss(line);
-
-			string paramName;
-			while (iss >> paramName) {
-				paramNames.push_back(paramName);
-			}
-		}
+		ReadParameterNames(line, paramNames);
 	}
 
-	if (paramNames.size() > 0) {
+	if (paramNames->size() > 0) {
 		while (getline(inFile, line)) {
 			if (line == "\n" || line.empty()) {
 				break;
 			}
 
-			unordered_map<std::string, int>* params = new unordered_map<std::string, int>();
-			istringstream iss(line);
-			string valueStr;
-			int i = 0;
-
-			while (iss >> valueStr) {
-				try {
-					int value = stoi(valueStr, nullptr, 10);
-					params->insert({ paramNames.at(i), value });
-				}
-				catch (const invalid_argument) {
-					cerr << "Invalid datatype size while reading the config file" << endl;
-					exit(1);
-				}
-
-				i++;
-			}
-
-			if (i != paramNames.size()) {
-				cout << "Parsing: " << line << endl;
-				cout << "Expected param values: " << paramNames.size() << " actual: "
-					<< i << endl;
-				exit(1);
-			}
-
-			config->programParameterVector->push_back(params);
+			ReadParameterValues(line, paramNames, config);
 		}
 	}
+
+	delete paramNames;
 }
+
+void ReadDataTypeConfig(string line, Config* config) {
+	try {
+		config->datatypeSize = stol(line, nullptr, 10);
+	}
+	catch (const invalid_argument) {
+		cerr << "Datatype size line: " << line << endl;
+		cerr << "Invalid datatype size while reading the config file" << endl;
+		exit(1);
+	}
+}
+
 
 void ReadDataTypeConfig(ifstream& inFile, Config* config) {
 	string line;
@@ -144,13 +231,7 @@ void ReadDataTypeConfig(ifstream& inFile, Config* config) {
 			break;
 		}
 
-		try {
-			config->datatypeSize = stol(line, nullptr, 10);
-		}
-		catch (const invalid_argument) {
-			cerr << "Invalid datatype size while reading the config file" << endl;
-			exit(1);
-		}
+		ReadDataTypeConfig(line, config);
 	}
 }
 

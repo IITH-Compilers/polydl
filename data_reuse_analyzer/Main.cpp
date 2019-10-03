@@ -151,14 +151,14 @@ void OrchestrateDataReuseComputation(int argc, char **argv) {
 
 	Config *config = NULL;
 
-	if (!userInput->configFile.empty()) {
+	if (!userInput->configFile.empty() ||
+		!userInput->interactive) {
 		config = new Config;
-		ReadConfig(userInput->configFile, config);
+		ReadConfig(userInput, config);
 		if (DEBUG) {
 			PrintConfig(config);
 		}
 	}
-
 
 	ComputeDataReuseWorkingSets(userInput, config);
 
