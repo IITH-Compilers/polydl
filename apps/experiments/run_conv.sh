@@ -3,7 +3,6 @@ export LD_LIBRARY_PATH=/nfs_home/stavarag/work/software/barvinok/barvinok-0.41.2
 
 OUT=poly_perf.csv
 
-GEMM_BLOCK=64
 check_correctness=1
 PERF_DIR=perf_data
 CONFIG_DIR=configs
@@ -58,6 +57,8 @@ mkdir ${TEMP}
 			#We will first do an actual run
 			if [ $version -eq 0 -o $version -eq 1 -o $version -eq 20 -o $version -eq 21 ]
 			then
+				for GEMM_BLOCK in 8 16 32 64
+				do
 				for (( T_oi=${ofw}; T_oi<= ${ofw}; T_oi=T_oi*4 ))
 				do
 				if [ `expr $ofw % $T_oi` -eq 0 ] 
@@ -75,7 +76,7 @@ mkdir ${TEMP}
                                 if [ `expr $nOfm % $T_ofm_tile` -eq 0 ]
                                 then
 
-					(cd .. && make clean && make MACROFLAGS="-DSTRIDE_H=$stride -DSTRIDE_W=$stride -DT_oi=$T_oi -DT_oj=$T_oj -DT_ifm_tile=$T_ifm_tile -DT_ofm_tile=$T_ofm_tile")
+					(cd .. && make clean && make MACROFLAGS="-DSTRIDE_H=$stride -DSTRIDE_W=$stride -DT_oi=$T_oi -DT_oj=$T_oj -DT_ifm_tile=$T_ifm_tile -DT_ofm_tile=$T_ofm_tile -DGEMM_BLOCK=${GEMM_BLOCK}")
      					# do something
 					echo  $T_oi " " $T_oj " " $T_ifm_tile " " $T_ofm_tile
 					../conv2d ${iters} ${ifw} ${ifh} ${nIfm} ${nOfm} ${kw} ${kh} ${pad_w} ${pad_h} ${stride} ${images} ${version} ${check_correctness} &> run_output
@@ -105,7 +106,7 @@ mkdir ${TEMP}
 					output_file=${TEMP}/temp.c_ws_stats.csv
 					rm ${output_file}
 					../../data_reuse_analyzer/polyscientist --input ${TEMP}/temp.c --parameters "ofw ofh nIfm nOfm kw kh pad_w pad_h nImg ifwp ifhp ofwp ofhp : ${ofw} ${ofh} ${nIfm} ${nOfm} ${kw} ${kh} ${pad_w} ${pad_h} ${arg_images} ${ifwp} ${ifhp} ${ofwp} ${ofhp}"  --cachesizes "${CACHE_CONFIG}" --datatypesize $DATATYPESIZE --minout 
-					{ echo -n "${version}_${T_oi}_${T_oj}_${T_ifm_tile}_${T_ofm_tile},${GFLOPS}," ;  cat - ${output_file} ; } >> ${CONFIG_OUT}
+					{ echo -n "${version}_${T_oi}_${T_oj}_${T_ifm_tile}_${T_ofm_tile}_${GEMM_BLOCK},${GFLOPS}," ;  cat - ${output_file} ; } >> ${CONFIG_OUT}
 					echo  "${NAIVE_GFLOPS},${ERROR}" >> ${META_CONFIG_OUT}
 
 
@@ -117,9 +118,11 @@ mkdir ${TEMP}
 				done
 				fi
 				done
-				echo
+				done
 			else
-				(cd .. && make clean && make MACROFLAGS="-DSTRIDE_H=$stride -DSTRIDE_W=$stride") 	
+				for GEMM_BLOCK in 8 16 32 64
+				do
+				(cd .. && make clean && make MACROFLAGS="-DSTRIDE_H=$stride -DSTRIDE_W=$stride -DGEMM_BLOCK=${GEMM_BLOCK}") 	
 				../conv2d ${iters} ${ifw} ${ifh} ${nIfm} ${nOfm} ${kw} ${kh} ${pad_w} ${pad_h} ${stride} ${images} ${version} ${check_correctness} &> run_output
 				GFLOPS=`cat run_output |  grep Real_GFLOPS |  cut -d= -f2`
 				NAIVE_GFLOPS=`cat run_output |  grep Naive_GFLOPS |  cut -d= -f2`
@@ -177,9 +180,9 @@ mkdir ${TEMP}
                                 rm ${output_file}
 				../../data_reuse_analyzer/polyscientist --input ${TEMP}/temp.c --parameters "ofw ofh nIfm nOfm kw kh pad_w pad_h nImg ifwp ifhp ofwp ofhp : ${ofw} ${ofh} ${nIfm} ${nOfm} ${kw} ${kh} ${pad_w} ${pad_h} ${arg_images}  ${ifwp} ${ifhp} ${ofwp} ${ofhp}"  --cachesizes "${CACHE_CONFIG}" --datatypesize $DATATYPESIZE --minout
 
-                                { echo -n "${version},${GFLOPS}," ; cat - ${output_file} ; } >> ${CONFIG_OUT}
+                                { echo -n "${version}_${GEMM_BLOCK},${GFLOPS}," ; cat - ${output_file} ; } >> ${CONFIG_OUT}
 				echo  "${NAIVE_GFLOPS},${ERROR}" >> ${META_CONFIG_OUT}
-
+				done
 			fi
 		done
 		../../scripts/polyrank ${CONFIG_OUT}  --noheader --perfseparaterow --usepessidata

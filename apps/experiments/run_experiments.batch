@@ -8,4 +8,4 @@
 #SBATCH --partition=clx
 #SBATCH -w pcl-skx39
 cd /nfs_home/stavarag/work/polyscientist/apps/experiments  #FIXME -- path
-sh run_conv2d_actual_polyscientist.sh
+sh run_all_conv.sh
