@@ -1,5 +1,5 @@
 
-ITERS=1
+ITERS=1000
 #Resnet-50
 sh ./run_conv.sh $ITERS  56  56  64  256 1 1 0 0 1 resnet_1
 sh ./run_conv.sh $ITERS  56  56  64  64 1 1 0 0 1 resnet_2
