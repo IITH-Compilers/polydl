@@ -57,8 +57,11 @@ mkdir ${TEMP}
 			#We will first do an actual run
 			if [ $version -eq 0 -o $version -eq 1 -o $version -eq 20 -o $version -eq 21 ]
 			then
-				for GEMM_BLOCK in 8 16 32 64
+				for GEMM_BLOCK in 8 64 # 16 32
 				do
+				if [ `expr $nIfm % $GEMM_BLOCK` -eq 0 -a `expr $nOfm % $GEMM_BLOCK` -eq 0 ]
+                                then
+
 				for (( T_oi=${ofw}; T_oi<= ${ofw}; T_oi=T_oi*4 ))
 				do
 				if [ `expr $ofw % $T_oi` -eq 0 ] 
@@ -95,6 +98,7 @@ mkdir ${TEMP}
 					fi
 
 					rm tile_sizes.c
+					echo "#define GEMM_BLOCK ${GEMM_BLOCK}" >> ${TEMP}/temp.c
 					echo "#define STRIDE_H ${stride}" >> tile_sizes.c
 					echo "#define STRIDE_W ${stride}" >> tile_sizes.c
 					echo "#define T_oi ${T_oi}" >> tile_sizes.c
@@ -118,16 +122,20 @@ mkdir ${TEMP}
 				done
 				fi
 				done
+				fi
 				done
 			else
-				for GEMM_BLOCK in 8 16 32 64
+				for GEMM_BLOCK in 8 64 # 16 32
 				do
+ 				if [ `expr $nIfm % $GEMM_BLOCK` -eq 0 -a `expr $nOfm % $GEMM_BLOCK` -eq 0 ]
+ 				then
 				(cd .. && make clean && make MACROFLAGS="-DSTRIDE_H=$stride -DSTRIDE_W=$stride -DGEMM_BLOCK=${GEMM_BLOCK}") 	
 				../conv2d ${iters} ${ifw} ${ifh} ${nIfm} ${nOfm} ${kw} ${kh} ${pad_w} ${pad_h} ${stride} ${images} ${version} ${check_correctness} &> run_output
 				GFLOPS=`cat run_output |  grep Real_GFLOPS |  cut -d= -f2`
 				NAIVE_GFLOPS=`cat run_output |  grep Naive_GFLOPS |  cut -d= -f2`
 				ERROR=`cat run_output | grep "inf-norm of comp. abs. error" | cut -d: -f 2`
                                 rm ${TEMP}/temp.c
+				echo "#define GEMM_BLOCK ${GEMM_BLOCK}" >> ${TEMP}/temp.c
                                 echo "#define STRIDE_H ${stride}" >> ${TEMP}/temp.c
                                 echo "#define STRIDE_W ${stride}" >> ${TEMP}/temp.c
                                 if [ $version -eq 2 ] || [ $version -eq 22 ]
@@ -182,6 +190,7 @@ mkdir ${TEMP}
 
                                 { echo -n "${version}_${GEMM_BLOCK},${GFLOPS}," ; cat - ${output_file} ; } >> ${CONFIG_OUT}
 				echo  "${NAIVE_GFLOPS},${ERROR}" >> ${META_CONFIG_OUT}
+				fi
 				done
 			fi
 		done
