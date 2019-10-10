@@ -1,0 +1,49 @@
+
+ITERS=1000 
+#Googlenetv3
+ #sh ./run_conv.sh ${ITERS}  299 299       3   32 3 3 0 0 2  googlenetv3_1
+ sh ./run_conv.sh ${ITERS}  149 149      32   32 3 3 0 0 1  googlenetv3_2
+ sh ./run_conv.sh ${ITERS}  147 147      32   64 3 3 1 1 1  googlenetv3_3
+ sh ./run_conv.sh ${ITERS}  73  73       64   80 3 3 0 0 1  googlenetv3_4
+ sh ./run_conv.sh ${ITERS}  73  73       80  192 3 3 0 0 2  googlenetv3_5
+ sh ./run_conv.sh ${ITERS}  71  71       80  192 3 3 0 0 1  googlenetv3_6
+ sh ./run_conv.sh ${ITERS}  35  35      192   64 1 1 0 0 1  googlenetv3_7
+ sh ./run_conv.sh ${ITERS}  35  35       64   96 3 3 1 1 1  googlenetv3_8
+ sh ./run_conv.sh ${ITERS}  35  35       96   96 3 3 1 1 1  googlenetv3_9
+ sh ./run_conv.sh ${ITERS}  35  35      192   48 1 1 0 0 1  googlenetv3_10
+ sh ./run_conv.sh ${ITERS}  35  35       48   64 5 5 2 2 1  googlenetv3_11
+ sh ./run_conv.sh ${ITERS}  35  35      192   32 1 1 0 0 1  googlenetv3_12
+ sh ./run_conv.sh ${ITERS}  35  35      256   64 1 1 0 0 1  googlenetv3_13
+ sh ./run_conv.sh ${ITERS}  35  35      256   48 1 1 0 0 1  googlenetv3_14
+ sh ./run_conv.sh ${ITERS}  35  35      288   64 1 1 0 0 1  googlenetv3_15
+ sh ./run_conv.sh ${ITERS}  35  35      288   48 1 1 0 0 1  googlenetv3_16
+ sh ./run_conv.sh ${ITERS}  35  35       96   96 3 3 0 0 2  googlenetv3_17
+ sh ./run_conv.sh ${ITERS}  35  35      288  384 3 3 0 0 2  googlenetv3_18
+ sh ./run_conv.sh ${ITERS}  17  17      768  128 1 1 0 0 1  googlenetv3_19
+ sh ./run_conv.sh ${ITERS}  17  17      128  128 1 7 0 3 1  googlenetv3_20
+ sh ./run_conv.sh ${ITERS}  17  17      128  128 7 1 3 0 1  googlenetv3_21
+ sh ./run_conv.sh ${ITERS}  17  17      128  192 7 1 3 0 1  googlenetv3_22
+ sh ./run_conv.sh ${ITERS}  17  17      128  192 1 7 0 3 1  googlenetv3_23
+ sh ./run_conv.sh ${ITERS}  17  17      768  192 1 1 0 0 1  googlenetv3_24
+ sh ./run_conv.sh ${ITERS}  17  17      768  160 1 1 0 0 1  googlenetv3_25
+ sh ./run_conv.sh ${ITERS}  17  17      160  160 1 7 0 3 1  googlenetv3_26
+ sh ./run_conv.sh ${ITERS}  17  17      160  160 7 1 3 0 1  googlenetv3_27
+ sh ./run_conv.sh ${ITERS}  17  17      160  192 7 1 3 0 1  googlenetv3_28
+ sh ./run_conv.sh ${ITERS}  17  17      160  192 1 7 0 3 1  googlenetv3_29
+ sh ./run_conv.sh ${ITERS}  17  17      192  192 1 7 0 3 1  googlenetv3_30
+ sh ./run_conv.sh ${ITERS}  17  17      192  192 7 1 3 0 1  googlenetv3_31
+ sh ./run_conv.sh ${ITERS}  17  17      192  192 3 3 0 0 2  googlenetv3_32
+ sh ./run_conv.sh ${ITERS}  17  17      192  320 3 3 0 0 2  googlenetv3_33
+ sh ./run_conv.sh ${ITERS}  8   8      1280  320 1 1 0 0 1  googlenetv3_34
+ sh ./run_conv.sh ${ITERS}  8   8      1280  192 1 1 0 0 1  googlenetv3_35
+ sh ./run_conv.sh ${ITERS}  8   8      1280  448 1 1 0 0 1  googlenetv3_36
+ sh ./run_conv.sh ${ITERS}  8   8       448  384 3 3 1 1 1  googlenetv3_37
+ sh ./run_conv.sh ${ITERS}  8   8       384  384 1 3 0 1 1  googlenetv3_38
+ sh ./run_conv.sh ${ITERS}  8   8       384  384 3 1 1 0 1  googlenetv3_39
+ sh ./run_conv.sh ${ITERS}  8   8      1280  384 1 1 0 0 1  googlenetv3_40
+ sh ./run_conv.sh ${ITERS}  8   8      2048  320 1 1 0 0 1  googlenetv3_41
+ sh ./run_conv.sh ${ITERS}  8   8      2048  192 1 1 0 0 1  googlenetv3_42
+ sh ./run_conv.sh ${ITERS}  8   8      2048  448 1 1 0 0 1  googlenetv3_43
+ sh ./run_conv.sh ${ITERS}  8   8      2048  384 1 1 0 0 1  googlenetv3_44
+ sh ./run_conv.sh ${ITERS}  8   8       384  384 1 3 0 1 1  googlenetv3_45
+
