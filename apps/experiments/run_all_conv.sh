@@ -1,3 +1,3 @@
 
-#sh run_resnet.sh
-sh run_fastrcnn.sh
+FILE=run_conv.sh
+sh run_resnet.sh $FILE

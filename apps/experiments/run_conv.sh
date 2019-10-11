@@ -57,7 +57,7 @@ mkdir ${TEMP}
 			#We will first do an actual run
 			if [ $version -eq 0 -o $version -eq 1 -o $version -eq 20 -o $version -eq 21 ]
 			then
-				for GEMM_BLOCK in 8 64 # 16 32
+				for GEMM_BLOCK in 8 64 16 32
 				do
 				if [ `expr $nIfm % $GEMM_BLOCK` -eq 0 -a `expr $nOfm % $GEMM_BLOCK` -eq 0 ]
                                 then
@@ -98,7 +98,7 @@ mkdir ${TEMP}
 					fi
 
 					rm tile_sizes.c
-					echo "#define GEMM_BLOCK ${GEMM_BLOCK}" >> ${TEMP}/temp.c
+					echo "#define GEMM_BLOCK ${GEMM_BLOCK}" >> tile_sizes.c
 					echo "#define STRIDE_H ${stride}" >> tile_sizes.c
 					echo "#define STRIDE_W ${stride}" >> tile_sizes.c
 					echo "#define T_oi ${T_oi}" >> tile_sizes.c
@@ -125,7 +125,7 @@ mkdir ${TEMP}
 				fi
 				done
 			else
-				for GEMM_BLOCK in 8 64 # 16 32
+				for GEMM_BLOCK in 8 64 16 32
 				do
  				if [ `expr $nIfm % $GEMM_BLOCK` -eq 0 -a `expr $nOfm % $GEMM_BLOCK` -eq 0 ]
  				then
