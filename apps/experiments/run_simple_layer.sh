@@ -1,4 +1,4 @@
-set -x
+#set -x
 MB=28
 export KMP_AFFINITY=granularity=fine,compact,1,28
 export OMP_NUM_THREADS=$MB
