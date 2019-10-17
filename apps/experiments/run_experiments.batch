@@ -6,6 +6,5 @@
 #SBATCH --time=24:00:00
 #SBATCH --nodes=1
 #SBATCH --partition=clx
-#SBATCH -w pcl-skx38
 cd /nfs_home/stavarag/work/polyscientist/apps/experiments  #FIXME -- path
 sh run_all_conv.sh
