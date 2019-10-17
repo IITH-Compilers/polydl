@@ -137,7 +137,7 @@ inline void padded_conv_fp_libxsmm_core_gemm(int nImg, int nIfm, int nOfm, int i
 
 #pragma omp parallel for private(ofm_tile, ifm_tile, ij, oj, kj, ki, ii)
 	for (img = 0; img < nImg; ++img) {
-		zero_buf(&output[img][0][0][0][0], nOfm*ofhp*ofwp);
+		// zero_buf(&output[img][0][0][0][0], nOfm*ofhp*ofwp);
 		// printf("thread id = %d\n", omp_get_thread_num());
 		// #pragma omp parallel for private(ofm_tile, ifm_tile, oj, kj, ki)
 		for (ofm_tile = 0; ofm_tile < nOfm / GEMM_BLOCK; ++ofm_tile) {

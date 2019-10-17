@@ -67,7 +67,7 @@ inline void padded_conv_fp_libxsmm_core2_gemm(int nImg, int nIfm, int nOfm, int 
 
 #pragma omp parallel for private(ofm_tile, ifm_tile, oj, kj, ki, ij, ii)
 	for (img = 0; img < nImg; ++img) {
-		zero_buf(&output[img][0][0][0][0], nOfm*ofhp*ofwp);
+		// zero_buf(&output[img][0][0][0][0], nOfm*ofhp*ofwp);
 		for (oj = 0; oj < ofh; ++oj) {
 			ij = oj * stride_h;
 			for (kj = 0; kj < kh; ++kj) {

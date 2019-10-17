@@ -99,7 +99,7 @@ inline void padded_conv_fp_tiled_loop_order_0_gemm(int nImg, int nIfm, int nOfm,
 
 #pragma omp parallel for private(img, t_ofm_tile, t_oj, oj, t_oi, ofm_tile, t_ifm_tile, ifm_tile, kj, ki, ii, ij)
 	for (img = 0; img < nImg; ++img) {
-		zero_buf(&output[img][0][0][0][0], nOfm*ofhp*ofwp);
+		// zero_buf(&output[img][0][0][0][0], nOfm*ofhp*ofwp);
 
 		for (t_ofm_tile = 0; t_ofm_tile < nOfm / GEMM_BLOCK; t_ofm_tile += T_ofm_tile) {
 			for (t_ifm_tile = 0; t_ifm_tile < nIfm / GEMM_BLOCK; t_ifm_tile += T_ifm_tile) {
