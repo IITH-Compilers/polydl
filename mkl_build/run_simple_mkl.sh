@@ -42,7 +42,7 @@ config="g1mb${mb}ic${nIfm}ih${ifh}iw${ifw}oc${nOfm}oh${56}ow${56}kh${kh}kw${kw}s
 
 #echo -n $config, >> ${OUT}
 GFLOPS=`$BENCHDNN --conv --mode=p --dir=FWD_D --cfg=f32 $config"resnet_50:conv1" | grep "nresnet_50:conv1"| cut -d"," -f10`
-echo -n $GFLOPS >> ${mb}_${OUT}
+echo -n ${config_num},$GFLOPS >> ${mb}_${OUT}
 echo "" >> ${mb}_${OUT}
 
 
