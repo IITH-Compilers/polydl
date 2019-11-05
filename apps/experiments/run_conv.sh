@@ -1,3 +1,53 @@
+
+compute_padding()
+{
+
+MAX_BLOCK=64
+input=$1
+output=$input
+MIN_BLOCK=8
+
+#Padding
+for BLOCK in 8 16 32 64
+do
+        if [ `expr $input % $BLOCK` -eq 0 ]
+        then
+          break
+        fi
+
+        if [ $input -lt $BLOCK ]
+        then
+          let output=$BLOCK
+          break
+        else
+          if [ $BLOCK -eq $MAX_BLOCK -a $input -gt $MAX_BLOCK ]
+          then
+                let output=( $input + $MIN_BLOCK -  $input % $MIN_BLOCK  )
+          fi
+        fi
+done
+
+echo $output
+}
+
+compute_GEMM_BLOCK()
+{
+  nIfm=$1
+  nOfm=$2
+
+  #echo In compute_GEMM_BLOCK. nIfm: $nIfm nOfm: $nOfm
+
+  for BLOCK in 64 32 16 8
+  do
+        if [ `expr $nIfm % $BLOCK` -eq 0 -a `expr $nOfm % $BLOCK` -eq 0 ]
+        then
+          #echo $BLOCK divides them both
+          echo $BLOCK
+          break
+        fi
+  done
+}
+
 export KMP_AFFINITY=granularity=fine,compact,1,28
 export LD_LIBRARY_PATH=/nfs_home/stavarag/work/software/barvinok/barvinok-0.41.2_install/lib:/nfs_home/stavarag/work/software/barvinok/isl_install/lib:$LD_LIBRARY_PATH
 
@@ -16,8 +66,8 @@ mkdir ${TEMP}
        iters=$1
        ifw=$2
        ifh=$3
-       nIfm=$4
-       nOfm=$5
+       orig_nIfm=$4
+       orig_nOfm=$5
        kw=$6
        kh=$7
        pad_w=$8
@@ -32,6 +82,16 @@ mkdir ${TEMP}
        arg_images=1
        ifhp=${ifh}
        ifwp=${ifw}
+
+
+nIfm=$(compute_padding $orig_nIfm)
+echo orig_nIfm: $orig_nIfm nIfm: $nIfm
+
+nOfm=$(compute_padding $orig_nOfm)
+echo orig_nOfm: $orig_nOfm  nOfm: $nOfm
+
+GEMM_BLOCK=$(compute_GEMM_BLOCK $nIfm $nOfm)
+echo GEMM_BLOCK: $GEMM_BLOCK
 
 	for images in 1 28
 	do
@@ -57,8 +117,6 @@ mkdir ${TEMP}
 			#We will first do an actual run
 			if [ $version -eq 0 -o $version -eq 1 -o $version -eq 20 -o $version -eq 21 ]
 			then
-				for GEMM_BLOCK in  64 # 32  8 16
-				do
 				if [ `expr $nIfm % $GEMM_BLOCK` -eq 0 -a `expr $nOfm % $GEMM_BLOCK` -eq 0 ]
                                 then
 
@@ -83,8 +141,11 @@ mkdir ${TEMP}
      					# do something
 					echo  $T_oi " " $T_oj " " $T_ifm_tile " " $T_ofm_tile
 					../conv2d ${iters} ${ifw} ${ifh} ${nIfm} ${nOfm} ${kw} ${kh} ${pad_w} ${pad_h} ${stride} ${images} ${version} ${check_correctness} &> run_output
-					GFLOPS=`cat run_output |  grep Real_GFLOPS |  cut -d= -f2`
-					NAIVE_GFLOPS=`cat run_output |  grep Naive_GFLOPS |  cut -d= -f2` 
+					Orig_GFLOPS=`cat run_output |  grep Real_GFLOPS |  cut -d= -f2`
+					GFLOPS=$(echo "$Orig_GFLOPS * $orig_nIfm * $orig_nOfm  /  $nIfm / $nOfm"|bc )
+
+					Orig_NAIVE_GFLOPS=`cat run_output |  grep Naive_GFLOPS |  cut -d= -f2` 
+					NAIVE_GFLOPS=$(echo "$Orig_NAIVE_GFLOPS * $orig_nIfm * $orig_nOfm  /  $nIfm / $nOfm"|bc )
 					ERROR=`cat run_output | grep "inf-norm of comp. abs. error" | cut -d: -f 2`
 					rm ${TEMP}/temp.c
 					if [ $version -eq 0 -o $version -eq 20 ] 
@@ -123,16 +184,15 @@ mkdir ${TEMP}
 				fi
 				done
 				fi
-				done
 			else
-				for GEMM_BLOCK in  64 # 32  8 16
-				do
  				if [ `expr $nIfm % $GEMM_BLOCK` -eq 0 -a `expr $nOfm % $GEMM_BLOCK` -eq 0 ]
  				then
 				(cd .. && make clean && make MACROFLAGS="-DSTRIDE_H=$stride -DSTRIDE_W=$stride -DGEMM_BLOCK=${GEMM_BLOCK}") 	
 				../conv2d ${iters} ${ifw} ${ifh} ${nIfm} ${nOfm} ${kw} ${kh} ${pad_w} ${pad_h} ${stride} ${images} ${version} ${check_correctness} &> run_output
-				GFLOPS=`cat run_output |  grep Real_GFLOPS |  cut -d= -f2`
-				NAIVE_GFLOPS=`cat run_output |  grep Naive_GFLOPS |  cut -d= -f2`
+				Orig_GFLOPS=`cat run_output |  grep Real_GFLOPS |  cut -d= -f2`
+				GFLOPS=$(echo "$Orig_GFLOPS * $orig_nIfm * $orig_nOfm  /  $nIfm / $nOfm"|bc )
+				Orig_NAIVE_GFLOPS=`cat run_output |  grep Naive_GFLOPS |  cut -d= -f2`
+				NAIVE_GFLOPS=$(echo "$Orig_NAIVE_GFLOPS * $orig_nIfm * $orig_nOfm  /  $nIfm / $nOfm"|bc )
 				ERROR=`cat run_output | grep "inf-norm of comp. abs. error" | cut -d: -f 2`
                                 rm ${TEMP}/temp.c
 				echo "#define GEMM_BLOCK ${GEMM_BLOCK}" >> ${TEMP}/temp.c
@@ -191,11 +251,8 @@ mkdir ${TEMP}
                                 { echo -n "${version}_${GEMM_BLOCK},${GFLOPS}," ; cat - ${output_file} ; } >> ${CONFIG_OUT}
 				echo  "${NAIVE_GFLOPS},${ERROR}" >> ${META_CONFIG_OUT}
 				fi
-				done
 			fi
 		done
 		../../scripts/polyrank ${CONFIG_OUT}  --noheader --perfseparaterow --usepessidata
 	done
-
-
 
