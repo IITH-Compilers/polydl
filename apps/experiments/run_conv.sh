@@ -5,10 +5,10 @@ compute_padding()
 MAX_BLOCK=64
 input=$1
 output=$input
-MIN_BLOCK=8
+MIN_BLOCK=16
 
 #Padding
-for BLOCK in 8 16 32 64
+for BLOCK in 16 32 64
 do
         if [ `expr $input % $BLOCK` -eq 0 ]
         then
@@ -37,7 +37,7 @@ compute_GEMM_BLOCK()
 
   #echo In compute_GEMM_BLOCK. nIfm: $nIfm nOfm: $nOfm
 
-  for BLOCK in 64 32 16 8
+  for BLOCK in 64 32 16
   do
         if [ `expr $nIfm % $BLOCK` -eq 0 -a `expr $nOfm % $BLOCK` -eq 0 ]
         then
