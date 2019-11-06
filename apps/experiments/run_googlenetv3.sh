@@ -1,7 +1,7 @@
 FILE=$1
 ITERS=1000 
 #Googlenetv3
- #sh ./$FILE ${ITERS}  299 299       3   32 3 3 0 0 2  googlenetv3_1
+ sh ./$FILE ${ITERS}  299 299       3   32 3 3 0 0 2  googlenetv3_1 #
  sh ./$FILE ${ITERS}  149 149      32   32 3 3 0 0 1  googlenetv3_2
  sh ./$FILE ${ITERS}  147 147      32   64 3 3 1 1 1  googlenetv3_3
  sh ./$FILE ${ITERS}  73  73       64   80 3 3 0 0 1  googlenetv3_4
