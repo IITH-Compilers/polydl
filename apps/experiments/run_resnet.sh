@@ -2,16 +2,16 @@
 FILE=$1
 ITERS=1000
 #Resnet-50
-sh ./$FILE $ITERS  224 224 3   64 7 7 3 3 2  resnet_0
-sh ./$FILE $ITERS  56  56  64  256 1 1 0 0 1 resnet_1
-sh ./$FILE $ITERS  56  56  64  64 1 1 0 0 1 resnet_2
-sh ./$FILE $ITERS  56  56  64  64 3 3 1 1 1 resnet_3
-sh ./$FILE $ITERS  56  56  256  64 1 1 0 0 1 resnet_4
-sh ./$FILE $ITERS  56  56  256  512 1 1 0 0 2 resnet_5
-sh ./$FILE $ITERS  56  56  256   128 1 1 0 0 2 resnet_6
-sh ./$FILE $ITERS  28  28  128   128 3 3 1 1 1 resnet_7
-sh ./$FILE $ITERS  28  28  128   512 1 1 0 0 1 resnet_8
-sh ./$FILE $ITERS  28  28  512   128 1 1 0 0 1 resnet_9
+sh ./$FILE $ITERS  224 224 3   64 7 7 3 3 2  resnet_00
+sh ./$FILE $ITERS  56  56  64  256 1 1 0 0 1 resnet_01
+sh ./$FILE $ITERS  56  56  64  64 1 1 0 0 1 resnet_02
+sh ./$FILE $ITERS  56  56  64  64 3 3 1 1 1 resnet_03
+sh ./$FILE $ITERS  56  56  256  64 1 1 0 0 1 resnet_04
+sh ./$FILE $ITERS  56  56  256  512 1 1 0 0 2 resnet_05
+sh ./$FILE $ITERS  56  56  256   128 1 1 0 0 2 resnet_06
+sh ./$FILE $ITERS  28  28  128   128 3 3 1 1 1 resnet_07
+sh ./$FILE $ITERS  28  28  128   512 1 1 0 0 1 resnet_08
+sh ./$FILE $ITERS  28  28  512   128 1 1 0 0 1 resnet_09
 sh ./$FILE $ITERS  28  28  512  1024 1 1 0 0 2 resnet_10
 sh ./$FILE $ITERS  28  28  512   256 1 1 0 0 2 resnet_11
 sh ./$FILE $ITERS  14  14  256   256 3 3 1 1 1 resnet_12

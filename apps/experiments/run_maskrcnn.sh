@@ -1,15 +1,15 @@
 
  FILE=$1
  ITERS=1000
- sh ./$FILE ${ITERS} 1030 1030   3 64 7 7 0 0 2  maskrcnn_1 #
- sh ./$FILE ${ITERS} 256 256   64 256 1 1 0 0 1  maskrcnn_2
- sh ./$FILE ${ITERS} 256 256   64 64 1 1 0 0 1  maskrcnn_3
- sh ./$FILE ${ITERS} 256 256   64 64 3 3 1 1 1  maskrcnn_4
- sh ./$FILE ${ITERS} 256 256   256 64 1 1 0 0 1  maskrcnn_5
- sh ./$FILE ${ITERS} 256 256   256 128 1 1 0 0 2  maskrcnn_6
- sh ./$FILE ${ITERS} 256 256   256 256 1 1 0 0 1  maskrcnn_7
- sh ./$FILE ${ITERS} 256 256   256 512 1 1 0 0 2  maskrcnn_8
- sh ./$FILE ${ITERS} 128 128   128 128 3 3 1 1 1  maskrcnn_9
+ sh ./$FILE ${ITERS} 1030 1030   3 64 7 7 0 0 2  maskrcnn_01 #
+ sh ./$FILE ${ITERS} 256 256   64 256 1 1 0 0 1  maskrcnn_02
+ sh ./$FILE ${ITERS} 256 256   64 64 1 1 0 0 1  maskrcnn_03
+ sh ./$FILE ${ITERS} 256 256   64 64 3 3 1 1 1  maskrcnn_04
+ sh ./$FILE ${ITERS} 256 256   256 64 1 1 0 0 1  maskrcnn_05
+ sh ./$FILE ${ITERS} 256 256   256 128 1 1 0 0 2  maskrcnn_06
+ sh ./$FILE ${ITERS} 256 256   256 256 1 1 0 0 1  maskrcnn_07
+ sh ./$FILE ${ITERS} 256 256   256 512 1 1 0 0 2  maskrcnn_08
+ sh ./$FILE ${ITERS} 128 128   128 128 3 3 1 1 1  maskrcnn_09
  sh ./$FILE ${ITERS} 128 128   128 512 1 1 0 0 1  maskrcnn_10
  sh ./$FILE ${ITERS} 128 128   512 128 1 1 0 0 1  maskrcnn_11
  sh ./$FILE ${ITERS} 128 128   512 256 1 1 0 0 2  maskrcnn_12

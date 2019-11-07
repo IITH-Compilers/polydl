@@ -2,15 +2,15 @@
 FILE=$1
 ITERS=1000 
 #Googlenetv1
- sh ./$FILE ${ITERS}   224  224        3    64  7  7  3  3  2  googlenetv1_1 #
- sh ./$FILE ${ITERS}    56   56       64    64  1  1  0  0  1  googlenetv1_2
- sh ./$FILE ${ITERS}    56   56       64   192  3  3  1  1  1  googlenetv1_3
- sh ./$FILE ${ITERS}    28   28      192    64  1  1  0  0  1  googlenetv1_4
- sh ./$FILE ${ITERS}    28   28      192    96  1  1  0  0  1  googlenetv1_5
- sh ./$FILE ${ITERS}    28   28       96   128  3  3  1  1  1  googlenetv1_6
- sh ./$FILE ${ITERS}    28   28      192    16  1  1  0  0  1  googlenetv1_7
- sh ./$FILE ${ITERS}    28   28       16    32  5  5  2  2  1  googlenetv1_8
- sh ./$FILE ${ITERS}    28   28      192    32  1  1  0  0  1  googlenetv1_9
+ sh ./$FILE ${ITERS}   224  224        3    64  7  7  3  3  2  googlenetv1_01 #
+ sh ./$FILE ${ITERS}    56   56       64    64  1  1  0  0  1  googlenetv1_02
+ sh ./$FILE ${ITERS}    56   56       64   192  3  3  1  1  1  googlenetv1_03
+ sh ./$FILE ${ITERS}    28   28      192    64  1  1  0  0  1  googlenetv1_04
+ sh ./$FILE ${ITERS}    28   28      192    96  1  1  0  0  1  googlenetv1_05
+ sh ./$FILE ${ITERS}    28   28       96   128  3  3  1  1  1  googlenetv1_06
+ sh ./$FILE ${ITERS}    28   28      192    16  1  1  0  0  1  googlenetv1_07
+ sh ./$FILE ${ITERS}    28   28       16    32  5  5  2  2  1  googlenetv1_08
+ sh ./$FILE ${ITERS}    28   28      192    32  1  1  0  0  1  googlenetv1_09
  sh ./$FILE ${ITERS}    28   28      256   128  1  1  0  0  1  googlenetv1_10
  sh ./$FILE ${ITERS}    28   28      128   192  3  3  1  1  1  googlenetv1_11
  sh ./$FILE ${ITERS}    28   28      256    32  1  1  0  0  1  googlenetv1_12

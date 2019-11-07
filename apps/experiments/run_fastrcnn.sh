@@ -2,15 +2,15 @@
 FILE=$1
 ITERS=1000
 
-sh ./$FILE ${ITERS} 606 756   3 64 7 7 0 0 2 fastrcnn_1 #
-sh ./$FILE ${ITERS} 150 188   64 64 1 1 0 0 1  fastrcnn_2
-sh ./$FILE ${ITERS} 150 188   64 64 3 3 1 1 1  fastrcnn_3
-sh ./$FILE ${ITERS} 150 188   64 256 1 1 0 0 1  fastrcnn_4
-sh ./$FILE ${ITERS} 150 188   256 64 1 1 0 0 1  fastrcnn_5
-sh ./$FILE ${ITERS} 152 190   64 64 3 3 0 0 2  fastrcnn_6
-sh ./$FILE ${ITERS} 75 94   64 256 1 1 0 0 1  fastrcnn_7
-sh ./$FILE ${ITERS} 75 94   256 128 1 1 0 0 1  fastrcnn_8
-sh ./$FILE ${ITERS} 75 94   256 512 1 1 0 0 1  fastrcnn_9
+sh ./$FILE ${ITERS} 606 756   3 64 7 7 0 0 2 fastrcnn_01 #
+sh ./$FILE ${ITERS} 150 188   64 64 1 1 0 0 1  fastrcnn_02
+sh ./$FILE ${ITERS} 150 188   64 64 3 3 1 1 1  fastrcnn_03
+sh ./$FILE ${ITERS} 150 188   64 256 1 1 0 0 1  fastrcnn_04
+sh ./$FILE ${ITERS} 150 188   256 64 1 1 0 0 1  fastrcnn_05
+sh ./$FILE ${ITERS} 152 190   64 64 3 3 0 0 2  fastrcnn_06
+sh ./$FILE ${ITERS} 75 94   64 256 1 1 0 0 1  fastrcnn_07
+sh ./$FILE ${ITERS} 75 94   256 128 1 1 0 0 1  fastrcnn_08
+sh ./$FILE ${ITERS} 75 94   256 512 1 1 0 0 1  fastrcnn_09
 sh ./$FILE ${ITERS} 75 94   128 128 3 3 1 1 1  fastrcnn_10
 sh ./$FILE ${ITERS} 75 94   128 512 1 1 0 0 1  fastrcnn_11
 sh ./$FILE ${ITERS} 75 94   512 128 1 1 0 0 1  fastrcnn_12
