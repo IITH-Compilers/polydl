@@ -3,7 +3,7 @@ FILE=$1
 ITERS=1000
 #xception
  sh ./$FILE ${ITERS} 299 299   3 32 3 3 0 0 2  xception_01 #
- sh ./$FILE ${ITERS} 149 149   32 64 3 3 0 0 1  xception_02 #
+ sh ./$FILE ${ITERS} 149 149   32 64 3 3 0 0 1  xception_02 
  sh ./$FILE ${ITERS} 147 147   64 128 1 1 0 0 1  xception_03
  sh ./$FILE ${ITERS} 147 147   128 128 1 1 0 0 1  xception_04
  sh ./$FILE ${ITERS} 74 74   128 256 1 1 0 0 1  xception_05

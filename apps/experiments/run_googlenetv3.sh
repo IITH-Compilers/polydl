@@ -36,14 +36,14 @@ ITERS=1000
  sh ./$FILE ${ITERS}  17  17      192  320 3 3 0 0 2  googlenetv3_33
  sh ./$FILE ${ITERS}  8   8      1280  320 1 1 0 0 1  googlenetv3_34
  sh ./$FILE ${ITERS}  8   8      1280  192 1 1 0 0 1  googlenetv3_35
- sh ./$FILE ${ITERS}  8   8      1280  448 1 1 0 0 1  googlenetv3_36
- sh ./$FILE ${ITERS}  8   8       448  384 3 3 1 1 1  googlenetv3_37
- sh ./$FILE ${ITERS}  8   8       384  384 1 3 0 1 1  googlenetv3_38
+ sh ./$FILE ${ITERS}  8   8      1280  448 1 1 0 0 1  googlenetv3_36 
+ sh ./$FILE ${ITERS}  8   8       448  384 3 3 1 1 1  googlenetv3_37 #
+ sh ./$FILE ${ITERS}  8   8       384  384 1 3 0 1 1  googlenetv3_38 #
  sh ./$FILE ${ITERS}  8   8       384  384 3 1 1 0 1  googlenetv3_39
- sh ./$FILE ${ITERS}  8   8      1280  384 1 1 0 0 1  googlenetv3_40
+ sh ./$FILE ${ITERS}  8   8      1280  384 1 1 0 0 1  googlenetv3_40 #
  sh ./$FILE ${ITERS}  8   8      2048  320 1 1 0 0 1  googlenetv3_41
  sh ./$FILE ${ITERS}  8   8      2048  192 1 1 0 0 1  googlenetv3_42
  sh ./$FILE ${ITERS}  8   8      2048  448 1 1 0 0 1  googlenetv3_43
- sh ./$FILE ${ITERS}  8   8      2048  384 1 1 0 0 1  googlenetv3_44
- sh ./$FILE ${ITERS}  8   8       384  384 1 3 0 1 1  googlenetv3_45
+ sh ./$FILE ${ITERS}  8   8      2048  384 1 1 0 0 1  googlenetv3_44 #
+ sh ./$FILE ${ITERS}  8   8       384  384 1 3 0 1 1  googlenetv3_45 #
 

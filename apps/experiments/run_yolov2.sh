@@ -2,7 +2,7 @@ FILE=$1
 ITERS=1000
 #yolov2
  sh ./$FILE ${ITERS} 610 610   3 32 3 3 0 0 1  yolov2_01 #
- sh ./$FILE ${ITERS} 306 306   32 64 3 3 0 0 1  yolov2_02 #
+ sh ./$FILE ${ITERS} 306 306   32 64 3 3 0 0 1  yolov2_02 
  sh ./$FILE ${ITERS} 154 154   64 128 3 3 0 0 1  yolov2_03
  sh ./$FILE ${ITERS} 152 152   128 64 1 1 0 0 1  yolov2_04
  sh ./$FILE ${ITERS} 78 78   128 256 3 3 0 0 1  yolov2_05
