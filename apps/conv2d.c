@@ -50,6 +50,8 @@ libxsmm_smmfunction fwd_gemm;
 #include "padded_conv_fp8.c"
 #include "padded_conv_fp_tiled_loop_order_0.c"
 #include "padded_conv_fp_tiled_loop_order_1.c"
+#include "padded_conv_fp_libxsmm_core5.c"
+#include "padded_conv_fp_libxsmm_core6.c"
 
 typedef struct {
 	double max_rel_err;
@@ -165,107 +167,29 @@ double padded_conv_fp(
 		// printf("padded_conv_fp_stride_1_libxsmm_core\n");
 		l_start = libxsmm_timer_tick();
 		for (i = 0; i < iters; i++) {
-			padded_conv_fp_libxsmm_core4_gemm(nImg, nIfm, nOfm, ifhp, ifwp, ofhp, ofwp, ifh, ifw,
+			padded_conv_fp_libxsmm_core_gemm(nImg, nIfm, nOfm, ifhp, ifwp, ofhp, ofwp, ifh, ifw,
 				ofh, ofw, pad_h, pad_w, pad_h_in, pad_w_in, pad_h_out,
 				pad_w_out, kh, kw, stride_h, stride_w, pad_gemm_input, output, filter, iters);
 		}
 
 		l_end = libxsmm_timer_tick();
 	}
-	else if (version == 20) {
+	else if (version == 31) {
+		printf("padded_conv_fp_libxsmm_core5_gemm\n");
 		l_start = libxsmm_timer_tick();
 		for (i = 0; i < iters; i++) {
-			padded_conv_fp_tiled_loop_order_0_vanilla_gemm(nImg, nIfm, nOfm, ifhp, ifwp, ofhp, ofwp, ifh, ifw,
+			padded_conv_fp_libxsmm_core5_gemm(nImg, nIfm, nOfm, ifhp, ifwp, ofhp, ofwp, ifh, ifw,
 				ofh, ofw, pad_h, pad_w, pad_h_in, pad_w_in, pad_h_out,
 				pad_w_out, kh, kw, stride_h, stride_w, pad_gemm_input, output, filter, iters);
 		}
 
 		l_end = libxsmm_timer_tick();
 	}
-	else if (version == 21) {
+	else if (version == 32) {
+		printf("padded_conv_fp_libxsmm_core6_gemm\n");
 		l_start = libxsmm_timer_tick();
 		for (i = 0; i < iters; i++) {
-			padded_conv_fp_tiled_loop_order_1_vanilla_gemm(nImg, nIfm, nOfm, ifhp, ifwp, ofhp, ofwp, ifh, ifw,
-				ofh, ofw, pad_h, pad_w, pad_h_in, pad_w_in, pad_h_out,
-				pad_w_out, kh, kw, stride_h, stride_w, pad_gemm_input, output, filter, iters);
-		}
-
-		l_end = libxsmm_timer_tick();
-	}
-	else if (version == 22) {
-		l_start = libxsmm_timer_tick();
-		for (i = 0; i < iters; i++) {
-			padded_conv_fp_libxsmm_core_vanilla_gemm(nImg, nIfm, nOfm, ifhp, ifwp, ofhp, ofwp, ifh, ifw,
-				ofh, ofw, pad_h, pad_w, pad_h_in, pad_w_in, pad_h_out,
-				pad_w_out, kh, kw, stride_h, stride_w, pad_gemm_input, output, filter, iters);
-		}
-
-		l_end = libxsmm_timer_tick();
-	}
-	else if (version == 23) {
-		l_start = libxsmm_timer_tick();
-		for (i = 0; i < iters; i++) {
-			padded_conv_fp_libxsmm_core2_vanilla_gemm(nImg, nIfm, nOfm, ifhp, ifwp, ofhp, ofwp, ifh, ifw,
-				ofh, ofw, pad_h, pad_w, pad_h_in, pad_w_in, pad_h_out,
-				pad_w_out, kh, kw, stride_h, stride_w, pad_gemm_input, output, filter, iters);
-		}
-
-		l_end = libxsmm_timer_tick();
-	}
-	else if (version == 24) {
-		l_start = libxsmm_timer_tick();
-		for (i = 0; i < iters; i++) {
-			padded_conv_fp_libxsmm_core3_vanilla_gemm(nImg, nIfm, nOfm, ifhp, ifwp, ofhp, ofwp, ifh, ifw,
-				ofh, ofw, pad_h, pad_w, pad_h_in, pad_w_in, pad_h_out,
-				pad_w_out, kh, kw, stride_h, stride_w, pad_gemm_input, output, filter, iters);
-		}
-
-		l_end = libxsmm_timer_tick();
-	}
-	else if (version == 25) {
-		l_start = libxsmm_timer_tick();
-		for (i = 0; i < iters; i++) {
-			padded_conv_fp_libxsmm_core4_vanilla_gemm(nImg, nIfm, nOfm, ifhp, ifwp, ofhp, ofwp, ifh, ifw,
-				ofh, ofw, pad_h, pad_w, pad_h_in, pad_w_in, pad_h_out,
-				pad_w_out, kh, kw, stride_h, stride_w, pad_gemm_input, output, filter, iters);
-		}
-
-		l_end = libxsmm_timer_tick();
-	}
-	else if (version == 26) {
-		l_start = libxsmm_timer_tick();
-		for (i = 0; i < iters; i++) {
-			padded_conv_fp5_fn(nImg, nIfm, nOfm, ifhp, ifwp, ofhp, ofwp, ifh, ifw,
-				ofh, ofw, pad_h, pad_w, pad_h_in, pad_w_in, pad_h_out,
-				pad_w_out, kh, kw, stride_h, stride_w, pad_gemm_input, output, filter, iters);
-		}
-
-		l_end = libxsmm_timer_tick();
-	}
-	else if (version == 27) {
-		l_start = libxsmm_timer_tick();
-		for (i = 0; i < iters; i++) {
-			padded_conv_fp6_fn(nImg, nIfm, nOfm, ifhp, ifwp, ofhp, ofwp, ifh, ifw,
-				ofh, ofw, pad_h, pad_w, pad_h_in, pad_w_in, pad_h_out,
-				pad_w_out, kh, kw, stride_h, stride_w, pad_gemm_input, output, filter, iters);
-		}
-
-		l_end = libxsmm_timer_tick();
-	}
-	else if (version == 28) {
-		l_start = libxsmm_timer_tick();
-		for (i = 0; i < iters; i++) {
-			padded_conv_fp7_fn(nImg, nIfm, nOfm, ifhp, ifwp, ofhp, ofwp, ifh, ifw,
-				ofh, ofw, pad_h, pad_w, pad_h_in, pad_w_in, pad_h_out,
-				pad_w_out, kh, kw, stride_h, stride_w, pad_gemm_input, output, filter, iters);
-		}
-
-		l_end = libxsmm_timer_tick();
-	}
-	else if (version == 29) {
-		l_start = libxsmm_timer_tick();
-		for (i = 0; i < iters; i++) {
-			padded_conv_fp8_fn(nImg, nIfm, nOfm, ifhp, ifwp, ofhp, ofwp, ifh, ifw,
+			padded_conv_fp_libxsmm_core6_gemm(nImg, nIfm, nOfm, ifhp, ifwp, ofhp, ofwp, ifh, ifw,
 				ofh, ofw, pad_h, pad_w, pad_h_in, pad_w_in, pad_h_out,
 				pad_w_out, kh, kw, stride_h, stride_w, pad_gemm_input, output, filter, iters);
 		}
@@ -557,25 +481,25 @@ int main(int argc, char **argv) {
 	}
 
 
-	if (version == 0 || version == 1 || version == 2 || version == 3 || version == 4 || version == 5) {
-		if ((nIfm % GEMM_BLOCK != 0) || (nOfm % GEMM_BLOCK != 0)) {
-			printf("\nThis code only works for ofm/ifm %d!\n\n\n", GEMM_BLOCK);
+
+	if ((nIfm % GEMM_BLOCK != 0) || (nOfm % GEMM_BLOCK != 0)) {
+		printf("\nThis code only works for ofm/ifm %d!\n\n\n", GEMM_BLOCK);
+		return -1;
+	}
+
+	if (version == 0 || version == 1 || version == 20 || version == 21 || version == 28) {
+		// LIBXSMM tiled
+		if (ofwp % T_oi != 0 || T_oi > ofwp) {
+			printf("The tiling factor %d for oi loop should divide ofwp = %d\n. Exiting\n", T_oi, ofwp);
 			return -1;
 		}
 
-		if (version == 0 || version == 1 || version == 20 || version == 21 || version == 28) {
-			// LIBXSMM tiled
-			if (ofwp % T_oi != 0 || T_oi > ofwp) {
-				printf("The tiling factor %d for oi loop should divide ofwp = %d\n. Exiting\n", T_oi, ofwp);
-				return -1;
-			}
-
-			fwd_gemm = libxsmm_smmdispatch(GEMM_BLOCK, T_oi, GEMM_BLOCK, NULL, ldx_ptr, NULL, NULL, NULL, NULL, NULL);
-		}
-		else {
-			fwd_gemm = libxsmm_smmdispatch(GEMM_BLOCK, ofwp, GEMM_BLOCK, NULL, ldx_ptr, NULL, NULL, NULL, NULL, NULL);
-		}
+		fwd_gemm = libxsmm_smmdispatch(GEMM_BLOCK, T_oi, GEMM_BLOCK, NULL, ldx_ptr, NULL, NULL, NULL, NULL, NULL);
 	}
+	else {
+		fwd_gemm = libxsmm_smmdispatch(GEMM_BLOCK, ofwp, GEMM_BLOCK, NULL, ldx_ptr, NULL, NULL, NULL, NULL, NULL);
+	}
+
 
 #endif
 
