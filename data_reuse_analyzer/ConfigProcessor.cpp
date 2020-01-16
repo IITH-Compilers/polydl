@@ -17,6 +17,7 @@ void ReadCacheConfig(string cachesizes, Config* config);
 void ReadDataTypeConfig(string line, Config* config);
 void ReadParameterValues(string line, vector<string> *paramNames, Config* config);
 void ReadParams(string line, Config* config);
+void ReadParallelLoops(string parallelLoops, Config* config);
 
 void ReadConfig(UserInput *userInput, Config* config) {
 
@@ -53,6 +54,7 @@ void ReadConfigFromUserInput(UserInput *userInput, Config* config) {
 	ReadCacheConfig(userInput->cachesizes, config);
 	ReadDataTypeConfig(userInput->datatypesize, config);
 	ReadParams(userInput->parameters, config);
+	ReadParallelLoops(userInput->parallelLoops, config);
 }
 
 void ReadConfigFromFile(string configFile, Config* config) {
@@ -110,6 +112,18 @@ void ReadCacheConfig(string cachesizes, Config* config) {
 		catch (const invalid_argument) {
 			cerr << "Invalid cache size while reading the config file" << endl;
 			exit(1);
+		}
+	}
+}
+
+void ReadParallelLoops(string parallelLoops, Config* config) {
+	config->parallelLoops = NULL;
+	if (!parallelLoops.empty()) {
+		config->parallelLoops = new vector<string>();
+		istringstream iss(parallelLoops);
+		string loopName;
+		while (iss >> loopName) {
+			config->parallelLoops->push_back(loopName);
 		}
 	}
 }
@@ -281,12 +295,29 @@ void PrintConfig(Config* config) {
 
 		cout << endl;
 	}
+
+	cout << "Parallel loops" << endl;
+	if (config->parallelLoops) {
+		for (int i = 0; i < config->parallelLoops->size(); i++) {
+			cout << config->parallelLoops->at(i) << " ";
+		}
+
+		cout << endl;
+	}
+	else {
+		cout << "None" << endl;
+	}
 }
 
 void FreeConfig(Config* config) {
 	delete config->systemConfig;
 	for (int i = 0; i < config->programParameterVector->size(); i++) {
 		delete config->programParameterVector->at(i);
+	}
+
+	if (config->parallelLoops) {
+		config->parallelLoops->clear();
+		delete config->parallelLoops;
 	}
 
 	delete config->programParameterVector;

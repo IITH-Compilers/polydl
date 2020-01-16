@@ -9,6 +9,7 @@ struct UserInput {
 	std::string parameters;
 	std::string cachesizes;
 	std::string datatypesize;
+	std::string parallelLoops;
 	bool interactive;
 	bool minOutput;
 	bool perarray;

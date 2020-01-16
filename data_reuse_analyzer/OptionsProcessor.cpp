@@ -18,6 +18,7 @@ void ReadUserInput(int argc, char **argv, UserInput *userInput) {
 	string parameters = "--parameters";
 	string cachesizes = "--cachesizes";
 	string datatypesize = "--datatypesize";
+	string parallelLoops = "--parallel_loops";
 
 	userInput->interactive = false;
 	userInput->minOutput = false;
@@ -54,6 +55,10 @@ void ReadUserInput(int argc, char **argv, UserInput *userInput) {
 		}
 		else if (argv[i] == datatypesize) {
 			userInput->datatypesize = argv[i + 1];
+			i += 2;
+		}
+		else if (argv[i] == parallelLoops) {
+			userInput->parallelLoops = argv[i + 1];
 			i += 2;
 		}
 		else {

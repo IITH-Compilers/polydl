@@ -18,6 +18,7 @@ struct Config {
 	SystemConfig *systemConfig;
 	std::vector<std::unordered_map<std::string, int>*> *programParameterVector;
 	int datatypeSize;
+	std::vector<std::string> *parallelLoops;
 };
 
 typedef struct Config Config;
@@ -25,5 +26,4 @@ typedef struct Config Config;
 void ReadConfig(UserInput *userInput, Config* config);
 void FreeConfig(Config* config);
 void PrintConfig(Config* config);
-
 #endif

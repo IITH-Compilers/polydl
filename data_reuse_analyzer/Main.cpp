@@ -19,7 +19,7 @@ using namespace std;
 
 
 #define IGNORE_WS_SIZE_ONE 1
-#define DEBUG 0
+#define DEBUG 1
 
 /* Function header declarations begin */
 struct WorkingSetSize {
