@@ -119,8 +119,8 @@ void UpdatePessimisticProgramCharacteristics(long minSize, long maxSize,
 bool compareByMinMaxSize(const MinMaxTuple* a, const MinMaxTuple* b);
 vector<WorkingSetSize*>* ComputeWorkingSetSizesForDependences(
 	UserInput *userInput,
-	unordered_map<int, isl_union_map*>* dependenceMap,
-	pet_scop *scop);
+	unordered_map<int, ArrayDataAccesses*>* dependenceMap,
+	pet_scop *scop, Config *config);
 ArrayDataAccesses* ComputeAllDataDependences(isl_union_map* may_reads,
 	isl_union_map* may_writes, isl_schedule* schedule);
 unordered_map<int, ArrayDataAccesses*>* ComputeDataDependences(
@@ -129,13 +129,17 @@ unordered_map<int, ArrayDataAccesses*>* ComputeDataDependences(
 	Config *config);
 void FreeDependenceMap(
 	unordered_map<int, ArrayDataAccesses*>* dependenceMap);
-vector<WorkingSetSize*>* ComputeWorkingSetSizesForDependences(
-	UserInput *userInput,
-	unordered_map<int, ArrayDataAccesses*>* dependenceMap,
-	pet_scop *scop);
 isl_union_pw_qpolynomial* ComputeDataSetSize(isl_basic_set* sourceDomain,
 	isl_set* source, isl_set* target, isl_union_map* may_reads,
 	isl_union_map* may_writes);
+void RecognizeParallelIterationSpanningDependences(
+	unordered_map<int, ArrayDataAccesses*>* dependenceMap,
+	Config *config);
+isl_stat RecognizeParallelIterationSpanningDependenceMap(isl_map* dep,
+	void *user);
+isl_stat RecognizeParallelIterationSpanningDependenceBasicMap(
+	isl_basic_map* dep,
+	void *user);
 /* Function header declarations end */
 
 int main(int argc, char **argv) {
@@ -182,7 +186,7 @@ void ComputeDataReuseWorkingSets(UserInput *userInput, Config *config) {
 
 	vector<WorkingSetSize*>* workingSetSizes =
 		ComputeWorkingSetSizesForDependences(userInput,
-			dependenceMap, scop);
+			dependenceMap, scop, config);
 
 	if (DEBUG) {
 		PrintWorkingSetSizes(workingSetSizes);
@@ -217,10 +221,21 @@ void FreeDependenceMap(
 	delete dependenceMap;
 }
 
+
+void RecognizeParallelIterationSpanningDependences(
+	unordered_map<int, ArrayDataAccesses*>* dependenceMap,
+	Config *config) {
+	for (auto i : *dependenceMap) {
+		isl_union_map_foreach_map(i.second->dependences,
+			&RecognizeParallelIterationSpanningDependenceMap, config->parallelLoops);
+	}
+}
+
+
 vector<WorkingSetSize*>* ComputeWorkingSetSizesForDependences(
 	UserInput *userInput,
 	unordered_map<int, ArrayDataAccesses*>* dependenceMap,
-	pet_scop *scop) {
+	pet_scop *scop, Config *config) {
 	/*TODO: The following code works for perfectly nested loops
 	only. It needs to be extended to cover data dependences that span
 	across loops*/
@@ -228,6 +243,8 @@ vector<WorkingSetSize*>* ComputeWorkingSetSizesForDependences(
 	/* Here we assume that only may_dependences will be present because
 	ComputeDataDependences() function is specifying only may_read,
 	and may_write references */
+
+	RecognizeParallelIterationSpanningDependences(dependenceMap, config);
 
 	if (DEBUG) {
 		for (auto i : *dependenceMap) {
@@ -253,6 +270,66 @@ vector<WorkingSetSize*>* ComputeWorkingSetSizesForDependences(
 
 	free(arg);
 	return workingSetSizes;
+}
+
+isl_stat RecognizeParallelIterationSpanningDependenceMap(isl_map* dep, void *user) {
+	isl_map_foreach_basic_map(dep,
+		&RecognizeParallelIterationSpanningDependenceBasicMap,
+		user);
+	return isl_stat_ok;
+}
+
+isl_stat RecognizeParallelIterationSpanningDependenceBasicMap(
+	isl_basic_map* dep,
+	void *user) {
+	vector<string> *parallelLoops = (vector<string>*)user;
+	if (parallelLoops) {
+		if (DEBUG) {
+			cout << "In RecognizeParallelIterationSpanningDependenceBasicMap()" << endl;
+			for (int i = 0; i < parallelLoops->size(); i++) {
+				cout << parallelLoops->at(i) << " ";
+			}
+
+			cout << endl;
+			PrintBasicMap(dep);
+		}
+
+		isl_size inputDim = isl_basic_map_dim(dep, isl_dim_in);
+		isl_size outputDim = isl_basic_map_dim(dep, isl_dim_out);
+
+		if (DEBUG) {
+			cout << "Input dimensions: " << endl;
+			for (int i = 0; i < inputDim; i++) {
+				const char *name = isl_basic_map_get_dim_name(dep, isl_dim_in, i);
+				cout << name << " ";
+			}
+
+			cout << endl;
+			cout << "Output dimensions: " << endl;
+			for (int i = 0; i < outputDim; i++) {
+				const char *name = isl_basic_map_get_dim_name(dep, isl_dim_out, i);
+				cout << name << " ";
+			}
+
+			cout << endl;
+		}
+
+		isl_constraint_list *constraints =
+			isl_basic_map_get_constraint_list(dep);
+		isl_size constraintSize = isl_constraint_list_size(constraints);
+		for (int i = 0; i < constraintSize; i++) {
+			isl_constraint* constraint = isl_constraint_list_get_at(constraints, i);
+
+			if (DEBUG) {
+				cout << "CONSTRAINT: " << endl;
+				PrintConstraint(constraint);
+			}
+		}
+
+		isl_constraint_list_free(constraints);
+	}
+
+	return isl_stat_ok;
 }
 
 isl_stat ComputeWorkingSetSizesForDependence(isl_map* dep, void *user) {

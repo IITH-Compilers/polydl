@@ -23,6 +23,15 @@ void PrintBasicMap(isl_basic_map* map) {
 	isl_printer_free(printer);
 }
 
+void PrintConstraint(isl_constraint* constraint) {
+	isl_printer *printer = isl_printer_to_file(
+		isl_constraint_get_ctx(constraint), stdout);
+	printer = isl_printer_set_output_format(printer, ISL_FORMAT_ISL);
+	isl_printer_print_constraint(printer, constraint);
+	cout << endl;
+	isl_printer_free(printer);
+}
+
 void PrintScopOriginal(isl_ctx *ctx, pet_scop* scop) {
 	/*FIXME: The following doesn't quite print the scop*/
 	isl_printer *printer = isl_printer_to_file(ctx, stdout);

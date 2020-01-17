@@ -9,6 +9,7 @@
 #include <string>
 #include <algorithm>
 #include <vector>
+#include <isl/constraint.h>
 using namespace std;
 
 void PrintScop(isl_ctx* ctx, struct pet_scop *scop);
@@ -23,6 +24,7 @@ void PrintUnionPwQpolynomial(isl_union_pw_qpolynomial* poly);
 void PrintSpace(isl_space* space);
 void PrintScopOriginal(isl_ctx *ctx, pet_scop* scop);
 void PrintBasicSet(isl_basic_set* set);
+void PrintConstraint(isl_constraint* constraint);
 void CollectArrayNames(isl_union_map *may_reads, isl_union_map *may_writes, vector<string>* arrayNames);
 void CollectArrayNamesFromUnionMap(isl_union_map* orig_map, vector<string>* arrayNames);
 #endif
