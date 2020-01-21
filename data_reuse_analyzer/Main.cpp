@@ -82,6 +82,13 @@ struct ArrayDataAccesses {
 
 typedef struct ArrayDataAccesses ArrayDataAccesses;
 
+struct DimPositions {
+	int input;
+	int output;
+};
+
+typedef struct DimPositions DimPositions;
+
 void ComputeDataReuseWorkingSets(UserInput *userInput, Config *config);
 pet_scop* ParseScop(isl_ctx* ctx, const char *fileName);
 isl_stat ComputeWorkingSetSizesForDependence(isl_map* dep, void *user);
@@ -140,6 +147,8 @@ isl_stat RecognizeParallelIterationSpanningDependenceMap(isl_map* dep,
 isl_stat RecognizeParallelIterationSpanningDependenceBasicMap(
 	isl_basic_map* dep,
 	void *user);
+DimPositions* FindPositionOfParallelLoop(string var,
+	isl_basic_map *map);
 /* Function header declarations end */
 
 int main(int argc, char **argv) {
@@ -320,16 +329,132 @@ isl_stat RecognizeParallelIterationSpanningDependenceBasicMap(
 		for (int i = 0; i < constraintSize; i++) {
 			isl_constraint* constraint = isl_constraint_list_get_at(constraints, i);
 
+			bool isEquality = isl_constraint_is_equality(constraint);
 			if (DEBUG) {
 				cout << "CONSTRAINT: " << endl;
 				PrintConstraint(constraint);
+				cout << "The constraint is ";
+				if (isEquality) {
+					cout << "EQUALITY" << endl;
+				}
+				else {
+					cout << "Inequality" << endl;
+				}
+			}
+
+			if (!isEquality) {
+				isl_space* space = isl_constraint_get_space(constraint);
+				isl_size inputDim = isl_space_dim(space, isl_dim_in);
+				isl_size outputDim = isl_space_dim(space, isl_dim_out);
+
+				if (DEBUG) {
+					cout << "Input dimensions: " << endl;
+					for (int i = 0; i < inputDim; i++) {
+						const char *name = isl_space_get_dim_name(space, isl_dim_in, i);
+						cout << name << " ";
+					}
+
+					cout << endl;
+					cout << "Output dimensions: " << endl;
+					for (int i = 0; i < outputDim; i++) {
+						const char *name = isl_space_get_dim_name(space, isl_dim_out, i);
+						cout << name << " ";
+					}
+
+					cout << endl;
+				}
+
+				isl_mat *equalities = isl_basic_map_equalities_matrix(dep,
+					isl_dim_cst, isl_dim_in,
+					isl_dim_out, isl_dim_param, isl_dim_div);
+
+				isl_mat *inequalities = isl_basic_map_inequalities_matrix(dep,
+					isl_dim_cst, isl_dim_in,
+					isl_dim_out, isl_dim_param, isl_dim_div);
+
+				if (DEBUG) {
+					cout << "Equalities matrix: " << endl;
+					PrintMat(equalities);
+
+					cout << endl << "Inequalities matrix: " << endl;
+					PrintMat(inequalities);
+				}
+
+				isl_mat_free(equalities);
+				isl_mat_free(inequalities);
+				isl_space_free(space);
 			}
 		}
 
 		isl_constraint_list_free(constraints);
+
+		isl_basic_map *inputEliminated = isl_basic_map_drop_constraints_involving_dims(
+			isl_basic_map_copy(dep),
+			isl_dim_in,
+			inputDim - 1, 1);
+
+		isl_basic_map *outputEliminated = isl_basic_map_drop_constraints_involving_dims(
+			inputEliminated,
+			isl_dim_out,
+			outputDim - 1, 1);
+
+		if (DEBUG) {
+			cout << "Dep: " << endl;
+			PrintBasicMap(dep);
+
+			cout << "inputEliminated: " << endl;
+			PrintBasicMap(inputEliminated);
+
+			cout << "outputEliminated: " << endl;
+			PrintBasicMap(outputEliminated);
+		}
+
+		isl_basic_map_free(outputEliminated);
+
+		for (int i = 0; i < parallelLoops->size(); i++) {
+			DimPositions* dimPositions = FindPositionOfParallelLoop(parallelLoops->at(i), dep);
+
+			if (DEBUG) {
+				cout << "The parallel loop variable " << parallelLoops->at(i) << " is found at "
+					<< dimPositions->input << " input position and " << dimPositions->output
+					<< " output position" << endl;
+			}
+
+			delete dimPositions;
+		}
+
+		if (DEBUG) {
+			cout << "*********************" << endl;
+		}
 	}
 
 	return isl_stat_ok;
+}
+
+
+DimPositions* FindPositionOfParallelLoop(string var,
+	isl_basic_map *map) {
+	DimPositions* dimPositions = new DimPositions;
+	dimPositions->input = -1;
+	dimPositions->output = -1;
+	isl_size inputDim = isl_basic_map_dim(map, isl_dim_in);
+	isl_size outputDim = isl_basic_map_dim(map, isl_dim_out);
+
+	for (int i = 0; i < inputDim; i++) {
+		const char *name = isl_basic_map_get_dim_name(map, isl_dim_in, i);
+		if (strcmp(name, var.c_str()) == 0) {
+			dimPositions->input = i;
+		}
+	}
+
+	for (int i = 0; i < outputDim; i++) {
+		const char *name = isl_basic_map_get_dim_name(map, isl_dim_out, i);
+		if (strcmp(name, var.c_str()) == 0) {
+			dimPositions->output = i;
+		}
+	}
+
+	return dimPositions;
 }
 
 isl_stat ComputeWorkingSetSizesForDependence(isl_map* dep, void *user) {

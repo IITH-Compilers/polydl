@@ -32,6 +32,22 @@ void PrintConstraint(isl_constraint* constraint) {
 	isl_printer_free(printer);
 }
 
+void PrintMat(isl_mat* mat) {
+	int rows = isl_mat_rows(mat);
+	int columns = isl_mat_cols(mat);
+	for (int i = 0; i < rows; i++) {
+		for (int j = 0; j < columns; j++) {
+			isl_val* val = isl_mat_get_element_val(mat, i, j);
+			long valLong = isl_val_get_num_si(val);
+			cout << valLong << " ";
+			isl_val_free(val);
+		}
+
+		cout << endl;
+	}
+}
+
+
 void PrintScopOriginal(isl_ctx *ctx, pet_scop* scop) {
 	/*FIXME: The following doesn't quite print the scop*/
 	isl_printer *printer = isl_printer_to_file(ctx, stdout);

@@ -25,6 +25,7 @@ void PrintSpace(isl_space* space);
 void PrintScopOriginal(isl_ctx *ctx, pet_scop* scop);
 void PrintBasicSet(isl_basic_set* set);
 void PrintConstraint(isl_constraint* constraint);
+void PrintMat(isl_mat* mat);
 void CollectArrayNames(isl_union_map *may_reads, isl_union_map *may_writes, vector<string>* arrayNames);
 void CollectArrayNamesFromUnionMap(isl_union_map* orig_map, vector<string>* arrayNames);
 #endif
