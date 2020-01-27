@@ -319,19 +319,20 @@ isl_stat RecognizeParallelIterationSpanningDependenceBasicMap(
 	vector<string> *parallelLoops = (vector<string>*)user;
 	if (parallelLoops) {
 		if (DEBUG) {
-			cout << "In RecognizeParallelIterationSpanningDependenceBasicMap()" << endl;
 			for (int i = 0; i < parallelLoops->size(); i++) {
 				cout << parallelLoops->at(i) << " ";
 			}
 
 			cout << endl;
-			PrintBasicMap(dep);
+
 		}
 
 		for (int i = 0; i < parallelLoops->size(); i++) {
 			bool dependenceCrossing = IsDependenceProcessorCrossing(parallelLoops->at(i), dep);
 
 			if (DEBUG) {
+				cout << "In RecognizeParallelIterationSpanningDependenceBasicMap()" << endl;
+				PrintBasicMap(dep);
 				cout << "The dependence with respect to the parallel loop " << parallelLoops->at(i);
 
 				if (dependenceCrossing) {
@@ -357,25 +358,42 @@ bool IsDependenceProcessorCrossing(string parallelLoop, isl_basic_map *deps) {
 	bool isDependenceProcessorCrossing = false;
 	DimPositions* dimPositions = FindPositionOfParallelLoop(parallelLoop, deps);
 
-	if (DEBUG) {
-		cout << "In IsDependenceProcessorCrossing()" << endl;
-		cout << "The parallel loop variable " << parallelLoop << " is found at "
-			<< dimPositions->input << " input position and " << dimPositions->output
-			<< " output position" << endl;
-	}
-
 	/*FIXME: The code works for perfectly nested loops only.*/
 	if (dimPositions->input == -1 || dimPositions->output == -1 ||
 		isl_basic_map_dim(deps, isl_dim_in) != isl_basic_map_dim(deps, isl_dim_out)) {
 		isDependenceProcessorCrossing = false;
 	}
 	else {
+		if (DEBUG) {
+			cout << "In IsDependenceProcessorCrossing()" << endl;
+			cout << "The parallel loop variable " << parallelLoop << " is found at "
+				<< dimPositions->input << " input position and " << dimPositions->output
+				<< " output position" << endl;
+		}
+
 		if (AreInequalitiesPresentOuterToParallelLoop(dimPositions, deps, parallelLoop)) {
+			if (DEBUG) {
+				cout << "AreInequalitiesPresentOuterToParallelLoop is TRUE" << endl;
+			}
+
 			isDependenceProcessorCrossing = false;
 		}
 		else {
+			if (DEBUG) {
+				cout << "AreInequalitiesPresentOuterToParallelLoop is FALSE" << endl;
+			}
+
 			if (AreInequalitiesPresentInTheParallelLoop(dimPositions, deps, parallelLoop)) {
+				if (DEBUG) {
+					cout << "AreInequalitiesPresentInTheParallelLoop is TRUE" << endl;
+				}
+
 				isDependenceProcessorCrossing = true;
+			}
+			else {
+				if (DEBUG) {
+					cout << "AreInequalitiesPresentInTheParallelLoop is FALSE" << endl;
+				}
 			}
 		}
 	}
@@ -390,12 +408,13 @@ bool AreInequalitiesPresentOuterToParallelLoop(
 	bool inequalityPresent = false;
 
 	vector<string>* loopVarsOuterToParallelLoop =
-		GetLoopVariables(deps, 0, dimPositions->input + 1, 0, dimPositions->output + 1);
+		GetLoopVariables(deps, 0, dimPositions->input, 0, dimPositions->output);
 
 	if (DEBUG) {
 		cout << "The dependence: " << endl;
 		PrintBasicMap(deps);
-		cout << "The loop variables from 0 -> " << dimPositions->input <<
+		cout << "Loop variables outer to the parallel loop << " << parallelLoop
+			<< " the loop variables from 0 -> " << dimPositions->input <<
 			" and from 0 -> " << dimPositions->output << " are: " << endl;
 		for (int i = 0; i < loopVarsOuterToParallelLoop->size(); i++) {
 			cout << loopVarsOuterToParallelLoop->at(i) << " ";
@@ -423,6 +442,9 @@ bool AreInequalitiesPresentOuterToParallelLoop(
 
 bool DoesLoopVariableOccurInInqualityConstraints(isl_basic_map *deps, const char* loopVar) {
 	bool inequalityPresent = false;
+	bool inequalityPresentInInputDims = false;
+	bool inequalityPresentInOutputDims = false;
+
 	isl_size inputDim = isl_basic_map_dim(deps, isl_dim_in);
 	isl_size outputDim = isl_basic_map_dim(deps, isl_dim_out);
 
@@ -460,7 +482,7 @@ bool DoesLoopVariableOccurInInqualityConstraints(isl_basic_map *deps, const char
 						isl_dim_in, j, 1);
 
 					if (involves) {
-						inequalityPresent = true;
+						inequalityPresentInInputDims = true;
 					}
 
 					if (DEBUG) {
@@ -486,7 +508,7 @@ bool DoesLoopVariableOccurInInqualityConstraints(isl_basic_map *deps, const char
 						isl_dim_out, j, 1);
 
 					if (involves) {
-						inequalityPresent = true;
+						inequalityPresentInOutputDims = true;
 					}
 
 					if (DEBUG) {
@@ -502,8 +524,9 @@ bool DoesLoopVariableOccurInInqualityConstraints(isl_basic_map *deps, const char
 		}
 	}
 
-	if (DEBUG) {
-		cout << "*************************" << endl;
+
+	if (inequalityPresentInInputDims && inequalityPresentInOutputDims) {
+		inequalityPresent = true;
 	}
 
 	return inequalityPresent;
@@ -1591,6 +1614,3 @@ pet_scop* ParseScop(isl_ctx* ctx, const char *fileName) {
 
 	return scop;
 }
-
-
-
