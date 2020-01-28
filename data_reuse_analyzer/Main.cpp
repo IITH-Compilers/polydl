@@ -70,6 +70,7 @@ struct ArgComputeWorkingSetSizesForDependence {
 	vector<WorkingSetSize*>* workingSetSizes;
 	isl_union_map* may_reads;
 	isl_union_map* may_writes;
+	Config* config;
 };
 
 typedef struct ArgComputeWorkingSetSizesForDependence  ArgComputeWorkingSetSizesForDependence;
@@ -90,6 +91,15 @@ struct DimPositions {
 };
 
 typedef struct DimPositions DimPositions;
+
+
+struct ParallelDependenceDetectionData {
+	std::vector<std::string> *parallelLoops;
+	bool parallelDependence;
+	string parallelLoop;
+};
+
+typedef struct ParallelDependenceDetectionData ParallelDependenceDetectionData;
 
 void ComputeDataReuseWorkingSets(UserInput *userInput, Config *config);
 pet_scop* ParseScop(isl_ctx* ctx, const char *fileName);
@@ -278,7 +288,7 @@ vector<WorkingSetSize*>* ComputeWorkingSetSizesForDependences(
 	ComputeDataDependences() function is specifying only may_read,
 	and may_write references */
 
-	RecognizeParallelIterationSpanningDependences(dependenceMap, config);
+	// RecognizeParallelIterationSpanningDependences(dependenceMap, config);
 
 	if (DEBUG) {
 		for (auto i : *dependenceMap) {
@@ -294,6 +304,7 @@ vector<WorkingSetSize*>* ComputeWorkingSetSizesForDependences(
 			sizeof(ArgComputeWorkingSetSizesForDependence));
 	arg->scop = scop;
 	arg->workingSetSizes = workingSetSizes;
+	arg->config = config;
 
 	for (auto i : *dependenceMap) {
 		arg->may_reads = i.second->may_reads;
@@ -307,16 +318,26 @@ vector<WorkingSetSize*>* ComputeWorkingSetSizesForDependences(
 }
 
 isl_stat RecognizeParallelIterationSpanningDependenceMap(isl_map* dep, void *user) {
+	ParallelDependenceDetectionData *parallelDependenceDetectionData
+		= new ParallelDependenceDetectionData;
+	parallelDependenceDetectionData->parallelLoops = (vector<string>*)user;
+
 	isl_map_foreach_basic_map(dep,
 		&RecognizeParallelIterationSpanningDependenceBasicMap,
-		user);
+		parallelDependenceDetectionData);
+
+	delete parallelDependenceDetectionData;
 	return isl_stat_ok;
 }
 
 isl_stat RecognizeParallelIterationSpanningDependenceBasicMap(
 	isl_basic_map* dep,
 	void *user) {
-	vector<string> *parallelLoops = (vector<string>*)user;
+	ParallelDependenceDetectionData *parallelDependenceDetectionData =
+		(ParallelDependenceDetectionData *)user;
+	vector<string> *parallelLoops = parallelDependenceDetectionData->parallelLoops;
+	parallelDependenceDetectionData->parallelDependence = false;
+
 	if (parallelLoops) {
 		if (DEBUG) {
 			for (int i = 0; i < parallelLoops->size(); i++) {
@@ -324,7 +345,6 @@ isl_stat RecognizeParallelIterationSpanningDependenceBasicMap(
 			}
 
 			cout << endl;
-
 		}
 
 		for (int i = 0; i < parallelLoops->size(); i++) {
@@ -343,6 +363,12 @@ isl_stat RecognizeParallelIterationSpanningDependenceBasicMap(
 				}
 
 				cout << endl;
+			}
+
+			if (dependenceCrossing) {
+				parallelDependenceDetectionData->parallelDependence = true;
+				parallelDependenceDetectionData->parallelLoop = parallelLoops->at(i);
+				break;
 			}
 		}
 
@@ -707,6 +733,12 @@ isl_stat ComputeWorkingSetSizesForDependenceBasicMap(isl_basic_map* dep,
 	isl_union_map* may_writes = arg->may_writes;
 	vector<WorkingSetSize*>* workingSetSizes = arg->workingSetSizes;
 
+
+	ParallelDependenceDetectionData *parallelDependenceDetectionData
+		= new ParallelDependenceDetectionData;
+	parallelDependenceDetectionData->parallelLoops = arg->config->parallelLoops;
+	RecognizeParallelIterationSpanningDependenceBasicMap(dep, parallelDependenceDetectionData);
+	delete parallelDependenceDetectionData;
 
 	if (DEBUG) {
 		cout << "Data_dependence: " << endl;
