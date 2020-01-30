@@ -1,4 +1,4 @@
-
+// Sample CNN code
 func @main() {
 
   //Declaraing input/output images and filter for CNN-Convolution
