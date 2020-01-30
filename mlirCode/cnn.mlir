@@ -6,7 +6,6 @@ func @main() {
   %input = alloc() : memref<4x4x4x4xf32>
   %output = alloc() : memref<4x4x4x4xf32>
   %filter = alloc() : memref<4x4x4x4xf32>
-  %filter1 = alloc() : memref<4x4x4xf32>
 
   //Declaraing constants with 0 and 1
   
@@ -25,11 +24,10 @@ func @main() {
 
   // Using Linear algebra Dialect to fill these matrices.
 
-  linalg.fill(%input, %cf2) : memref<4x4x4x4xf32>, f32
+  linalg.fill(%input, %cf1) : memref<4x4x4x4xf32>, f32
   linalg.fill(%output, %cf2) : memref<4x4x4x4xf32>, f32
-  linalg.fill(%filter, %cf2) : memref<4x4x4x4xf32>, f32
-  linalg.fill(%filter1, %cf1) : memref<4x4x4xf32>, f32
-
+  linalg.fill(%filter, %cf1) : memref<4x4x4x4xf32>, f32
+  
   // Applying convolution
 
   affine.for %img = 0 to %nImg {
@@ -54,8 +52,8 @@ func @main() {
       }
     }
   }
-  call @print_memref_3d_f32(%filter1): (memref<4x4x4xf32>) -> ()
+  call @print_memref_4d_f32(%output): (memref<4x4x4x4xf32>) -> ()
 
   return
 }
-func @print_memref_3d_f32(memref<4x4x4xf32>)
+func @print_memref_4d_f32(memref<4x4x4x4xf32>)
