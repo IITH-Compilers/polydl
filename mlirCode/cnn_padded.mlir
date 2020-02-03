@@ -8,7 +8,7 @@
 
 func @cnn(%nImg: index,%nIfm: index,%nOfm: index,%ifhp: index,%ifwp: index,%ofhp: index,%ofwp: index,%ifh: index,%ifw: index,%ofh: index,%ofw: index,%pad_h: index,%pad_w: index,%pad_h_in: index,
   %pad_w_in: index,%pad_h_out: index,%pad_w_out: index,%kh: index,%kw: index,%stride_h: index,%stride_w: index,
-  %input: memref<1x1x56x56x64xf32>, %output: memref<1x4x27x27x64xf32>, %filter: memref<4x1x1x1x64x64xf32>) {
+  %input: memref<?x?x?x?x?xf32>, %output: memref<?x?x?x?x?xf32>, %filter: memref<?x?x?x?x?x?xf32>) {
 
   %GEMM_BLOCK = constant 64 : index
   %STRIDE_H = constant 1 : index
@@ -32,16 +32,14 @@ func @cnn(%nImg: index,%nIfm: index,%nOfm: index,%ifhp: index,%ifwp: index,%ofhp
                     %ij_kj =  affine.apply #map4 (%ij ,%kj)
                     %ii_ki =  affine.apply #map4 (%ii ,%ki) 
 
-                    %temp_input = affine.load %input[%img, %ifm_tile, %ij_kj, %ii_ki,%ifm] : memref<1x1x56x56x64xf32>
-                    %temp_filter = affine.load %filter[%ofm_tile, %ifm_tile, %kj, %ki,%ifm,%ofm] : memref<4x1x1x1x64x64xf32>
-                    %temp_output = affine.load %output[%img, %ofm_tile, %oj, %oi,%ofm] : memref<1x4x27x27x64xf32>
+                    %temp_input = affine.load %input[%img, %ifm_tile, %ij_kj, %ii_ki,%ifm] : memref<?x?x?x?x?xf32>
+                    %temp_filter = affine.load %filter[%ofm_tile, %ifm_tile, %kj, %ki,%ifm,%ofm] : memref<?x?x?x?x?x?xf32>
+                    %temp_output = affine.load %output[%img, %ofm_tile, %oj, %oi,%ofm] : memref<?x?x?x?x?xf32>
                     
                     %temp_mul = mulf %temp_input, %temp_filter : f32
                     %temp_add = addf %temp_output, %temp_mul : f32
 
-                    //call @print_f32(%temp_add): (f32) -> ()
-
-                    affine.store %temp_add, %output[%img, %ofm_tile, %oj, %oi,%ofm] : memref<1x4x27x27x64xf32>
+                    affine.store %temp_add, %output[%img, %ofm_tile, %oj, %oi,%ofm] : memref<?x?x?x?x?xf32>
                   }
                 }
               }
@@ -54,7 +52,6 @@ func @cnn(%nImg: index,%nIfm: index,%nOfm: index,%ifhp: index,%ifwp: index,%ofhp
 
   return
 }
-
 
 func @main() {
 
@@ -85,6 +82,8 @@ func @main() {
   %pad_h_out = constant 0 : index
   %pad_w_out = constant 0 : index
 
+  %GEMM_BLOCK_MAIN = constant 64: index
+  
   %ofh1 = affine.apply #map2 (%ifh ,%pad_h , %kh)
   %ofh = affine.apply #map3 (%ofh1)[%stride_h]
   %ofw1 = affine.apply #map2 (%ifw ,%pad_w , %kw)
@@ -94,38 +93,38 @@ func @main() {
   %ifwp =  affine.apply #map1 (%ifw ,%pad_w_in)
   %ofhp =  affine.apply #map1 (%ofh ,%pad_h_out)
   %ofwp =  affine.apply #map1 (%ofw ,%pad_w_out)
+
   
 
   // Test code to cast index values to integers and back to index.
   // index2index, index2float , float2index are all invalid operations.
 
   //%gagan = index_cast %ofw : index to i32
-  //%temp_add = addf %cf1, %gagan : f32
-  //call @print_f32(%gagan): (f32) -> ()
+
+  // Creating Indices for Input, Output and Filter array.
+  %Ip2 = affine.apply #map3 (%nIfm)[%GEMM_BLOCK_MAIN]
+  %Ip3 = affine.apply #map1 (%ifhp, %pad_h)
+  %Ip4 = affine.apply #map1 (%ifwp ,%pad_w)
+
+  %Op2 = affine.apply #map3 (%nOfm)[%GEMM_BLOCK_MAIN]
 
 
   //Declaraing input/output images and filter for CNN-Convolution
 
-  %input = alloc() : memref<1x1x56x56x64xf32>
-  %output = alloc() : memref<1x4x27x27x64xf32>
-  %filter = alloc() : memref<4x1x1x1x64x64xf32>
-  %filter1 = alloc() : memref<4x4x4xf32>
+  %input = alloc(%nImg,%Ip2,%Ip3,%Ip4,%GEMM_BLOCK_MAIN) : memref<?x?x?x?x?xf32>
+  %output = alloc(%nImg,%Op2,%ofhp,%ofwp,%GEMM_BLOCK_MAIN) : memref<?x?x?x?x?xf32>
+  %filter = alloc(%Op2,%Ip2,%kh,%kw,%GEMM_BLOCK_MAIN,%GEMM_BLOCK_MAIN) : memref<?x?x?x?x?x?xf32>
 
   // Using Linear algebra Dialect to fill these matrices.
 
-  linalg.fill(%input, %cf1) : memref<1x1x56x56x64xf32>, f32
-  linalg.fill(%output, %cf1) : memref<1x4x27x27x64xf32>, f32
-  linalg.fill(%filter, %cf1) : memref<4x1x1x1x64x64xf32>, f32
-  linalg.fill(%filter1, %cf1) : memref<4x4x4xf32>, f32
+  linalg.fill(%input, %cf1) : memref<?x?x?x?x?xf32>, f32
+  linalg.fill(%output, %cf1) : memref<?x?x?x?x?xf32>, f32
+  linalg.fill(%filter, %cf1) : memref<?x?x?x?x?x?xf32>, f32
 
 
   call @cnn(%nImg,%nIfm,%nOfm,%ifhp,%ifwp,%ofhp,%ofwp,%ifh,%ifw,%ofh,%ofw,%pad_h,%pad_w,%pad_h_in,%pad_w_in,%pad_h_out,%pad_w_out,%kh,%kw,%stride_h,%stride_w,
   %input, %output, %filter) : (index,index,index,index,index,index,index,index,index,index,index,index,index,index,index,index,index,index,index,index,index,
-  memref<1x1x56x56x64xf32>, memref<1x4x27x27x64xf32>, memref<4x1x1x1x64x64xf32>) -> ()
-  //call @print_memref_3d_f32(%filter1): (memref<4x4x4xf32>) -> ()
+  memref<?x?x?x?x?xf32>, memref<?x?x?x?x?xf32>, memref<?x?x?x?x?x?xf32>) -> ()
 
   return
 }
-
-func @print_memref_3d_f32(memref<4x4x4xf32>)
-func @print_f32(f32)
