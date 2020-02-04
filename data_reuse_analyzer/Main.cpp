@@ -179,6 +179,13 @@ bool AreInequalitiesPresentInTheParallelLoop(
 	isl_basic_map *deps, string parallelLoop);
 vector<string>* GetLoopVariables(isl_basic_map *deps, int firstIn, int nIn, int firstOut, int nOut);
 bool DoesLoopVariableOccurInInqualityConstraints(isl_basic_map *deps, const char* loopVar);
+int FindThePositionOfTheLoopVariable(isl_basic_set *bset,
+	vector<string> *parallelLoops);
+isl_basic_set* ProjectBSetToLexExtreme(isl_basic_set* sourceDomain,
+	isl_set* sourceDomainLexExtreme, int pos);
+void ComputeWorkingSetSize(isl_basic_set*  min, isl_basic_set* max,
+	isl_union_map* may_reads,
+	isl_union_map* may_writes);
 /* Function header declarations end */
 
 int main(int argc, char **argv) {
@@ -738,58 +745,211 @@ isl_stat ComputeWorkingSetSizesForDependenceBasicMap(isl_basic_map* dep,
 		= new ParallelDependenceDetectionData;
 	parallelDependenceDetectionData->parallelLoops = arg->config->parallelLoops;
 	RecognizeParallelIterationSpanningDependenceBasicMap(dep, parallelDependenceDetectionData);
+
+	if (parallelDependenceDetectionData->parallelDependence == false) {
+		if (DEBUG) {
+			cout << "Data_dependence: " << endl;
+			PrintBasicMap(dep);
+			cout << "May_writes: " << endl;
+			PrintUnionMap(may_writes);
+			cout << "May_reads: " << endl;
+			PrintUnionMap(may_reads);
+		}
+
+		isl_basic_set* sourceDomain = isl_basic_map_domain(
+			isl_basic_map_copy(dep));
+
+		isl_set* source = isl_basic_set_lexmin(
+			isl_basic_set_copy(sourceDomain));
+
+		isl_set* target = isl_set_apply(isl_set_copy(source),
+			isl_map_from_basic_map(dep));
+
+		isl_set* minTarget = isl_set_lexmin(isl_set_copy(target));
+		isl_set* maxTarget = isl_set_lexmax(isl_set_copy(target));
+
+		if (DEBUG) {
+			cout << "Computing minWSSize: " << endl;
+		}
+
+		isl_union_pw_qpolynomial* minWSSize =
+			ComputeDataSetSize(sourceDomain, source, minTarget, may_reads,
+				may_writes);
+
+		if (DEBUG) {
+			cout << "Computing maxWSSize: " << endl;
+		}
+
+		isl_union_pw_qpolynomial* maxWSSize =
+			ComputeDataSetSize(sourceDomain, source, maxTarget, may_reads,
+				may_writes);
+
+		WorkingSetSize* workingSetSize =
+			(WorkingSetSize*)malloc(sizeof(WorkingSetSize));
+		workingSetSize->dependence = dep;
+		workingSetSize->source = source;
+		workingSetSize->target = target;
+		workingSetSize->minTarget = minTarget;
+		workingSetSize->maxTarget = maxTarget;
+		workingSetSize->minSize = minWSSize;
+		workingSetSize->maxSize = maxWSSize;
+		workingSetSizes->push_back(workingSetSize);
+
+		isl_basic_set_free(sourceDomain);
+	}
+	else {
+		// Parallel dependence branch
+		// 1. Project out all dimensions starting from the parallel loop to all outer loops
+		// 2. Compute the data set accessed in one iteration of the parallel loop
+		// 3. Compute the data accessed in all iterations of the parallel loop
+		//    3.a) Compute the data accessed in the lexmin, and lexmax
+		//    3.b) Estimate the data accessed in all the iterations of the loop
+
+		isl_basic_set* sourceDomain = isl_basic_map_domain(
+			isl_basic_map_copy(dep));
+
+		int pos = FindThePositionOfTheLoopVariable(sourceDomain,
+			parallelDependenceDetectionData->parallelLoops);
+
+		if (DEBUG) {
+			cout << "Data_dependence: " << endl;
+			PrintBasicMap(dep);
+			cout << "position of the parallel loop: " << pos << endl;
+			cout << "sourceDomain:" << endl;
+			PrintBasicSet(sourceDomain);
+		}
+
+		isl_set* sourceDomainLexmin = isl_basic_set_lexmin(isl_basic_set_copy(sourceDomain));
+		isl_basic_set* sourceDomainProjectedMin = ProjectBSetToLexExtreme(sourceDomain,
+			sourceDomainLexmin, pos);
+
+		isl_set* sourceDomainLexmax = isl_basic_set_lexmax(isl_basic_set_copy(sourceDomain));
+		isl_basic_set* sourceDomainProjectedMax = ProjectBSetToLexExtreme(sourceDomain,
+			sourceDomainLexmax, pos);
+
+		ComputeWorkingSetSize(sourceDomainProjectedMin, sourceDomainProjectedMax,
+			may_reads, may_writes);
+
+		isl_basic_set_free(sourceDomain);
+		isl_set_free(sourceDomainLexmin);
+		isl_basic_set_free(sourceDomainProjectedMin);
+		isl_set_free(sourceDomainLexmax);
+		isl_basic_set_free(sourceDomainProjectedMax);
+	}
+
+
 	delete parallelDependenceDetectionData;
-
-	if (DEBUG) {
-		cout << "Data_dependence: " << endl;
-		PrintBasicMap(dep);
-		cout << "May_writes: " << endl;
-		PrintUnionMap(may_writes);
-		cout << "May_reads: " << endl;
-		PrintUnionMap(may_reads);
-	}
-
-	isl_basic_set* sourceDomain = isl_basic_map_domain(
-		isl_basic_map_copy(dep));
-
-	isl_set* source = isl_basic_set_lexmin(
-		isl_basic_set_copy(sourceDomain));
-
-	isl_set* target = isl_set_apply(isl_set_copy(source),
-		isl_map_from_basic_map(dep));
-
-	isl_set* minTarget = isl_set_lexmin(isl_set_copy(target));
-	isl_set* maxTarget = isl_set_lexmax(isl_set_copy(target));
-
-	if (DEBUG) {
-		cout << "Computing minWSSize: " << endl;
-	}
-
-	isl_union_pw_qpolynomial* minWSSize =
-		ComputeDataSetSize(sourceDomain, source, minTarget, may_reads,
-			may_writes);
-
-	if (DEBUG) {
-		cout << "Computing maxWSSize: " << endl;
-	}
-
-	isl_union_pw_qpolynomial* maxWSSize =
-		ComputeDataSetSize(sourceDomain, source, maxTarget, may_reads,
-			may_writes);
-
-	WorkingSetSize* workingSetSize =
-		(WorkingSetSize*)malloc(sizeof(WorkingSetSize));
-	workingSetSize->dependence = dep;
-	workingSetSize->source = source;
-	workingSetSize->target = target;
-	workingSetSize->minTarget = minTarget;
-	workingSetSize->maxTarget = maxTarget;
-	workingSetSize->minSize = minWSSize;
-	workingSetSize->maxSize = maxWSSize;
-	workingSetSizes->push_back(workingSetSize);
-
-	isl_basic_set_free(sourceDomain);
 	return isl_stat_ok;
+}
+
+void ComputeWorkingSetSize(isl_basic_set*  min, isl_basic_set* max,
+	isl_union_map* may_reads,
+	isl_union_map* may_writes) {
+
+	isl_union_set* writeSetMin =
+		isl_union_set_apply(isl_union_set_from_basic_set(isl_basic_set_copy(min)),
+			isl_union_map_copy(may_writes));
+
+	isl_union_set* readSetMin =
+		isl_union_set_apply(isl_union_set_from_basic_set(isl_basic_set_copy(min)),
+			isl_union_map_copy(may_reads));
+
+	isl_union_set* dataSetMin = isl_union_set_union(writeSetMin, readSetMin);
+	isl_union_pw_qpolynomial *dataSetMinCard = isl_union_set_card(dataSetMin);
+
+	isl_union_set* writeSetMax =
+		isl_union_set_apply(isl_union_set_from_basic_set(isl_basic_set_copy(max)),
+			isl_union_map_copy(may_writes));
+
+	isl_union_set* readSetMax =
+		isl_union_set_apply(isl_union_set_from_basic_set(isl_basic_set_copy(max)),
+			isl_union_map_copy(may_reads));
+
+	isl_union_set* dataSetMax = isl_union_set_union(writeSetMax, readSetMax);
+	isl_union_pw_qpolynomial *dataSetMaxCard = isl_union_set_card(dataSetMax);
+
+	if (DEBUG) {
+		cout << "dataSetMin: " << endl;
+		PrintUnionPwQpolynomial(dataSetMinCard);
+
+		cout << "dataSetMax: " << endl;
+		PrintUnionPwQpolynomial(dataSetMaxCard);
+	}
+
+	isl_union_pw_qpolynomial_free(dataSetMinCard);
+	isl_union_pw_qpolynomial_free(dataSetMaxCard);
+}
+
+isl_basic_set* ProjectBSetToLexExtreme(isl_basic_set* sourceDomain,
+	isl_set* sourceDomainLexExtreme, int pos)
+{
+	isl_basic_set* sourceDomainProjected = isl_basic_set_copy(sourceDomain);
+	isl_basic_set_list *bsetList = isl_set_get_basic_set_list(sourceDomainLexExtreme);
+	isl_size basetListSize = isl_basic_set_list_size(bsetList);
+
+	if (DEBUG) {
+		cout << "sourceDomain:" << endl;
+		PrintBasicSet(sourceDomain);
+
+		cout << "sourceDomainLexExtreme: " << endl;
+		PrintSet(sourceDomainLexExtreme);
+	}
+
+	for (int k = 0; k < basetListSize; k++) {
+		isl_basic_set* bset = isl_basic_set_list_get_at(bsetList, k);
+
+		isl_constraint_list *constraints =
+			isl_basic_set_get_constraint_list(bset);
+		isl_size constraintSize = isl_constraint_list_size(constraints);
+
+		for (int i = 0; i < constraintSize; i++) {
+			isl_constraint* constraint = isl_constraint_list_get_at(constraints, i);
+
+			for (int j = 0; j <= pos; j++) {
+				if (isl_constraint_involves_dims(constraint, isl_dim_set, j, 1)) {
+					if (DEBUG) {
+						cout << "Constraint that involves the outer loop dim: " << endl;
+						PrintConstraint(constraint);
+					}
+
+					sourceDomainProjected = isl_basic_set_add_constraint(
+						sourceDomainProjected, isl_constraint_copy(constraint));
+				}
+			}
+
+			isl_constraint_free(constraint);
+		}
+
+		isl_basic_set_free(bset);
+	}
+
+
+	if (DEBUG) {
+		cout << "sourceDomainProjected: " << endl;
+		PrintBasicSet(sourceDomainProjected);
+	}
+
+	return sourceDomainProjected;
+}
+
+
+int FindThePositionOfTheLoopVariable(isl_basic_set *bset,
+	vector<string> *parallelLoops) {
+	isl_size dimSize = isl_basic_set_dim(bset, isl_dim_set);
+
+	for (int j = 0; j < dimSize; j++) {
+		const char *name = isl_basic_set_get_dim_name(bset, isl_dim_set, j);
+
+		vector<string>::iterator it;
+		string nameStr(name);
+		it = find(parallelLoops->begin(), parallelLoops->end(), nameStr);
+
+		if (it != parallelLoops->end()) {
+			return j;
+		}
+	}
+
+	return -1;
 }
 
 isl_union_pw_qpolynomial* ComputeDataSetSize(isl_basic_set* sourceDomain,
