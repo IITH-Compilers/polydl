@@ -102,6 +102,7 @@ func @main() {
 
   //Declaraing constants with 0 and 1
   
+  %cf0 = constant 0.00000e+00 : f32
   %cf1 = constant 1.00000e+00 : f32
 
   //Declaraing index variables
@@ -159,9 +160,62 @@ func @main() {
 
   // Using Linear algebra Dialect to fill these matrices.
 
-  linalg.fill(%input, %cf1) : memref<?x?x?x?x?xf32>, f32
-  linalg.fill(%output, %cf1) : memref<?x?x?x?x?xf32>, f32
-  linalg.fill(%filter, %cf1) : memref<?x?x?x?x?x?xf32>, f32
+  //linalg.fill(%input, %cf1) : memref<?x?x?x?x?xf32>, f32
+  linalg.fill(%output, %cf0) : memref<?x?x?x?x?xf32>, f32
+  //linalg.fill(%filter, %cf1) : memref<?x?x?x?x?x?xf32>, f32
+
+
+  // Instead of filling the whole with one constant we are filling it with the sequence of natural numbers.
+
+  %c0 = constant 0 : index
+  %c1 = constant 1 : index
+  
+  %f1 = alloc(%c1) : memref<?xf32>
+  affine.store %cf1, %f1[%c0] : memref<?xf32>
+
+  //Filling Input array
+  loop.for %arg0 = %c0 to %nImg step %c1 {
+    loop.for %arg1 = %c0 to %Ip2 step %c1 {
+      loop.for %arg2 = %c0 to %Ip3 step %c1 {
+        loop.for %arg3 = %c0 to %Ip4 step %c1 {
+            %temp_input = affine.load %f1[%c0] : memref<?xf32>
+            %temp_input1 = addf %temp_input ,%cf1 : f32
+          loop.for %arg4 = %c0 to %GEMM_BLOCK_MAIN step %c1 {
+
+
+            store %temp_input, %input[%arg0, %arg1,%arg2, %arg3,%arg4] : memref<?x?x?x?x?xf32>
+          }
+            affine.store %temp_input1, %f1[%c0] : memref<?xf32>
+        }
+      }
+      affine.store %cf1, %f1[%c0] : memref<?xf32>
+    }
+  }
+
+ //Filling Filter array.
+  affine.store %cf1, %f1[%c0] : memref<?xf32>
+  loop.for %arg0 = %c0 to %Op2 step %c1 {
+    loop.for %arg1 = %c0 to %Ip2 step %c1 {
+      loop.for %arg2 = %c0 to %kh step %c1 {
+        loop.for %arg3 = %c0 to %kw step %c1 {
+          loop.for %arg4 = %c0 to %GEMM_BLOCK_MAIN step %c1 {
+            %temp_input = affine.load %f1[%c0] : memref<?xf32>
+            %temp_input1 = addf %temp_input ,%cf1 : f32
+            loop.for %arg5 = %c0 to %GEMM_BLOCK_MAIN step %c1 {
+
+
+              store %temp_input, %filter[%arg0, %arg1,%arg2, %arg3,%arg4,%arg5] : memref<?x?x?x?x?x?xf32>
+            }
+              affine.store %temp_input1, %f1[%c0] : memref<?xf32>
+          }
+        }
+        affine.store %cf1, %f1[%c0] : memref<?xf32>
+      }
+    }
+  }
+
+
+
 
   // Applying Convolution Function.
   call @cnn(%nImg,%nIfm,%nOfm,%ifhp,%ifwp,%ofhp,%ofwp,%ifh,%ifw,%ofh,%ofw,%pad_h,%pad_w,%pad_h_in,%pad_w_in,%pad_h_out,%pad_w_out,%kh,%kw,%stride_h,%stride_w,
