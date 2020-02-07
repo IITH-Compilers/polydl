@@ -185,7 +185,13 @@ isl_basic_set* ProjectBSetToLexExtreme(isl_basic_set* sourceDomain,
 	isl_set* sourceDomainLexExtreme, int pos);
 void ComputeWorkingSetSize(isl_basic_set*  min, isl_basic_set* max,
 	isl_union_map* may_reads,
-	isl_union_map* may_writes);
+	isl_union_map* may_writes, Config* config, isl_basic_set* domain, int pos);
+isl_union_set* SimplifyUnionSet(isl_union_set* set,
+	unordered_map<string, int>* paramValues);
+long ComputeNumberOfItersInParallelLoop(isl_basic_set* bset, int pos,
+	unordered_map<string, int>* paramValues);
+isl_basic_set* SimplifyBasicSet(isl_basic_set* bset,
+	unordered_map<string, int>* paramValues);
 /* Function header declarations end */
 
 int main(int argc, char **argv) {
@@ -483,7 +489,7 @@ bool DoesLoopVariableOccurInInqualityConstraints(isl_basic_map *deps, const char
 
 	if (DEBUG) {
 		cout << "inputDim: " << inputDim << endl;
-		cout << "inputDim: " << outputDim << endl;
+		cout << "outputDim: " << outputDim << endl;
 	}
 
 	isl_constraint_list *constraints =
@@ -504,11 +510,12 @@ bool DoesLoopVariableOccurInInqualityConstraints(isl_basic_map *deps, const char
 
 		if (!isl_constraint_is_equality(constraint)) {
 			for (int j = 0; j < inputDim; j++) {
+				const char *name = isl_basic_map_get_dim_name(deps, isl_dim_in, j);
+
 				if (DEBUG) {
-					cout << "Checking for variable at position: " << j << endl;
+					cout << "Checking for variable at position: " << j << " " << name << endl;
 				}
 
-				const char *name = isl_basic_map_get_dim_name(deps, isl_dim_in, j);
 				if (strcmp(name, loopVar) == 0) {
 					isl_bool involves = isl_constraint_involves_dims(
 						constraint,
@@ -520,21 +527,22 @@ bool DoesLoopVariableOccurInInqualityConstraints(isl_basic_map *deps, const char
 
 					if (DEBUG) {
 						if (involves) {
-							cout << "Input " << name << " IS involved in the constraint" << endl;
+							cout << "Input " << name << " IS involved in the constraint in the input dims" << endl;
 						}
 						else {
-							cout << "Input " << name << " is NOT involved in the constraint" << endl;
+							cout << "Input " << name << " is NOT involved in the constraint in the input dims" << endl;
 						}
 					}
 				}
 			}
 
 			for (int j = 0; j < outputDim; j++) {
+				const char *name = isl_basic_map_get_dim_name(deps, isl_dim_out, j);
+
 				if (DEBUG) {
-					cout << "Checking for variable at position: " << j << endl;
+					cout << "Checking for variable at position: " << j << " " << name << endl;
 				}
 
-				const char *name = isl_basic_map_get_dim_name(deps, isl_dim_out, j);
 				if (strcmp(name, loopVar) == 0) {
 					isl_bool involves = isl_constraint_involves_dims(
 						constraint,
@@ -546,10 +554,10 @@ bool DoesLoopVariableOccurInInqualityConstraints(isl_basic_map *deps, const char
 
 					if (DEBUG) {
 						if (involves) {
-							cout << "Input " << name << " IS involved in the constraint" << endl;
+							cout << "Input " << name << " IS involved in the constraint in the output dims" << endl;
 						}
 						else {
-							cout << "Input " << name << " is NOT involved in the constraint" << endl;
+							cout << "Input " << name << " is NOT involved in the constraint in the output dims" << endl;
 						}
 					}
 				}
@@ -570,7 +578,6 @@ vector<string>* GetLoopVariables(isl_basic_map *deps, int firstIn, int nIn, int 
 
 	isl_size inputDim = isl_basic_map_dim(deps, isl_dim_in);
 	isl_size outputDim = isl_basic_map_dim(deps, isl_dim_out);
-
 
 	for (int i = firstIn; i < firstIn + nIn; i++) {
 		const char *name = isl_basic_map_get_dim_name(deps, isl_dim_in, i);
@@ -732,14 +739,13 @@ isl_stat ComputeWorkingSetSizesForDependence(isl_map* dep, void *user) {
 
 isl_stat ComputeWorkingSetSizesForDependenceBasicMap(isl_basic_map* dep,
 	void *user) {
-
 	ArgComputeWorkingSetSizesForDependence* arg =
 		(ArgComputeWorkingSetSizesForDependence*)user;
 	pet_scop *scop = arg->scop;
 	isl_union_map* may_reads = arg->may_reads;
 	isl_union_map* may_writes = arg->may_writes;
+	Config* config = arg->config;
 	vector<WorkingSetSize*>* workingSetSizes = arg->workingSetSizes;
-
 
 	ParallelDependenceDetectionData *parallelDependenceDetectionData
 		= new ParallelDependenceDetectionData;
@@ -828,7 +834,7 @@ isl_stat ComputeWorkingSetSizesForDependenceBasicMap(isl_basic_map* dep,
 			sourceDomainLexmax, pos);
 
 		ComputeWorkingSetSize(sourceDomainProjectedMin, sourceDomainProjectedMax,
-			may_reads, may_writes);
+			may_reads, may_writes, config, sourceDomain, pos);
 
 		isl_basic_set_free(sourceDomain);
 		isl_set_free(sourceDomainLexmin);
@@ -837,14 +843,72 @@ isl_stat ComputeWorkingSetSizesForDependenceBasicMap(isl_basic_map* dep,
 		isl_basic_set_free(sourceDomainProjectedMax);
 	}
 
-
 	delete parallelDependenceDetectionData;
 	return isl_stat_ok;
 }
 
+long ComputeNumberOfItersInParallelLoop(isl_basic_set* bset, int pos,
+	unordered_map<string, int>* paramValues) {
+	// Project out the dimensions up to pos
+	isl_basic_set* bsetProjected = isl_basic_set_copy(bset);
+	isl_size dimSize = isl_basic_set_dim(bsetProjected, isl_dim_set);
+	if (DEBUG) {
+		cout << "pos: " << pos << " dimSize: " << dimSize << endl;
+		cout << "bsetProjectedBefore: " << endl;
+		PrintBasicSet(bsetProjected);
+	}
+
+	if (pos > 0) {
+		bsetProjected = isl_basic_set_project_out(bsetProjected, isl_dim_set, 0, pos);
+	}
+
+	if (DEBUG) {
+		cout << "bsetProjected after outer indexes are projected: " << endl;
+		PrintBasicSet(bsetProjected);
+	}
+
+	if (pos < (dimSize - 1)) {
+		int numDimsToEliminate = (dimSize - 1) - pos;
+		if (DEBUG) {
+			cout << "numDimsToEliminate: " << numDimsToEliminate << endl;
+		}
+
+		// Since the outer dimensions have been eliminated already, the index of the parallel
+		// dimension must be 0. Thus, starting index 1 must be other inner sequential loops.
+		bsetProjected = isl_basic_set_project_out(bsetProjected,
+			isl_dim_set, 1, numDimsToEliminate);
+	}
+
+	if (DEBUG) {
+		cout << "bsetProjected after inner indexes are projected: " << endl;
+		PrintBasicSet(bsetProjected);
+	}
+
+	isl_basic_set* bsetProjectedSimplified = SimplifyBasicSet(bsetProjected, paramValues);
+
+	if (DEBUG) {
+		cout << "bsetProjectedSimplified: " << endl;
+		PrintBasicSet(bsetProjectedSimplified);
+	}
+
+	isl_union_pw_qpolynomial* bsetProjectedSimplifiedCard =
+		isl_union_set_card(isl_union_set_from_basic_set(bsetProjectedSimplified));
+
+	long numIters = ExtractIntegerFromUnionPwQpolynomial(bsetProjectedSimplifiedCard);
+	isl_union_pw_qpolynomial_free(bsetProjectedSimplifiedCard);
+	isl_basic_set_free(bsetProjected);
+	return numIters;
+}
+
 void ComputeWorkingSetSize(isl_basic_set*  min, isl_basic_set* max,
 	isl_union_map* may_reads,
-	isl_union_map* may_writes) {
+	isl_union_map* may_writes, Config* config, isl_basic_set* domain, int pos) {
+
+	if (config == NULL || config->programParameterVector == NULL ||
+		config->programParameterVector->size() != 1) {
+		cout << "The number of sets of parameters required is 1" << endl;
+		exit(1);
+	}
 
 	isl_union_set* writeSetMin =
 		isl_union_set_apply(isl_union_set_from_basic_set(isl_basic_set_copy(min)),
@@ -854,8 +918,9 @@ void ComputeWorkingSetSize(isl_basic_set*  min, isl_basic_set* max,
 		isl_union_set_apply(isl_union_set_from_basic_set(isl_basic_set_copy(min)),
 			isl_union_map_copy(may_reads));
 
-	isl_union_set* dataSetMin = isl_union_set_union(writeSetMin, readSetMin);
-	isl_union_pw_qpolynomial *dataSetMinCard = isl_union_set_card(dataSetMin);
+	isl_union_set* dataSetMinOrig = isl_union_set_union(writeSetMin, readSetMin);
+	isl_union_set* dataSetMin = SimplifyUnionSet(dataSetMinOrig, config->programParameterVector->at(0));
+	isl_union_pw_qpolynomial *dataSetMinCard = isl_union_set_card(isl_union_set_copy(dataSetMin));
 
 	isl_union_set* writeSetMax =
 		isl_union_set_apply(isl_union_set_from_basic_set(isl_basic_set_copy(max)),
@@ -865,19 +930,60 @@ void ComputeWorkingSetSize(isl_basic_set*  min, isl_basic_set* max,
 		isl_union_set_apply(isl_union_set_from_basic_set(isl_basic_set_copy(max)),
 			isl_union_map_copy(may_reads));
 
-	isl_union_set* dataSetMax = isl_union_set_union(writeSetMax, readSetMax);
-	isl_union_pw_qpolynomial *dataSetMaxCard = isl_union_set_card(dataSetMax);
+	isl_union_set* dataSetMaxOrig = isl_union_set_union(writeSetMax, readSetMax);
+	isl_union_set* dataSetMax = SimplifyUnionSet(dataSetMaxOrig, config->programParameterVector->at(0));
+	isl_union_pw_qpolynomial *dataSetMaxCard = isl_union_set_card(isl_union_set_copy(dataSetMax));
+
+	isl_union_set* dataSetCommon = isl_union_set_intersect(isl_union_set_copy(dataSetMin),
+		isl_union_set_copy(dataSetMax));
+	isl_union_pw_qpolynomial *dataSetCommonCard = isl_union_set_card(isl_union_set_copy(dataSetCommon));
+
+	isl_union_set* dataSetUnion = isl_union_set_union(isl_union_set_copy(dataSetMin),
+		isl_union_set_copy(dataSetMax));
+	isl_union_pw_qpolynomial *dataSetUnionCard = isl_union_set_card(isl_union_set_copy(dataSetUnion));
+
+	// Compute the number of iterations
+	int numParallelIters = ComputeNumberOfItersInParallelLoop(domain, pos,
+		config->programParameterVector->at(0));
 
 	if (DEBUG) {
 		cout << "dataSetMin: " << endl;
+		PrintUnionSet(dataSetMin);
+		cout << "dataSetMinCard: " << endl;
 		PrintUnionPwQpolynomial(dataSetMinCard);
 
 		cout << "dataSetMax: " << endl;
+		PrintUnionSet(dataSetMax);
+		cout << "dataSetMaxCard: " << endl;
 		PrintUnionPwQpolynomial(dataSetMaxCard);
+
+		cout << "dataSetCommon: " << endl;
+		PrintUnionSet(dataSetMax);
+		cout << "dataSetCommonCard: " << endl;
+		PrintUnionPwQpolynomial(dataSetCommonCard);
+
+		cout << "dataSetUnion: " << endl;
+		PrintUnionSet(dataSetUnion);
+		cout << "dataSetUnionCard: " << endl;
+		PrintUnionPwQpolynomial(dataSetUnionCard);
+
+		cout << "Domain: " << endl;
+		PrintBasicSet(domain);
+
+		cout << "numParallelIters: " << numParallelIters << endl;
 	}
+
+	isl_union_set_free(dataSetMinOrig);
+	isl_union_set_free(dataSetMaxOrig);
+	isl_union_set_free(dataSetMin);
+	isl_union_set_free(dataSetMax);
+	isl_union_set_free(dataSetCommon);
+	isl_union_set_free(dataSetUnion);
 
 	isl_union_pw_qpolynomial_free(dataSetMinCard);
 	isl_union_pw_qpolynomial_free(dataSetMaxCard);
+	isl_union_pw_qpolynomial_free(dataSetCommonCard);
+	isl_union_pw_qpolynomial_free(dataSetUnionCard);
 }
 
 isl_basic_set* ProjectBSetToLexExtreme(isl_basic_set* sourceDomain,
@@ -1506,6 +1612,35 @@ isl_union_map* SimplifyUnionMap(isl_union_map* map,
 	return isl_union_map_gist_params(isl_union_map_copy(map), context);
 }
 
+isl_union_set* SimplifyUnionSet(isl_union_set* set,
+	unordered_map<string, int>* paramValues) {
+	isl_set* context = ConstructContextEquatingParametersToConstants(
+		isl_union_set_get_space(set), paramValues);
+	return isl_union_set_gist_params(isl_union_set_copy(set), context);
+}
+
+isl_basic_set* SimplifyBasicSet(isl_basic_set* bset,
+	unordered_map<string, int>* paramValues) {
+	isl_set* context = ConstructContextEquatingParametersToConstants(
+		isl_basic_set_get_space(bset), paramValues);
+	isl_set* setGist = isl_set_gist_params(
+		isl_set_from_basic_set(isl_basic_set_copy(bset)), context);
+
+	isl_basic_set_list *bsetList = isl_set_get_basic_set_list(setGist);
+	isl_size bsetListSize = isl_basic_set_list_size(bsetList);
+	if (bsetListSize != 1) {
+		cout << "In SimplifyBasicSet(). The following set has more than one basic sets. Expected was 1. Quitting"
+			<< endl;
+		PrintSet(setGist);
+		exit(1);
+	}
+
+	isl_basic_set* bsetGist = isl_basic_set_list_get_at(bsetList, 0);
+	isl_set_free(setGist);
+	isl_basic_set_list_free(bsetList);
+	return bsetGist;
+}
+
 string SimplifyUnionPwQpolynomial(isl_union_pw_qpolynomial* size,
 	unordered_map<string, int>* paramValues) {
 	isl_set* context = ConstructContextEquatingParametersToConstants(
@@ -1688,6 +1823,10 @@ unordered_map<int, ArrayDataAccesses*>* ComputeDataDependences(
 		/* Since there is only one set of parameters, we will simplify the read and write relations by
 		converting the parametric relations
 		to concrete ones*/
+		if (DEBUG) {
+			cout << "Simplifying_dependences in ComputeDataDependences" << endl;
+		}
+
 		all_may_reads = SimplifyUnionMap(all_may_reads, config->programParameterVector->at(0));
 		all_may_writes = SimplifyUnionMap(all_may_writes, config->programParameterVector->at(0));
 	}
