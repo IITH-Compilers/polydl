@@ -943,8 +943,25 @@ void ComputeWorkingSetSize(isl_basic_set*  min, isl_basic_set* max,
 	isl_union_pw_qpolynomial *dataSetUnionCard = isl_union_set_card(isl_union_set_copy(dataSetUnion));
 
 	// Compute the number of iterations
-	int numParallelIters = ComputeNumberOfItersInParallelLoop(domain, pos,
+	long numParallelIters = ComputeNumberOfItersInParallelLoop(domain, pos,
 		config->programParameterVector->at(0));
+	long dataSetUnionCardInt = ExtractIntegerFromUnionPwQpolynomial(dataSetUnionCard);
+	long dataSetCommonCardInt = ExtractIntegerFromUnionPwQpolynomial(dataSetCommonCard);
+
+	if (dataSetUnionCardInt < 0) {
+		dataSetUnionCardInt = 0;
+	}
+
+	if (dataSetCommonCardInt < 0) {
+		dataSetCommonCardInt = 0;
+	}
+
+	if (numParallelIters <= 0) {
+		cout << "numParallelIters is 0. Quitting" << endl;
+		exit(1);
+	}
+
+	long WSSize = (dataSetUnionCardInt - dataSetCommonCardInt) * numParallelIters + dataSetCommonCardInt;
 
 	if (DEBUG) {
 		cout << "dataSetMin: " << endl;
@@ -971,6 +988,9 @@ void ComputeWorkingSetSize(isl_basic_set*  min, isl_basic_set* max,
 		PrintBasicSet(domain);
 
 		cout << "numParallelIters: " << numParallelIters << endl;
+		cout << "dataSetUnionCardInt: " << dataSetUnionCardInt << endl;
+		cout << "dataSetCommonCardInt: " << dataSetCommonCardInt << endl;
+		cout << "WSSize: " << WSSize << endl;
 	}
 
 	isl_union_set_free(dataSetMinOrig);
