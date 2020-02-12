@@ -30,6 +30,8 @@ struct WorkingSetSize {
 	isl_set *maxTarget;
 	isl_union_pw_qpolynomial* minSize;
 	isl_union_pw_qpolynomial* maxSize;
+	bool parallelLoop;
+	long size;
 };
 
 typedef struct WorkingSetSize WorkingSetSize;
@@ -55,6 +57,7 @@ typedef struct ProgramCharacteristics ProgramCharacteristics;
 struct MinMaxTuple {
 	long min;
 	long max;
+	bool isParallelLoopEncountered;
 };
 
 typedef struct MinMaxTuple MinMaxTuple;
@@ -125,7 +128,7 @@ isl_union_map* ComputeDataDependences(isl_union_map *source,
 void OrchestrateDataReuseComputation(int argc, char **argv);
 string ExtractFileName(string fileName);
 bool AddToVectorIfUniqueDependence(vector<MinMaxTuple*> *minMaxTupleVector,
-	long min, long max);
+	long min, long max, bool isParallelLoopEncountered);
 void FreeMinMaxTupleVector(vector<MinMaxTuple*> *minMaxTupleVector);
 long ConvertStringToLong(string sizeStr);
 isl_set* ConstructContextEquatingParametersToConstants(
@@ -133,8 +136,10 @@ isl_set* ConstructContextEquatingParametersToConstants(
 isl_union_map* SimplifyUnionMap(isl_union_map* map,
 	unordered_map<string, int>* paramValues);
 void UpdatePessimisticProgramCharacteristics(long minSize, long maxSize,
+	bool isParallelLoopEncountered,
+	bool doesParallelLoopExist,
 	SystemConfig* systemConfig,
-	ProgramCharacteristics* programChar);
+	ProgramCharacteristics* programChar, int numProcs);
 bool compareByMinMaxSize(const MinMaxTuple* a, const MinMaxTuple* b);
 vector<WorkingSetSize*>* ComputeWorkingSetSizesForDependences(
 	UserInput *userInput,
@@ -183,7 +188,7 @@ int FindThePositionOfTheLoopVariable(isl_basic_set *bset,
 	vector<string> *parallelLoops);
 isl_basic_set* ProjectBSetToLexExtreme(isl_basic_set* sourceDomain,
 	isl_set* sourceDomainLexExtreme, int pos);
-void ComputeWorkingSetSize(isl_basic_set*  min, isl_basic_set* max,
+long ComputeWorkingSetSize(isl_basic_set*  min, isl_basic_set* max,
 	isl_union_map* may_reads,
 	isl_union_map* may_writes, Config* config, isl_basic_set* domain, int pos);
 isl_union_set* SimplifyUnionSet(isl_union_set* set,
@@ -300,8 +305,6 @@ vector<WorkingSetSize*>* ComputeWorkingSetSizesForDependences(
 	/* Here we assume that only may_dependences will be present because
 	ComputeDataDependences() function is specifying only may_read,
 	and may_write references */
-
-	// RecognizeParallelIterationSpanningDependences(dependenceMap, config);
 
 	if (DEBUG) {
 		for (auto i : *dependenceMap) {
@@ -751,6 +754,9 @@ isl_stat ComputeWorkingSetSizesForDependenceBasicMap(isl_basic_map* dep,
 		= new ParallelDependenceDetectionData;
 	parallelDependenceDetectionData->parallelLoops = arg->config->parallelLoops;
 	RecognizeParallelIterationSpanningDependenceBasicMap(dep, parallelDependenceDetectionData);
+	WorkingSetSize* workingSetSize =
+		(WorkingSetSize*)malloc(sizeof(WorkingSetSize));
+	workingSetSize->dependence = dep;
 
 	if (parallelDependenceDetectionData->parallelDependence == false) {
 		if (DEBUG) {
@@ -790,17 +796,14 @@ isl_stat ComputeWorkingSetSizesForDependenceBasicMap(isl_basic_map* dep,
 			ComputeDataSetSize(sourceDomain, source, maxTarget, may_reads,
 				may_writes);
 
-		WorkingSetSize* workingSetSize =
-			(WorkingSetSize*)malloc(sizeof(WorkingSetSize));
-		workingSetSize->dependence = dep;
 		workingSetSize->source = source;
 		workingSetSize->target = target;
 		workingSetSize->minTarget = minTarget;
 		workingSetSize->maxTarget = maxTarget;
 		workingSetSize->minSize = minWSSize;
 		workingSetSize->maxSize = maxWSSize;
-		workingSetSizes->push_back(workingSetSize);
-
+		workingSetSize->parallelLoop = false;
+		workingSetSize->size = 0;
 		isl_basic_set_free(sourceDomain);
 	}
 	else {
@@ -833,7 +836,7 @@ isl_stat ComputeWorkingSetSizesForDependenceBasicMap(isl_basic_map* dep,
 		isl_basic_set* sourceDomainProjectedMax = ProjectBSetToLexExtreme(sourceDomain,
 			sourceDomainLexmax, pos);
 
-		ComputeWorkingSetSize(sourceDomainProjectedMin, sourceDomainProjectedMax,
+		long wsSize = ComputeWorkingSetSize(sourceDomainProjectedMin, sourceDomainProjectedMax,
 			may_reads, may_writes, config, sourceDomain, pos);
 
 		isl_basic_set_free(sourceDomain);
@@ -841,9 +844,19 @@ isl_stat ComputeWorkingSetSizesForDependenceBasicMap(isl_basic_map* dep,
 		isl_basic_set_free(sourceDomainProjectedMin);
 		isl_set_free(sourceDomainLexmax);
 		isl_basic_set_free(sourceDomainProjectedMax);
+
+		workingSetSize->source = NULL;
+		workingSetSize->target = NULL;
+		workingSetSize->minTarget = NULL;
+		workingSetSize->maxTarget = NULL;
+		workingSetSize->minSize = NULL;
+		workingSetSize->maxSize = NULL;
+		workingSetSize->parallelLoop = true;
+		workingSetSize->size = wsSize;
 	}
 
 	delete parallelDependenceDetectionData;
+	workingSetSizes->push_back(workingSetSize);
 	return isl_stat_ok;
 }
 
@@ -900,7 +913,7 @@ long ComputeNumberOfItersInParallelLoop(isl_basic_set* bset, int pos,
 	return numIters;
 }
 
-void ComputeWorkingSetSize(isl_basic_set*  min, isl_basic_set* max,
+long ComputeWorkingSetSize(isl_basic_set*  min, isl_basic_set* max,
 	isl_union_map* may_reads,
 	isl_union_map* may_writes, Config* config, isl_basic_set* domain, int pos) {
 
@@ -1004,6 +1017,7 @@ void ComputeWorkingSetSize(isl_basic_set*  min, isl_basic_set* max,
 	isl_union_pw_qpolynomial_free(dataSetMaxCard);
 	isl_union_pw_qpolynomial_free(dataSetCommonCard);
 	isl_union_pw_qpolynomial_free(dataSetUnionCard);
+	return WSSize;
 }
 
 isl_basic_set* ProjectBSetToLexExtreme(isl_basic_set* sourceDomain,
@@ -1175,7 +1189,6 @@ void SimplifyWorkingSetSizes(vector<WorkingSetSize*>* workingSetSizes,
 
 	ProgramCharacteristics* programChar = new ProgramCharacteristics;
 	vector<MinMaxTuple*> *minMaxTupleVector = new vector<MinMaxTuple*>();
-
 	programChar->datatypeSize = config->datatypeSize;
 
 	if (userInput->minOutput == false) {
@@ -1191,24 +1204,50 @@ void SimplifyWorkingSetSizes(vector<WorkingSetSize*>* workingSetSizes,
 			file << GetParameterValuesString(paramValues) << ",";
 		}
 
+		bool doesParallelLoopExist = false;
 		for (int i = 0; i < workingSetSizes->size(); i++) {
-			isl_union_pw_qpolynomial* minSizePoly =
-				workingSetSizes->at(i)->minSize;
-			string minSize = SimplifyUnionPwQpolynomial(
-				minSizePoly,
-				paramValues);
-
-			isl_union_pw_qpolynomial* maxSizePoly =
-				workingSetSizes->at(i)->maxSize;
-			string maxSize = SimplifyUnionPwQpolynomial(
-				maxSizePoly,
-				paramValues);
-
-			if (!minSize.empty() && !maxSize.empty()) {
-				long min = ConvertStringToLong(minSize);
-				long max = ConvertStringToLong(maxSize);
-				AddToVectorIfUniqueDependence(minMaxTupleVector, min, max);
+			if (workingSetSizes->at(i)->parallelLoop == true) {
+				doesParallelLoopExist = true;
+				break;
 			}
+		}
+
+		for (int i = 0; i < workingSetSizes->size(); i++) {
+			long min = -1, max = -1;
+
+			bool isParallelLoopEncountered = false;
+
+			if (workingSetSizes->at(i)->parallelLoop == false) {
+				isl_union_pw_qpolynomial* minSizePoly =
+					workingSetSizes->at(i)->minSize;
+				string minSize = SimplifyUnionPwQpolynomial(
+					minSizePoly,
+					paramValues);
+
+				isl_union_pw_qpolynomial* maxSizePoly =
+					workingSetSizes->at(i)->maxSize;
+				string maxSize = SimplifyUnionPwQpolynomial(
+					maxSizePoly,
+					paramValues);
+
+				if (!minSize.empty() && !maxSize.empty()) {
+					min = ConvertStringToLong(minSize);
+					max = ConvertStringToLong(maxSize);
+				}
+
+				if (DEBUG) {
+					cout << "sequential_loop. min = max = " << min << endl;
+				}
+			}
+			else {
+				min = max = workingSetSizes->at(i)->size;
+				isParallelLoopEncountered = true;
+				if (DEBUG) {
+					cout << "parallel_loop. min = max = " << min << endl;
+				}
+			}
+
+			AddToVectorIfUniqueDependence(minMaxTupleVector, min, max, isParallelLoopEncountered);
 		}
 
 		sort(minMaxTupleVector->begin(), minMaxTupleVector->end(),
@@ -1223,8 +1262,10 @@ void SimplifyWorkingSetSizes(vector<WorkingSetSize*>* workingSetSizes,
 
 			UpdatePessimisticProgramCharacteristics(minMaxTupleVector->at(i)->min,
 				minMaxTupleVector->at(i)->max,
+				minMaxTupleVector->at(i)->isParallelLoopEncountered,
+				doesParallelLoopExist,
 				config->systemConfig,
-				programChar);
+				programChar, userInput->numProcs);
 		}
 
 		FreeMinMaxTupleVector(minMaxTupleVector);
@@ -1249,7 +1290,7 @@ void SimplifyWorkingSetSizes(vector<WorkingSetSize*>* workingSetSizes,
 }
 
 bool AddToVectorIfUniqueDependence(vector<MinMaxTuple*> *minMaxTupleVector,
-	long min, long max) {
+	long min, long max, bool isParallelLoopEncountered) {
 	if (min != -1 && max != -1) {
 		for (int i = 0; i < minMaxTupleVector->size(); i++) {
 			if (minMaxTupleVector->at(i)->min == min &&
@@ -1261,6 +1302,7 @@ bool AddToVectorIfUniqueDependence(vector<MinMaxTuple*> *minMaxTupleVector,
 		MinMaxTuple* minMaxTuple = new MinMaxTuple;
 		minMaxTuple->min = min;
 		minMaxTuple->max = max;
+		minMaxTuple->isParallelLoopEncountered = isParallelLoopEncountered;
 		minMaxTupleVector->push_back(minMaxTuple);
 		return true;
 	}
@@ -1366,7 +1408,7 @@ void SimplifyWorkingSetSizesInteractively(vector<WorkingSetSize*>* workingSetSiz
 				long min = ConvertStringToLong(minSize);
 				long max = ConvertStringToLong(maxSize);
 
-				if (AddToVectorIfUniqueDependence(minMaxTupleVector, min, max)) {
+				if (AddToVectorIfUniqueDependence(minMaxTupleVector, min, max, false)) {
 					file << isl_basic_map_to_str(
 						workingSetSizes->at(i)->dependence)
 						<< "\t";
@@ -1395,8 +1437,10 @@ void SimplifyWorkingSetSizesInteractively(vector<WorkingSetSize*>* workingSetSiz
 
 			UpdatePessimisticProgramCharacteristics(minMaxTupleVector->at(i)->min,
 				minMaxTupleVector->at(i)->max,
+				minMaxTupleVector->at(i)->isParallelLoopEncountered,
+				false,
 				config->systemConfig,
-				programChar);
+				programChar, 1);
 		}
 
 		file << "#reuses in L1, L2, L3:"
@@ -1502,12 +1546,22 @@ void UpdateProgramCharacteristics(long size,
 }
 
 void UpdatePessimisticProgramCharacteristics(long minSize, long maxSize,
+	bool isParallelLoopEncountered,
+	bool doesParallelLoopExist,
 	SystemConfig* systemConfig,
-	ProgramCharacteristics* programChar) {
+	ProgramCharacteristics* programChar,
+	int numProcs) {
 	minSize = minSize * programChar->datatypeSize;
 	maxSize = maxSize * programChar->datatypeSize;
 	bool maxSizeSatisfied = false;
 	bool minSizeSatisfied = false;
+
+
+	if (systemConfig->L1Shared || systemConfig->L2Shared) {
+		cout << "L1 and L2 caches are indicated as shared caches. Quitting." << endl;
+		exit(1);
+	}
+
 
 	if (minSize != -1 && maxSize != -1) {
 		if (!maxSizeSatisfied && ((maxSize + programChar->PessiL1DataSetSize) <= systemConfig->L1)) {
@@ -1532,19 +1586,43 @@ void UpdatePessimisticProgramCharacteristics(long minSize, long maxSize,
 			minSizeSatisfied = true;
 		}
 
-		if (!maxSizeSatisfied && ((maxSize + programChar->PessiL3DataSetSize) <= systemConfig->L3)) {
-			programChar->PessiL3DataSetSize += maxSize;
-			minSizeSatisfied = true;
-			maxSizeSatisfied = true;
+		if (!maxSizeSatisfied) {
+			long effectiveMaxSize = (maxSize + programChar->PessiL3DataSetSize);
+
+			if (doesParallelLoopExist && !isParallelLoopEncountered
+				&& systemConfig->L3Shared) {
+				effectiveMaxSize = effectiveMaxSize * numProcs;
+			}
+
+			if (effectiveMaxSize <= systemConfig->L3) {
+				programChar->PessiL3DataSetSize += effectiveMaxSize;
+				minSizeSatisfied = true;
+				maxSizeSatisfied = true;
+			}
 		}
 
-		if (!minSizeSatisfied && ((minSize + programChar->PessiL3DataSetSize) <= systemConfig->L3)) {
-			programChar->PessiL3DataSetSize += minSize;
-			minSizeSatisfied = true;
+		if (!minSizeSatisfied) {
+			long effectiveMinSize = (minSize + programChar->PessiL3DataSetSize);
+
+			if (doesParallelLoopExist && !isParallelLoopEncountered
+				&& systemConfig->L3Shared) {
+				effectiveMinSize = effectiveMinSize * numProcs;
+			}
+
+			if (effectiveMinSize <= systemConfig->L3) {
+				programChar->PessiL3DataSetSize += effectiveMinSize;
+				minSizeSatisfied = true;
+			}
 		}
 
 		if (!maxSizeSatisfied) {
-			programChar->PessiMemDataSetSize += maxSize;
+			long effectiveMaxSize = maxSize;
+
+			if (doesParallelLoopExist && !isParallelLoopEncountered) {
+				effectiveMaxSize = effectiveMaxSize * numProcs;
+			}
+
+			programChar->PessiMemDataSetSize += effectiveMaxSize;
 			minSizeSatisfied = true;
 			maxSizeSatisfied = true;
 		}

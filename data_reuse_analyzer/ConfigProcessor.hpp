@@ -10,6 +10,9 @@ struct SystemConfig {
 	long L1; // in bytes
 	long L2; // in bytes
 	long L3; // in bytes
+	bool L1Shared;
+	bool L2Shared;
+	bool L3Shared;
 };
 
 typedef struct SystemConfig SystemConfig;

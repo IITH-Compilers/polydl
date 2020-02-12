@@ -18,6 +18,7 @@ void ReadDataTypeConfig(string line, Config* config);
 void ReadParameterValues(string line, vector<string> *paramNames, Config* config);
 void ReadParams(string line, Config* config);
 void ReadParallelLoops(string parallelLoops, Config* config);
+void ReadSharedCacheConfig(string sharedcaches, Config* config);
 
 void ReadConfig(UserInput *userInput, Config* config) {
 
@@ -55,6 +56,7 @@ void ReadConfigFromUserInput(UserInput *userInput, Config* config) {
 	ReadDataTypeConfig(userInput->datatypesize, config);
 	ReadParams(userInput->parameters, config);
 	ReadParallelLoops(userInput->parallelLoops, config);
+	ReadSharedCacheConfig(userInput->sharedcaches, config);
 }
 
 void ReadConfigFromFile(string configFile, Config* config) {
@@ -103,6 +105,33 @@ void ReadCacheConfig(string cachesizes, Config* config) {
 			}
 			else if (cache == "L3") {
 				config->systemConfig->L3 = stol(size, nullptr, 10);
+			}
+			else {
+				cout << "Cache in config file not known: " << cache << endl;
+				exit(1);
+			}
+		}
+		catch (const invalid_argument) {
+			cerr << "Invalid cache size while reading the config file" << endl;
+			exit(1);
+		}
+	}
+}
+
+void ReadSharedCacheConfig(string sharedcaches, Config* config) {
+	istringstream iss(sharedcaches);
+	string cache;
+
+	while ((iss >> cache)) {
+		try {
+			if (cache == "L1") {
+				config->systemConfig->L1Shared = true;
+			}
+			else if (cache == "L2") {
+				config->systemConfig->L2Shared = true;
+			}
+			else if (cache == "L3") {
+				config->systemConfig->L3Shared = true;
 			}
 			else {
 				cout << "Cache in config file not known: " << cache << endl;
@@ -256,6 +285,9 @@ void InitializeConfig(Config* config) {
 	config->systemConfig->L1 = 0;
 	config->systemConfig->L2 = 0;
 	config->systemConfig->L3 = 0;
+	config->systemConfig->L1Shared = false;
+	config->systemConfig->L2Shared = false;
+	config->systemConfig->L3Shared = false;
 }
 
 void CheckIfConfigIsFullySpecified(Config* config) {

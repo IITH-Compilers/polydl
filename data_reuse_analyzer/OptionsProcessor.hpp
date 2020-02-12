@@ -10,6 +10,8 @@ struct UserInput {
 	std::string cachesizes;
 	std::string datatypesize;
 	std::string parallelLoops;
+	std::string sharedcaches;
+	int numProcs;
 	bool interactive;
 	bool minOutput;
 	bool perarray;
