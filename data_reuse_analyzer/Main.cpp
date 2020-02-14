@@ -21,6 +21,10 @@ using namespace std;
 #define IGNORE_WS_SIZE_ONE 1
 #define DEBUG 0
 
+#define min(X, Y) (((X) < (Y)) ? (X) : (Y))
+#define max(X, Y) (((X) > (Y)) ? (X) : (Y))
+
+
 /* Function header declarations begin */
 struct WorkingSetSize {
 	isl_basic_map* dependence;
@@ -116,7 +120,7 @@ void PrintWorkingSetSizes(vector<WorkingSetSize*>* workingSetSizes);
 void SimplifyWorkingSetSizesInteractively(vector<WorkingSetSize*>* workingSetSizes,
 	UserInput *userInput, Config *config);
 void SimplifyWorkingSetSizes(vector<WorkingSetSize*>* workingSetSizes,
-	UserInput *userInput, Config *config);
+	UserInput *userInput, Config *config, pet_scop *scop);
 string SimplifyUnionPwQpolynomial(isl_union_pw_qpolynomial* size,
 	unordered_map<string, int>* paramValues);
 unordered_map<string, int>* GetParameterValues(vector<WorkingSetSize*>* workingSetSizes);
@@ -139,7 +143,7 @@ void UpdatePessimisticProgramCharacteristics(long minSize, long maxSize,
 	bool isParallelLoopEncountered,
 	bool doesParallelLoopExist,
 	SystemConfig* systemConfig,
-	ProgramCharacteristics* programChar, int numProcs);
+	ProgramCharacteristics* programChar, int numProcs, long totalDataSetSize);
 bool compareByMinMaxSize(const MinMaxTuple* a, const MinMaxTuple* b);
 vector<WorkingSetSize*>* ComputeWorkingSetSizesForDependences(
 	UserInput *userInput,
@@ -197,6 +201,7 @@ long ComputeNumberOfItersInParallelLoop(isl_basic_set* bset, int pos,
 	unordered_map<string, int>* paramValues);
 isl_basic_set* SimplifyBasicSet(isl_basic_set* bset,
 	unordered_map<string, int>* paramValues);
+isl_union_pw_qpolynomial* ComputeTotalDataSetSize(pet_scop *scop);
 /* Function header declarations end */
 
 int main(int argc, char **argv) {
@@ -255,7 +260,7 @@ void ComputeDataReuseWorkingSets(UserInput *userInput, Config *config) {
 			userInput, config);
 	}
 	else {
-		SimplifyWorkingSetSizes(workingSetSizes, userInput, config);
+		SimplifyWorkingSetSizes(workingSetSizes, userInput, config, scop);
 	}
 
 	FreeWorkingSetSizes(workingSetSizes);
@@ -840,12 +845,11 @@ isl_stat ComputeWorkingSetSizesForDependenceBasicMap(isl_basic_map* dep,
 			may_reads, may_writes, config, sourceDomain, pos);
 
 		isl_basic_set_free(sourceDomain);
-		isl_set_free(sourceDomainLexmin);
 		isl_basic_set_free(sourceDomainProjectedMin);
 		isl_set_free(sourceDomainLexmax);
 		isl_basic_set_free(sourceDomainProjectedMax);
 
-		workingSetSize->source = NULL;
+		workingSetSize->source = sourceDomainLexmin;
 		workingSetSize->target = NULL;
 		workingSetSize->minTarget = NULL;
 		workingSetSize->maxTarget = NULL;
@@ -858,6 +862,33 @@ isl_stat ComputeWorkingSetSizesForDependenceBasicMap(isl_basic_map* dep,
 	delete parallelDependenceDetectionData;
 	workingSetSizes->push_back(workingSetSize);
 	return isl_stat_ok;
+}
+
+isl_union_pw_qpolynomial* ComputeTotalDataSetSize(pet_scop *scop) {
+	isl_union_map *all_may_reads = pet_scop_get_may_reads(scop);
+	isl_union_map *all_may_writes = pet_scop_get_may_writes(scop);
+	isl_union_set* totalDataSet = NULL;
+
+	for (int i = 0; i < scop->n_stmt; i++) {
+		isl_union_set* domain = isl_union_set_from_set(
+			isl_set_copy(scop->stmts[i]->domain));
+		isl_union_set* readSet = isl_union_set_apply(isl_union_set_copy(domain),
+			isl_union_map_copy(all_may_reads));
+		isl_union_set* writeSet = isl_union_set_apply(isl_union_set_copy(domain),
+			isl_union_map_copy(all_may_writes));
+		isl_union_set* dataSet = isl_union_set_union(readSet, writeSet);
+
+		if (i == 0) {
+			totalDataSet = dataSet;
+		}
+		else {
+			totalDataSet = isl_union_set_union(totalDataSet, dataSet);
+		}
+
+		isl_union_set_free(domain);
+	}
+
+	return isl_union_set_card(totalDataSet);
 }
 
 long ComputeNumberOfItersInParallelLoop(isl_basic_set* bset, int pos,
@@ -974,7 +1005,10 @@ long ComputeWorkingSetSize(isl_basic_set*  min, isl_basic_set* max,
 		exit(1);
 	}
 
-	long WSSize = (dataSetUnionCardInt - dataSetCommonCardInt) * numParallelIters + dataSetCommonCardInt;
+	// We divide numParallelIters because the dataSetUnionCardInt contains the number
+	// of data elements accessed in 2 iterations (NOT 1).
+	long WSSize = (dataSetUnionCardInt - dataSetCommonCardInt) * numParallelIters / 2.0
+		+ dataSetCommonCardInt;
 
 	if (DEBUG) {
 		cout << "dataSetMin: " << endl;
@@ -1171,7 +1205,11 @@ bool compareByMinMaxSize(const MinMaxTuple* a, const MinMaxTuple* b) {
 }
 
 void SimplifyWorkingSetSizes(vector<WorkingSetSize*>* workingSetSizes,
-	UserInput *userInput, Config *config) {
+	UserInput *userInput, Config *config, pet_scop *scop) {
+
+	isl_union_pw_qpolynomial* totalDataSetSizeCard =
+		ComputeTotalDataSetSize(scop);
+
 	string suffix = "_ws_stats.csv";
 	ofstream file;
 	string configFileName = ExtractFileName(userInput->configFile);
@@ -1199,6 +1237,18 @@ void SimplifyWorkingSetSizes(vector<WorkingSetSize*>* workingSetSizes,
 		InitializeProgramCharacteristics(programChar);
 		unordered_map<string, int>* paramValues =
 			config->programParameterVector->at(j);
+
+		string totalDataSetSizeCardString = SimplifyUnionPwQpolynomial(
+			totalDataSetSizeCard, paramValues);
+		long totalDataSetSize = -1;
+
+		if (!totalDataSetSizeCardString.empty()) {
+			totalDataSetSize = ConvertStringToLong(totalDataSetSizeCardString);
+		}
+
+		if (DEBUG) {
+			cout << "totalDataSetSize: " << totalDataSetSize << endl;
+		}
 
 		if (userInput->minOutput == false) {
 			file << GetParameterValuesString(paramValues) << ",";
@@ -1265,7 +1315,7 @@ void SimplifyWorkingSetSizes(vector<WorkingSetSize*>* workingSetSizes,
 				minMaxTupleVector->at(i)->isParallelLoopEncountered,
 				doesParallelLoopExist,
 				config->systemConfig,
-				programChar, userInput->numProcs);
+				programChar, userInput->numProcs, totalDataSetSize);
 		}
 
 		FreeMinMaxTupleVector(minMaxTupleVector);
@@ -1440,7 +1490,7 @@ void SimplifyWorkingSetSizesInteractively(vector<WorkingSetSize*>* workingSetSiz
 				minMaxTupleVector->at(i)->isParallelLoopEncountered,
 				false,
 				config->systemConfig,
-				programChar, 1);
+				programChar, 1, -1);
 		}
 
 		file << "#reuses in L1, L2, L3:"
@@ -1550,7 +1600,7 @@ void UpdatePessimisticProgramCharacteristics(long minSize, long maxSize,
 	bool doesParallelLoopExist,
 	SystemConfig* systemConfig,
 	ProgramCharacteristics* programChar,
-	int numProcs) {
+	int numProcs, long totalDataSetSize) {
 	minSize = minSize * programChar->datatypeSize;
 	maxSize = maxSize * programChar->datatypeSize;
 	bool maxSizeSatisfied = false;
@@ -1625,6 +1675,13 @@ void UpdatePessimisticProgramCharacteristics(long minSize, long maxSize,
 			programChar->PessiMemDataSetSize += effectiveMaxSize;
 			minSizeSatisfied = true;
 			maxSizeSatisfied = true;
+		}
+
+		if (totalDataSetSize != -1) {
+			programChar->PessiL1DataSetSize = min(programChar->PessiL1DataSetSize, totalDataSetSize);
+			programChar->PessiL2DataSetSize = min(programChar->PessiL2DataSetSize, totalDataSetSize);
+			programChar->PessiL3DataSetSize = min(programChar->PessiL3DataSetSize, totalDataSetSize);
+			programChar->PessiMemDataSetSize = min(programChar->PessiMemDataSetSize, totalDataSetSize);
 		}
 	}
 }
@@ -1850,6 +1907,9 @@ void PrintWorkingSetSizes(vector<WorkingSetSize*>* workingSetSizes) {
 
 		cout << "MaxSize: " << endl;
 		PrintUnionPwQpolynomial(workingSetSizes->at(i)->maxSize);
+
+		cout << "parallelLoop: " << workingSetSizes->at(i)->parallelLoop << endl;
+		cout << "size: " << workingSetSizes->at(i)->size << endl;
 		cout << "*********************************************" << endl;
 		cout << "*********************************************" << endl;
 		cout << endl;
