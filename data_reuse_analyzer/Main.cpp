@@ -1243,7 +1243,8 @@ void SimplifyWorkingSetSizes(vector<WorkingSetSize*>* workingSetSizes,
 		long totalDataSetSize = -1;
 
 		if (!totalDataSetSizeCardString.empty()) {
-			totalDataSetSize = ConvertStringToLong(totalDataSetSizeCardString);
+			totalDataSetSize = ConvertStringToLong(totalDataSetSizeCardString)
+				* programChar->datatypeSize;
 		}
 
 		if (DEBUG) {
