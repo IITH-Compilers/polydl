@@ -154,6 +154,12 @@ void ReadParallelLoops(string parallelLoops, Config* config) {
 		while (iss >> loopName) {
 			config->parallelLoops->push_back(loopName);
 		}
+
+		if (config->parallelLoops->size() > 1) {
+			cout << "Multiple parallel loops have been declared."
+				<< "Make the outermost loop, the parallel loop for equivalent analysis." << endl;
+			exit(1);
+		}
 	}
 }
 

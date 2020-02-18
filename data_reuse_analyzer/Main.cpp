@@ -36,6 +36,8 @@ struct WorkingSetSize {
 	isl_union_pw_qpolynomial* maxSize;
 	bool parallelLoop;
 	long size;
+	long dataSetUnionCardInt;
+	long dataSetCommonCardInt;
 };
 
 typedef struct WorkingSetSize WorkingSetSize;
@@ -62,6 +64,8 @@ struct MinMaxTuple {
 	long min;
 	long max;
 	bool isParallelLoopEncountered;
+	long dataSetUnionCardInt;
+	long dataSetCommonCardInt;
 };
 
 typedef struct MinMaxTuple MinMaxTuple;
@@ -131,7 +135,7 @@ isl_union_map* ComputeDataDependences(isl_union_map *source,
 	isl_union_map *target, isl_schedule* schedule);
 void OrchestrateDataReuseComputation(int argc, char **argv);
 string ExtractFileName(string fileName);
-bool AddToVectorIfUniqueDependence(vector<MinMaxTuple*> *minMaxTupleVector,
+MinMaxTuple* AddToVectorIfUniqueDependence(vector<MinMaxTuple*> *minMaxTupleVector,
 	long min, long max, bool isParallelLoopEncountered);
 void FreeMinMaxTupleVector(vector<MinMaxTuple*> *minMaxTupleVector);
 long ConvertStringToLong(string sizeStr);
@@ -143,7 +147,8 @@ void UpdatePessimisticProgramCharacteristics(long minSize, long maxSize,
 	bool isParallelLoopEncountered,
 	bool doesParallelLoopExist,
 	SystemConfig* systemConfig,
-	ProgramCharacteristics* programChar, int numProcs, long totalDataSetSize);
+	ProgramCharacteristics* programChar,
+	int numProcs, long totalDataSetSize, long dataSetUnionCardInt, long dataSetCommonCardInt);
 bool compareByMinMaxSize(const MinMaxTuple* a, const MinMaxTuple* b);
 vector<WorkingSetSize*>* ComputeWorkingSetSizesForDependences(
 	UserInput *userInput,
@@ -192,9 +197,10 @@ int FindThePositionOfTheLoopVariable(isl_basic_set *bset,
 	vector<string> *parallelLoops);
 isl_basic_set* ProjectBSetToLexExtreme(isl_basic_set* sourceDomain,
 	isl_set* sourceDomainLexExtreme, int pos);
-long ComputeWorkingSetSize(isl_basic_set*  min, isl_basic_set* max,
+void ComputeWorkingSetSize(isl_basic_set*  min, isl_basic_set* max,
 	isl_union_map* may_reads,
-	isl_union_map* may_writes, Config* config, isl_basic_set* domain, int pos);
+	isl_union_map* may_writes, Config* config, isl_basic_set* domain, int pos,
+	WorkingSetSize* workingSetSize);
 isl_union_set* SimplifyUnionSet(isl_union_set* set,
 	unordered_map<string, int>* paramValues);
 long ComputeNumberOfItersInParallelLoop(isl_basic_set* bset, int pos,
@@ -809,6 +815,8 @@ isl_stat ComputeWorkingSetSizesForDependenceBasicMap(isl_basic_map* dep,
 		workingSetSize->maxSize = maxWSSize;
 		workingSetSize->parallelLoop = false;
 		workingSetSize->size = 0;
+		workingSetSize->dataSetUnionCardInt = 0;
+		workingSetSize->dataSetCommonCardInt = 0;
 		isl_basic_set_free(sourceDomain);
 	}
 	else {
@@ -841,8 +849,8 @@ isl_stat ComputeWorkingSetSizesForDependenceBasicMap(isl_basic_map* dep,
 		isl_basic_set* sourceDomainProjectedMax = ProjectBSetToLexExtreme(sourceDomain,
 			sourceDomainLexmax, pos);
 
-		long wsSize = ComputeWorkingSetSize(sourceDomainProjectedMin, sourceDomainProjectedMax,
-			may_reads, may_writes, config, sourceDomain, pos);
+		ComputeWorkingSetSize(sourceDomainProjectedMin, sourceDomainProjectedMax,
+			may_reads, may_writes, config, sourceDomain, pos, workingSetSize);
 
 		isl_basic_set_free(sourceDomain);
 		isl_basic_set_free(sourceDomainProjectedMin);
@@ -856,7 +864,15 @@ isl_stat ComputeWorkingSetSizesForDependenceBasicMap(isl_basic_map* dep,
 		workingSetSize->minSize = NULL;
 		workingSetSize->maxSize = NULL;
 		workingSetSize->parallelLoop = true;
-		workingSetSize->size = wsSize;
+
+		if (DEBUG) {
+			cout << "In ComputeWorkingSetSize:" << endl;
+			cout << "workingSetSize->size: " << workingSetSize->size << endl;
+			cout << "workingSetSize->dataSetUnionCardInt: "
+				<< workingSetSize->dataSetUnionCardInt << endl;
+			cout << "workingSetSize->dataSetCommonCardInt: "
+				<< workingSetSize->dataSetCommonCardInt << endl;
+		}
 	}
 
 	delete parallelDependenceDetectionData;
@@ -944,9 +960,10 @@ long ComputeNumberOfItersInParallelLoop(isl_basic_set* bset, int pos,
 	return numIters;
 }
 
-long ComputeWorkingSetSize(isl_basic_set*  min, isl_basic_set* max,
+void ComputeWorkingSetSize(isl_basic_set*  min, isl_basic_set* max,
 	isl_union_map* may_reads,
-	isl_union_map* may_writes, Config* config, isl_basic_set* domain, int pos) {
+	isl_union_map* may_writes, Config* config, isl_basic_set* domain, int pos,
+	WorkingSetSize* workingSetSize) {
 
 	if (config == NULL || config->programParameterVector == NULL ||
 		config->programParameterVector->size() != 1) {
@@ -1010,6 +1027,10 @@ long ComputeWorkingSetSize(isl_basic_set*  min, isl_basic_set* max,
 	long WSSize = (dataSetUnionCardInt - dataSetCommonCardInt) * numParallelIters / 2.0
 		+ dataSetCommonCardInt;
 
+	workingSetSize->size = WSSize;
+	workingSetSize->dataSetUnionCardInt = dataSetUnionCardInt;
+	workingSetSize->dataSetCommonCardInt = dataSetCommonCardInt;
+
 	if (DEBUG) {
 		cout << "dataSetMin: " << endl;
 		PrintUnionSet(dataSetMin);
@@ -1051,7 +1072,6 @@ long ComputeWorkingSetSize(isl_basic_set*  min, isl_basic_set* max,
 	isl_union_pw_qpolynomial_free(dataSetMaxCard);
 	isl_union_pw_qpolynomial_free(dataSetCommonCard);
 	isl_union_pw_qpolynomial_free(dataSetUnionCard);
-	return WSSize;
 }
 
 isl_basic_set* ProjectBSetToLexExtreme(isl_basic_set* sourceDomain,
@@ -1256,11 +1276,25 @@ void SimplifyWorkingSetSizes(vector<WorkingSetSize*>* workingSetSizes,
 		}
 
 		bool doesParallelLoopExist = false;
+		long dataSetUnionCardInt = -1;
+		long dataSetCommonCardInt = -1;
+
 		for (int i = 0; i < workingSetSizes->size(); i++) {
 			if (workingSetSizes->at(i)->parallelLoop == true) {
 				doesParallelLoopExist = true;
-				break;
+				dataSetUnionCardInt = max(dataSetUnionCardInt,
+					workingSetSizes->at(i)->dataSetUnionCardInt
+					* programChar->datatypeSize);
+				dataSetCommonCardInt =
+					max(dataSetCommonCardInt, workingSetSizes->at(i)->dataSetCommonCardInt
+						* programChar->datatypeSize);
 			}
+		}
+
+		if (DEBUG) {
+			cout << "doesParallelLoopExist: " << doesParallelLoopExist << endl;
+			cout << "dataSetUnionCardInt: " << dataSetUnionCardInt << endl;
+			cout << "dataSetCommonCardInt: " << dataSetCommonCardInt << endl;
 		}
 
 		for (int i = 0; i < workingSetSizes->size(); i++) {
@@ -1298,7 +1332,13 @@ void SimplifyWorkingSetSizes(vector<WorkingSetSize*>* workingSetSizes,
 				}
 			}
 
-			AddToVectorIfUniqueDependence(minMaxTupleVector, min, max, isParallelLoopEncountered);
+			MinMaxTuple* minMaxTuple = AddToVectorIfUniqueDependence(
+				minMaxTupleVector, min, max, isParallelLoopEncountered);
+
+			if (doesParallelLoopExist && minMaxTuple) {
+				minMaxTuple->dataSetUnionCardInt = dataSetUnionCardInt;
+				minMaxTuple->dataSetCommonCardInt = dataSetCommonCardInt;
+			}
 		}
 
 		sort(minMaxTupleVector->begin(), minMaxTupleVector->end(),
@@ -1316,7 +1356,8 @@ void SimplifyWorkingSetSizes(vector<WorkingSetSize*>* workingSetSizes,
 				minMaxTupleVector->at(i)->isParallelLoopEncountered,
 				doesParallelLoopExist,
 				config->systemConfig,
-				programChar, userInput->numProcs, totalDataSetSize);
+				programChar, userInput->numProcs, totalDataSetSize,
+				dataSetUnionCardInt, dataSetCommonCardInt);
 		}
 
 		FreeMinMaxTupleVector(minMaxTupleVector);
@@ -1340,13 +1381,13 @@ void SimplifyWorkingSetSizes(vector<WorkingSetSize*>* workingSetSizes,
 	delete programChar;
 }
 
-bool AddToVectorIfUniqueDependence(vector<MinMaxTuple*> *minMaxTupleVector,
+MinMaxTuple* AddToVectorIfUniqueDependence(vector<MinMaxTuple*> *minMaxTupleVector,
 	long min, long max, bool isParallelLoopEncountered) {
 	if (min != -1 && max != -1) {
 		for (int i = 0; i < minMaxTupleVector->size(); i++) {
 			if (minMaxTupleVector->at(i)->min == min &&
 				minMaxTupleVector->at(i)->max == max) {
-				return false;
+				return NULL;
 			}
 		}
 
@@ -1355,10 +1396,10 @@ bool AddToVectorIfUniqueDependence(vector<MinMaxTuple*> *minMaxTupleVector,
 		minMaxTuple->max = max;
 		minMaxTuple->isParallelLoopEncountered = isParallelLoopEncountered;
 		minMaxTupleVector->push_back(minMaxTuple);
-		return true;
+		return minMaxTuple;
 	}
 	else {
-		return false;
+		return NULL;
 	}
 }
 
@@ -1491,7 +1532,7 @@ void SimplifyWorkingSetSizesInteractively(vector<WorkingSetSize*>* workingSetSiz
 				minMaxTupleVector->at(i)->isParallelLoopEncountered,
 				false,
 				config->systemConfig,
-				programChar, 1, -1);
+				programChar, 1, -1, -1, -1);
 		}
 
 		file << "#reuses in L1, L2, L3:"
@@ -1601,7 +1642,8 @@ void UpdatePessimisticProgramCharacteristics(long minSize, long maxSize,
 	bool doesParallelLoopExist,
 	SystemConfig* systemConfig,
 	ProgramCharacteristics* programChar,
-	int numProcs, long totalDataSetSize) {
+	int numProcs, long totalDataSetSize,
+	long dataSetUnionCardInt, long dataSetCommonCardInt) {
 	minSize = minSize * programChar->datatypeSize;
 	maxSize = maxSize * programChar->datatypeSize;
 	bool maxSizeSatisfied = false;
@@ -1638,14 +1680,37 @@ void UpdatePessimisticProgramCharacteristics(long minSize, long maxSize,
 		}
 
 		if (!maxSizeSatisfied) {
-			long effectiveMaxSize = (maxSize + programChar->PessiL3DataSetSize);
+			long effectiveMaxSize = maxSize;
 
 			if (doesParallelLoopExist && !isParallelLoopEncountered
 				&& systemConfig->L3Shared) {
-				effectiveMaxSize = effectiveMaxSize * numProcs;
+
+				if (DEBUG) {
+					cout << "L3, max:" << endl;
+					cout << "dataSetUnionCardInt: " << dataSetUnionCardInt << endl;
+					cout << "dataSetCommonCardInt: " << dataSetCommonCardInt << endl;
+					cout << "effectiveMaxSize: " << effectiveMaxSize << endl;
+				}
+
+				// We halve dataSetUnionCardInt because dataSetUnionCardInt is the union of 
+				// the datasets of two iterations. And therefore, halving it will give us the
+				// working set of one iteration.
+				// Here we are checking that effectiveMaxSize is greater than the working 
+				// set of one iteration of the parallel loop. If it is so, then the working set
+				// computation of the sequential loop should take into account the shared data
+				// between parallel iterations. We should subtract the shared data set size
+				// while multiplying the working set size of the sequential loop by the number
+				// of processors
+				if (effectiveMaxSize >= 0.5 * dataSetUnionCardInt) {
+					effectiveMaxSize = (effectiveMaxSize - dataSetCommonCardInt) * numProcs
+						+ dataSetCommonCardInt;
+				}
+				else {
+					effectiveMaxSize = effectiveMaxSize * numProcs;
+				}
 			}
 
-			if (effectiveMaxSize <= systemConfig->L3) {
+			if ((effectiveMaxSize + programChar->PessiL3DataSetSize) <= systemConfig->L3) {
 				programChar->PessiL3DataSetSize += effectiveMaxSize;
 				minSizeSatisfied = true;
 				maxSizeSatisfied = true;
@@ -1653,14 +1718,27 @@ void UpdatePessimisticProgramCharacteristics(long minSize, long maxSize,
 		}
 
 		if (!minSizeSatisfied) {
-			long effectiveMinSize = (minSize + programChar->PessiL3DataSetSize);
+			long effectiveMinSize = minSize;
 
 			if (doesParallelLoopExist && !isParallelLoopEncountered
 				&& systemConfig->L3Shared) {
-				effectiveMinSize = effectiveMinSize * numProcs;
+				if (DEBUG) {
+					cout << "L3, min:" << endl;
+					cout << "dataSetUnionCardInt: " << dataSetUnionCardInt << endl;
+					cout << "dataSetCommonCardInt: " << dataSetCommonCardInt << endl;
+					cout << "effectiveMinSize: " << effectiveMinSize << endl;
+				}
+
+				if (effectiveMinSize >= 0.5 * dataSetUnionCardInt) {
+					effectiveMinSize = (effectiveMinSize - dataSetCommonCardInt) * numProcs
+						+ dataSetCommonCardInt;
+				}
+				else {
+					effectiveMinSize = effectiveMinSize * numProcs;
+				}
 			}
 
-			if (effectiveMinSize <= systemConfig->L3) {
+			if ((effectiveMinSize + programChar->PessiL3DataSetSize) <= systemConfig->L3) {
 				programChar->PessiL3DataSetSize += effectiveMinSize;
 				minSizeSatisfied = true;
 			}
@@ -1670,7 +1748,21 @@ void UpdatePessimisticProgramCharacteristics(long minSize, long maxSize,
 			long effectiveMaxSize = maxSize;
 
 			if (doesParallelLoopExist && !isParallelLoopEncountered) {
-				effectiveMaxSize = effectiveMaxSize * numProcs;
+
+				if (DEBUG) {
+					cout << "PessiMemDataSetSize: " << endl;
+					cout << "dataSetUnionCardInt: " << dataSetUnionCardInt << endl;
+					cout << "dataSetCommonCardInt: " << dataSetCommonCardInt << endl;
+					cout << "effectiveMaxSize: " << effectiveMaxSize << endl;
+				}
+
+				if (effectiveMaxSize >= 0.5 * dataSetUnionCardInt) {
+					effectiveMaxSize = (effectiveMaxSize - dataSetCommonCardInt) * numProcs
+						+ dataSetCommonCardInt;
+				}
+				else {
+					effectiveMaxSize = effectiveMaxSize * numProcs;
+				}
 			}
 
 			programChar->PessiMemDataSetSize += effectiveMaxSize;
