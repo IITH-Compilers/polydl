@@ -1770,6 +1770,7 @@ void UpdatePessimisticProgramCharacteristics(long minSize, long maxSize,
 			maxSizeSatisfied = true;
 		}
 
+		totalDataSetSize = -1;
 		if (totalDataSetSize != -1) {
 			programChar->PessiL1DataSetSize = min(programChar->PessiL1DataSetSize, totalDataSetSize);
 			programChar->PessiL2DataSetSize = min(programChar->PessiL2DataSetSize, totalDataSetSize);
