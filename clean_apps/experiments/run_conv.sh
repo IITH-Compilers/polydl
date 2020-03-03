@@ -74,6 +74,7 @@ mkdir ${TEMP}
        pad_h=$9
        stride=${10}
        config_num=${11}
+       files_v=${12}
 
        let ofh="($ifh + 2 * $pad_h - $kh)/$stride + 1"
        let ofw="($ifw + 2 * $pad_w - $kw)/$stride + 1"
@@ -112,147 +113,96 @@ echo GEMM_BLOCK: $GEMM_BLOCK
 
 
 		export OMP_NUM_THREADS=${images}
-		for version in $GEMM_VERSIONS #FIXME
-		do
-			#We will first do an actual run
-			if [ $version -eq 0 -o $version -eq 1 -o $version -eq 20 -o $version -eq 21 ]
-			then
-				if [ `expr $nIfm % $GEMM_BLOCK` -eq 0 -a `expr $nOfm % $GEMM_BLOCK` -eq 0 ]
-                                then
+                #We will first do an actual run
+                if [ echo "$files_v" | grep -q "tile" ]
+                then
+                        if [ `expr $nIfm % $GEMM_BLOCK` -eq 0 -a `expr $nOfm % $GEMM_BLOCK` -eq 0 ]
+                        then
 
-				for (( T_oi=${ofw}; T_oi<= ${ofw}; T_oi=T_oi*4 ))
-				do
-				if [ `expr $ofw % $T_oi` -eq 0 ] 
-				then
-				for (( T_oj=${ofh}; T_oj >= 1; T_oj=T_oj/2 ))
-				do
-				if [ `expr $ofh % $T_oj` -eq 0 ] 
-				then
-				for (( T_ifm_tile=${nIfm}; T_ifm_tile<= ${nIfm}; T_ifm_tile=T_ifm_tile*2 ))
-                                do
-				if [ `expr $nIfm % $T_ifm_tile` -eq 0 ]
-				then
-                                for (( T_ofm_tile=${nOfm}; T_ofm_tile<= ${nOfm}; T_ofm_tile=T_ofm_tile*2 ))
-                                do
-                                if [ `expr $nOfm % $T_ofm_tile` -eq 0 ]
-                                then
+                        for (( T_oi=${ofw}; T_oi<= ${ofw}; T_oi=T_oi*4 ))
+                        do
+                        if [ `expr $ofw % $T_oi` -eq 0 ] 
+                        then
+                        for (( T_oj=${ofh}; T_oj >= 1; T_oj=T_oj/2 ))
+                        do
+                        if [ `expr $ofh % $T_oj` -eq 0 ] 
+                        then
+                        for (( T_ifm_tile=${nIfm}; T_ifm_tile<= ${nIfm}; T_ifm_tile=T_ifm_tile*2 ))
+                        do
+                        if [ `expr $nIfm % $T_ifm_tile` -eq 0 ]
+                        then
+                        for (( T_ofm_tile=${nOfm}; T_ofm_tile<= ${nOfm}; T_ofm_tile=T_ofm_tile*2 ))
+                        do
+                        if [ `expr $nOfm % $T_ofm_tile` -eq 0 ]
+                        then
 
-					(cd .. && make clean && make version=version/padded_conv_fp_libxsmm_core2.c MACROFLAGS="-DSTRIDE_H=$stride -DSTRIDE_W=$stride -DT_oi=$T_oi -DT_oj=$T_oj -DT_ifm_tile=$T_ifm_tile -DT_ofm_tile=$T_ofm_tile -DGEMM_BLOCK=${GEMM_BLOCK}")
-     					# do something
-					echo  $T_oi " " $T_oj " " $T_ifm_tile " " $T_ofm_tile
-					../conv2d ${iters} ${ifw} ${ifh} ${nIfm} ${nOfm} ${kw} ${kh} ${pad_w} ${pad_h} ${stride} ${images} ${version} ${check_correctness} &> run_output
-					Orig_GFLOPS=`cat run_output |  grep Real_GFLOPS |  cut -d= -f2`
-					GFLOPS=$(echo "$Orig_GFLOPS * $orig_nIfm * $orig_nOfm  /  $nIfm / $nOfm"|bc )
+                                (cd .. && make clean && make version_file=${files_v} MACROFLAGS="-DSTRIDE_H=$stride -DSTRIDE_W=$stride -DT_oi=$T_oi -DT_oj=$T_oj -DT_ifm_tile=$T_ifm_tile -DT_ofm_tile=$T_ofm_tile -DGEMM_BLOCK=${GEMM_BLOCK}")
+                                # do something
+                                echo  $T_oi " " $T_oj " " $T_ifm_tile " " $T_ofm_tile
+                                ../conv2d ${iters} ${ifw} ${ifh} ${nIfm} ${nOfm} ${kw} ${kh} ${pad_w} ${pad_h} ${stride} ${images} 0 ${check_correctness} &> run_output
+                                Orig_GFLOPS=`cat run_output |  grep Real_GFLOPS |  cut -d= -f2`
+                                GFLOPS=$(echo "$Orig_GFLOPS * $orig_nIfm * $orig_nOfm  /  $nIfm / $nOfm"|bc )
 
-					Orig_NAIVE_GFLOPS=`cat run_output |  grep Naive_GFLOPS |  cut -d= -f2` 
-					NAIVE_GFLOPS=$(echo "$Orig_NAIVE_GFLOPS * $orig_nIfm * $orig_nOfm  /  $nIfm / $nOfm"|bc )
-					ERROR=`cat run_output | grep "inf-norm of comp. abs. error" | cut -d: -f 2`
-					rm ${TEMP}/temp.c
-					if [ $version -eq 0 -o $version -eq 20 ] 
-					then
-					cp ../../apps/padded_conv_fp_tiled_loop_order_0.c ${TEMP}/temp.c
-					fi
-
-					if [ $version -eq 1 -o $version -eq 21 ] 
-					then
-					cp ../../apps/padded_conv_fp_tiled_loop_order_1.c ${TEMP}/temp.c
-					fi
-
-					rm tile_sizes.c
-					echo "#define GEMM_BLOCK ${GEMM_BLOCK}" >> tile_sizes.c
-					echo "#define STRIDE_H ${stride}" >> tile_sizes.c
-					echo "#define STRIDE_W ${stride}" >> tile_sizes.c
-					echo "#define T_oi ${T_oi}" >> tile_sizes.c
-					echo "#define T_oj ${T_oj}" >> tile_sizes.c
-					echo "#define T_ifm_tile ${T_ifm_tile}" >> tile_sizes.c
-					echo "#define T_ofm_tile ${T_ofm_tile}" >> tile_sizes.c
-					cat temp/temp.c >> tile_sizes.c
-					mv tile_sizes.c ${TEMP}/temp.c
-					output_file=${TEMP}/temp.c_ws_stats.csv
-					rm ${output_file}
-					../../data_reuse_analyzer/polyscientist --input ${TEMP}/temp.c --parameters "ofw ofh nIfm nOfm kw kh pad_w pad_h nImg ifwp ifhp ofwp ofhp : ${ofw} ${ofh} ${nIfm} ${nOfm} ${kw} ${kh} ${pad_w} ${pad_h} ${arg_images} ${ifwp} ${ifhp} ${ofwp} ${ofhp}"  --cachesizes "${CACHE_CONFIG}" --datatypesize $DATATYPESIZE --minout 
-					{ echo -n "${version}_${T_oi}_${T_oj}_${T_ifm_tile}_${T_ofm_tile}_${GEMM_BLOCK},${GFLOPS}," ;  cat - ${output_file} ; } >> ${CONFIG_OUT}
-					echo  "${NAIVE_GFLOPS},${ERROR}" >> ${META_CONFIG_OUT}
-
-
-				fi
-				done
-				fi
-				done
-				fi
-				done
-				fi
-				done
-				fi
-			else
- 				if [ `expr $nIfm % $GEMM_BLOCK` -eq 0 -a `expr $nOfm % $GEMM_BLOCK` -eq 0 ]
- 				then
-				(cd .. && make clean && make version=version/padded_conv_fp_libxsmm_core2.c MACROFLAGS="-DSTRIDE_H=$stride -DSTRIDE_W=$stride -DGEMM_BLOCK=${GEMM_BLOCK}") 	
-				../conv2d ${iters} ${ifw} ${ifh} ${nIfm} ${nOfm} ${kw} ${kh} ${pad_w} ${pad_h} ${stride} ${images} ${version} ${check_correctness} &> run_output
-				Orig_GFLOPS=`cat run_output |  grep Real_GFLOPS |  cut -d= -f2`
-				GFLOPS=$(echo "$Orig_GFLOPS * $orig_nIfm * $orig_nOfm  /  $nIfm / $nOfm"|bc )
-				Orig_NAIVE_GFLOPS=`cat run_output |  grep Naive_GFLOPS |  cut -d= -f2`
-				NAIVE_GFLOPS=$(echo "$Orig_NAIVE_GFLOPS * $orig_nIfm * $orig_nOfm  /  $nIfm / $nOfm"|bc )
-				ERROR=`cat run_output | grep "inf-norm of comp. abs. error" | cut -d: -f 2`
+                                Orig_NAIVE_GFLOPS=`cat run_output |  grep Naive_GFLOPS |  cut -d= -f2` 
+                                NAIVE_GFLOPS=$(echo "$Orig_NAIVE_GFLOPS * $orig_nIfm * $orig_nOfm  /  $nIfm / $nOfm"|bc )
+                                ERROR=`cat run_output | grep "inf-norm of comp. abs. error" | cut -d: -f 2`
                                 rm ${TEMP}/temp.c
-				echo "#define GEMM_BLOCK ${GEMM_BLOCK}" >> ${TEMP}/temp.c
-                                echo "#define STRIDE_H ${stride}" >> ${TEMP}/temp.c
-                                echo "#define STRIDE_W ${stride}" >> ${TEMP}/temp.c
-                                if [ $version -eq 2 ] || [ $version -eq 22 ]
-                                then
-                                cat ../padded_conv_fp_libxsmm_core.c >> ${TEMP}/temp.c
-                                fi
 
-                                if [ $version -eq 3 ] || [ $version -eq 23 ]
-                                then
-                                cat ../padded_conv_fp_libxsmm_core2.c >> ${TEMP}/temp.c
-                                fi
-
-                                if [ $version -eq 4 ] || [ $version -eq 24 ]
-                                then
-                                cat ../padded_conv_fp_libxsmm_core3.c >> ${TEMP}/temp.c
-                                fi
-
-                                if [ $version -eq 5 ] || [ $version -eq 25 ]
-                                then
-                                cat ../padded_conv_fp_libxsmm_core4.c >> ${TEMP}/temp.c
-                                fi
+                                cp ../${files_v} ${TEMP}/temp.c
 
 
-                                if [ $version -eq 26 ]
-                                then
-                                cat ../padded_conv_fp5.c >> ${TEMP}/temp.c
-                                fi
-
-                                if [ $version -eq 27 ]
-                                then
-                                cat ../padded_conv_fp6.c >> ${TEMP}/temp.c
-                                fi
-
-                                if [ $version -eq 28 ]
-                                then
-                                cat ../padded_conv_fp7.c >> ${TEMP}/temp.c
-                                fi
-
-                                if [ $version -eq 29 ]
-                                then
-                                cat ../padded_conv_fp8.c >> ${TEMP}/temp.c
-                                fi
-
-                                if [ $version -eq 101 ]
-                                then
-                                cat ../padded_conv_fp_orig.c >> ${TEMP}/temp.c
-                                fi
-
+                                rm tile_sizes.c
+                                echo "#define GEMM_BLOCK ${GEMM_BLOCK}" >> tile_sizes.c
+                                echo "#define STRIDE_H ${stride}" >> tile_sizes.c
+                                echo "#define STRIDE_W ${stride}" >> tile_sizes.c
+                                echo "#define T_oi ${T_oi}" >> tile_sizes.c
+                                echo "#define T_oj ${T_oj}" >> tile_sizes.c
+                                echo "#define T_ifm_tile ${T_ifm_tile}" >> tile_sizes.c
+                                echo "#define T_ofm_tile ${T_ofm_tile}" >> tile_sizes.c
+                                cat temp/temp.c >> tile_sizes.c
+                                mv tile_sizes.c ${TEMP}/temp.c
                                 output_file=${TEMP}/temp.c_ws_stats.csv
                                 rm ${output_file}
-				../../data_reuse_analyzer/polyscientist --input ${TEMP}/temp.c --parameters "ofw ofh nIfm nOfm kw kh pad_w pad_h nImg ifwp ifhp ofwp ofhp : ${ofw} ${ofh} ${nIfm} ${nOfm} ${kw} ${kh} ${pad_w} ${pad_h} ${arg_images}  ${ifwp} ${ifhp} ${ofwp} ${ofhp}"  --cachesizes "${CACHE_CONFIG}" --datatypesize $DATATYPESIZE --minout
+                                ../../data_reuse_analyzer/polyscientist --input ${TEMP}/temp.c --parameters "ofw ofh nIfm nOfm kw kh pad_w pad_h nImg ifwp ifhp ofwp ofhp : ${ofw} ${ofh} ${nIfm} ${nOfm} ${kw} ${kh} ${pad_w} ${pad_h} ${arg_images} ${ifwp} ${ifhp} ${ofwp} ${ofhp}"  --cachesizes "${CACHE_CONFIG}" --datatypesize $DATATYPESIZE --minout 
+                                { echo -n "0_${T_oi}_${T_oj}_${T_ifm_tile}_${T_ofm_tile}_${GEMM_BLOCK},${GFLOPS}," ;  cat - ${output_file} ; } >> ${CONFIG_OUT}
+                                echo  "${NAIVE_GFLOPS},${ERROR}" >> ${META_CONFIG_OUT}
 
-                                { echo -n "${version}_${GEMM_BLOCK},${GFLOPS}," ; cat - ${output_file} ; } >> ${CONFIG_OUT}
-				echo  "${NAIVE_GFLOPS},${ERROR}" >> ${META_CONFIG_OUT}
-				fi
-			fi
-		done
+
+                        fi
+                        done
+                        fi
+                        done
+                        fi
+                        done
+                        fi
+                        done
+                        fi
+                else
+                        if [ `expr $nIfm % $GEMM_BLOCK` -eq 0 -a `expr $nOfm % $GEMM_BLOCK` -eq 0 ]
+                        then
+                        (cd .. && make clean && make version_file=${files_v} MACROFLAGS="-DSTRIDE_H=$stride -DSTRIDE_W=$stride -DGEMM_BLOCK=${GEMM_BLOCK}") 	
+                        ../conv2d ${iters} ${ifw} ${ifh} ${nIfm} ${nOfm} ${kw} ${kh} ${pad_w} ${pad_h} ${stride} ${images} 0 ${check_correctness} &> run_output
+                        Orig_GFLOPS=`cat run_output |  grep Real_GFLOPS |  cut -d= -f2`
+                        GFLOPS=$(echo "$Orig_GFLOPS * $orig_nIfm * $orig_nOfm  /  $nIfm / $nOfm"|bc )
+                        Orig_NAIVE_GFLOPS=`cat run_output |  grep Naive_GFLOPS |  cut -d= -f2`
+                        NAIVE_GFLOPS=$(echo "$Orig_NAIVE_GFLOPS * $orig_nIfm * $orig_nOfm  /  $nIfm / $nOfm"|bc )
+                        ERROR=`cat run_output | grep "inf-norm of comp. abs. error" | cut -d: -f 2`
+                        rm ${TEMP}/temp.c
+                        echo "#define GEMM_BLOCK ${GEMM_BLOCK}" >> ${TEMP}/temp.c
+                        echo "#define STRIDE_H ${stride}" >> ${TEMP}/temp.c
+                        echo "#define STRIDE_W ${stride}" >> ${TEMP}/temp.c
+
+
+                        cat ../${files_v} >> ${TEMP}/temp.c
+
+                        output_file=${TEMP}/temp.c_ws_stats.csv
+                        rm ${output_file}
+                        ../../data_reuse_analyzer/polyscientist --input ${TEMP}/temp.c --parameters "ofw ofh nIfm nOfm kw kh pad_w pad_h nImg ifwp ifhp ofwp ofhp : ${ofw} ${ofh} ${nIfm} ${nOfm} ${kw} ${kh} ${pad_w} ${pad_h} ${arg_images}  ${ifwp} ${ifhp} ${ofwp} ${ofhp}"  --cachesizes "${CACHE_CONFIG}" --datatypesize $DATATYPESIZE --minout
+
+                        { echo -n "0_${GEMM_BLOCK},${GFLOPS}," ; cat - ${output_file} ; } >> ${CONFIG_OUT}
+                        echo  "${NAIVE_GFLOPS},${ERROR}" >> ${META_CONFIG_OUT}
+                        fi
+                fi
 		../../scripts/polyrank ${CONFIG_OUT}  --noheader --perfseparaterow --usepessidata
 	done
 
