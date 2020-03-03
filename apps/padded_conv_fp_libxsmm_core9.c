@@ -11,7 +11,7 @@
 #define GEMM_BLOCK 64
 #endif // !GEMM_BLOCK
 
-static inline void padded_conv_fp_libxsmm_core8_fn(int nImg, int nIfm, int nOfm, int ifhp, int ifwp, int ofhp, int ofwp, int ifh, int ifw,
+static inline void padded_conv_fp_libxsmm_core9_fn(int nImg, int nIfm, int nOfm, int ifhp, int ifwp, int ofhp, int ofwp, int ifh, int ifw,
 	int ofh, int ofw, int pad_h, int pad_w, int pad_h_in, int pad_w_in, int pad_h_out,
 	int pad_w_out, int kh, int kw, int stride_h, int stride_w,
 	const float pad_gemm_input[nImg][nIfm / GEMM_BLOCK][ifhp + 2 * pad_h][ifwp + 2 * pad_w][GEMM_BLOCK], float output[nImg][nOfm / GEMM_BLOCK][ofhp][ofwp][GEMM_BLOCK], const float filter[nOfm / GEMM_BLOCK][nIfm / GEMM_BLOCK][kh][kw][GEMM_BLOCK][GEMM_BLOCK], int iters)
@@ -20,14 +20,14 @@ static inline void padded_conv_fp_libxsmm_core8_fn(int nImg, int nIfm, int nOfm,
 	int img, ofm_tile, ofm, ifm_tile, ifm, oj, oi, ij, ii, kj, ki, i;
 
 #pragma scop
-#pragma omp parallel for private(ofm_tile, img, ifm_tile, ij, kj, ki, ii)
-	for (oj = 0; oj < ofh; ++oj) {
-		ij = oj * STRIDE_H;
-		for (ifm_tile = 0; ifm_tile < nIfm / GEMM_BLOCK; ++ifm_tile) {
-			for (ofm_tile = 0; ofm_tile < nOfm / GEMM_BLOCK; ++ofm_tile) {
-				for (img = 0; img < nImg; ++img) {
-					// printf("thread id = %d\n", omp_get_thread_num());
-					// #pragma omp parallel for private(ofm_tile, ifm_tile, oj, kj, ki)				
+#pragma omp parallel for private(img, ifm_tile, ij, oj, kj, ki, ii)
+	for (ofm_tile = 0; ofm_tile < nOfm / GEMM_BLOCK; ++ofm_tile) {
+		for (img = 0; img < nImg; ++img) {
+			// printf("thread id = %d\n", omp_get_thread_num());
+			// #pragma omp parallel for private(ofm_tile, ifm_tile, oj, kj, ki)
+			for (ifm_tile = 0; ifm_tile < nIfm / GEMM_BLOCK; ++ifm_tile) {
+				for (oj = 0; oj < ofh; ++oj) {
+					ij = oj * STRIDE_H;
 					for (kj = 0; kj < kh; ++kj) {
 						for (ki = 0; ki < kw; ++ki) {
 
@@ -60,7 +60,7 @@ static inline void padded_conv_fp_libxsmm_core8_fn(int nImg, int nIfm, int nOfm,
 #pragma endscop
 }
 
-inline void padded_conv_fp_libxsmm_core8_gemm(int nImg, int nIfm, int nOfm, int ifhp, int ifwp, int ofhp, int ofwp, int ifh, int ifw,
+inline void padded_conv_fp_libxsmm_core9_gemm(int nImg, int nIfm, int nOfm, int ifhp, int ifwp, int ofhp, int ofwp, int ifh, int ifw,
 	int ofh, int ofw, int pad_h, int pad_w, int pad_h_in, int pad_w_in, int pad_h_out,
 	int pad_w_out, int kh, int kw, int stride_h, int stride_w,
 	const float pad_gemm_input[nImg][nIfm / GEMM_BLOCK][ifhp + 2 * pad_h][ifwp + 2 * pad_w][GEMM_BLOCK], float output[nImg][nOfm / GEMM_BLOCK][ofhp][ofwp][GEMM_BLOCK], const float filter[nOfm / GEMM_BLOCK][nIfm / GEMM_BLOCK][kh][kw][GEMM_BLOCK][GEMM_BLOCK], int iters)
@@ -68,21 +68,25 @@ inline void padded_conv_fp_libxsmm_core8_gemm(int nImg, int nIfm, int nOfm, int 
 	/* loop counters */
 	int img, ofm_tile, ofm, ifm_tile, ifm, oj, oi, ij, ii, kj, ki, i;
 
-#pragma omp parallel for private(ofm_tile, ifm_tile, ij, img, kj, ki, ii)
-	for (oj = 0; oj < ofh; ++oj) {
-		ij = oj * stride_h;
-		for (ifm_tile = 0; ifm_tile < nIfm / GEMM_BLOCK; ++ifm_tile) {
-			for (ofm_tile = 0; ofm_tile < nOfm / GEMM_BLOCK; ++ofm_tile) {
-				for (img = 0; img < nImg; ++img) {
-					// zero_buf(&output[img][0][0][0][0], nOfm*ofhp*ofwp);
-					// printf("thread id = %d\n", omp_get_thread_num());
-					// #pragma omp parallel for private(ofm_tile, ifm_tile, oj, kj, ki)						
+#pragma omp parallel for private(img, ifm_tile, ij, oj, kj, ki, ii)
+	for (ofm_tile = 0; ofm_tile < nOfm / GEMM_BLOCK; ++ofm_tile) {
+		for (img = 0; img < nImg; ++img) {
+			// zero_buf(&output[img][0][0][0][0], nOfm*ofhp*ofwp);
+			// printf("thread id = %d\n", omp_get_thread_num());
+			// #pragma omp parallel for private(ofm_tile, ifm_tile, oj, kj, ki)		
+			for (oj = 0; oj < ofh; ++oj) {
+				for (ifm_tile = 0; ifm_tile < nIfm / GEMM_BLOCK; ++ifm_tile) {
+
+					ij = oj * stride_h;
 					for (kj = 0; kj < kh; ++kj) {
 						for (ki = 0; ki < kw; ++ki) {
+
 
 							fwd_gemm(&filter[ofm_tile][ifm_tile][kj][ki][0][0],
 								&pad_gemm_input[img][ifm_tile][ij + kj][ki][0],
 								&output[img][ofm_tile][oj][0][0]);
+
+
 
 							//GEMM
 						/*
@@ -103,4 +107,5 @@ inline void padded_conv_fp_libxsmm_core8_gemm(int nImg, int nIfm, int nOfm, int 
 			}
 		}
 	}
+
 }
