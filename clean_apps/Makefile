@@ -1,6 +1,6 @@
-CC=icc
-CFLAGS=-O3 -I . -I./libxsmm/include -qopenmp -fno-alias -mkl=sequential
-LDFLAGS=-L./libxsmm/lib -lxsmm -lpthread
+CC=gcc
+CFLAGS=-O3 -I . -I./libxsmm/include -fopenmp 
+LDFLAGS=-L./libxsmm/lib -lxsmm -lxsmmext -ldl -lm 
 MACROFLAGS=
 
 default: conv2d
