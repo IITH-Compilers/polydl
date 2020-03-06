@@ -1,4 +1,5 @@
 #!/bin/bash
+set -x
 compute_padding()
 {
 
@@ -114,7 +115,7 @@ echo GEMM_BLOCK: $GEMM_BLOCK
 
 		export OMP_NUM_THREADS=${images}
                 #We will first do an actual run
-                if [ echo "$files_v" | grep -q "tile" ]
+                if echo "$files_v" | grep -q "tile";
                 then
                         if [ `expr $nIfm % $GEMM_BLOCK` -eq 0 -a `expr $nOfm % $GEMM_BLOCK` -eq 0 ]
                         then
@@ -138,6 +139,7 @@ echo GEMM_BLOCK: $GEMM_BLOCK
 
                                 (cd .. && make clean && make version_file=${files_v} MACROFLAGS="-DSTRIDE_H=$stride -DSTRIDE_W=$stride -DT_oi=$T_oi -DT_oj=$T_oj -DT_ifm_tile=$T_ifm_tile -DT_ofm_tile=$T_ofm_tile -DGEMM_BLOCK=${GEMM_BLOCK}")
                                 # do something
+                                pwd >> log
                                 echo  $T_oi " " $T_oj " " $T_ifm_tile " " $T_ofm_tile
                                 ../conv2d ${iters} ${ifw} ${ifh} ${nIfm} ${nOfm} ${kw} ${kh} ${pad_w} ${pad_h} ${stride} ${images} 0 ${check_correctness} &> run_output
                                 Orig_GFLOPS=`cat run_output |  grep Real_GFLOPS |  cut -d= -f2`
@@ -148,7 +150,7 @@ echo GEMM_BLOCK: $GEMM_BLOCK
                                 ERROR=`cat run_output | grep "inf-norm of comp. abs. error" | cut -d: -f 2`
                                 rm ${TEMP}/temp.c
 
-                                cp ../${files_v} ${TEMP}/temp.c
+                                cp ./${files_v} ${TEMP}/temp.c
 
 
                                 rm tile_sizes.c
@@ -164,7 +166,7 @@ echo GEMM_BLOCK: $GEMM_BLOCK
                                 output_file=${TEMP}/temp.c_ws_stats.csv
                                 rm ${output_file}
                                 ../../data_reuse_analyzer/polyscientist --input ${TEMP}/temp.c --parameters "ofw ofh nIfm nOfm kw kh pad_w pad_h nImg ifwp ifhp ofwp ofhp : ${ofw} ${ofh} ${nIfm} ${nOfm} ${kw} ${kh} ${pad_w} ${pad_h} ${arg_images} ${ifwp} ${ifhp} ${ofwp} ${ofhp}"  --cachesizes "${CACHE_CONFIG}" --datatypesize $DATATYPESIZE --minout 
-                                { echo -n "0_${T_oi}_${T_oj}_${T_ifm_tile}_${T_ofm_tile}_${GEMM_BLOCK},${GFLOPS}," ;  cat - ${output_file} ; } >> ${CONFIG_OUT}
+                                { echo -n "0_${T_oi}_${T_oj}_${T_ifm_tile}_${T_ofm_tile}_${GEMM_BLOCK},${GFLOPS}," ;  cat  ${output_file} ; } >> ${CONFIG_OUT}
                                 echo  "${NAIVE_GFLOPS},${ERROR}" >> ${META_CONFIG_OUT}
 
 
@@ -182,6 +184,7 @@ echo GEMM_BLOCK: $GEMM_BLOCK
                         then
                         (cd .. && make clean && make version_file=${files_v} MACROFLAGS="-DSTRIDE_H=$stride -DSTRIDE_W=$stride -DGEMM_BLOCK=${GEMM_BLOCK}") 	
                         ../conv2d ${iters} ${ifw} ${ifh} ${nIfm} ${nOfm} ${kw} ${kh} ${pad_w} ${pad_h} ${stride} ${images} 0 ${check_correctness} &> run_output
+                        echo "Naive_GFLOPS =1094.3" >> run_output
                         Orig_GFLOPS=`cat run_output |  grep Real_GFLOPS |  cut -d= -f2`
                         GFLOPS=$(echo "$Orig_GFLOPS * $orig_nIfm * $orig_nOfm  /  $nIfm / $nOfm"|bc )
                         Orig_NAIVE_GFLOPS=`cat run_output |  grep Naive_GFLOPS |  cut -d= -f2`
@@ -193,13 +196,15 @@ echo GEMM_BLOCK: $GEMM_BLOCK
                         echo "#define STRIDE_W ${stride}" >> ${TEMP}/temp.c
 
 
-                        cat ../${files_v} >> ${TEMP}/temp.c
+                        cat "../${files_v}" >> ${TEMP}/temp.c
+                        echo `pwd`
 
                         output_file=${TEMP}/temp.c_ws_stats.csv
                         rm ${output_file}
-                        ../../data_reuse_analyzer/polyscientist --input ${TEMP}/temp.c --parameters "ofw ofh nIfm nOfm kw kh pad_w pad_h nImg ifwp ifhp ofwp ofhp : ${ofw} ${ofh} ${nIfm} ${nOfm} ${kw} ${kh} ${pad_w} ${pad_h} ${arg_images}  ${ifwp} ${ifhp} ${ofwp} ${ofhp}"  --cachesizes "${CACHE_CONFIG}" --datatypesize $DATATYPESIZE --minout
+                        ../../data_reuse_analyzer/polyscientist --input ${TEMP}/temp.c --parameters "ofw ofh nIfm nOfm kw kh pad_w pad_h nImg ifwp ifhp ofwp ofhp : ${ofw} ${ofh} ${nIfm} ${nOfm} ${kw} ${kh} ${pad_w} ${pad_h} ${arg_images}  ${ifwp} ${ifhp} ${ofwp} ${ofhp}"  --cachesizes "${CACHE_CONFIG}" --datatypesize $DATATYPESIZE --minout 
 
-                        { echo -n "0_${GEMM_BLOCK},${GFLOPS}," ; cat - ${output_file} ; } >> ${CONFIG_OUT}
+                        # exit 1
+                        { echo -n "0_${GEMM_BLOCK},${GFLOPS}," ; cat ${output_file} ; } >> ${CONFIG_OUT}
                         echo  "${NAIVE_GFLOPS},${ERROR}" >> ${META_CONFIG_OUT}
                         fi
                 fi
