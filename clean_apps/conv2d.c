@@ -9,9 +9,10 @@
 #if defined(USE_LIBXSMM)
 #ifndef LIBXSMM_H
 #include <libxsmm.h>
-#endif
 /* function-pointer to LIBXSMM kernel */
 libxsmm_smmfunction fwd_gemm;
+#define LIBXSMM_H
+#endif
 #endif
 
 

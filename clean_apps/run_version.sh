@@ -1,9 +1,11 @@
 #!/bin/bash
 
 for file in ./version/*
+# for file in padded_conv_fp_libxsmm_core2.c
 do
 	make clean
-	make version=${file}    
-	./conv2d
+	cd experiments;
+	bash run_all_conv.sh ${file}
+	cd ..
 done
 
