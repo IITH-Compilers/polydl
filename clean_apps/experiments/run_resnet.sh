@@ -3,8 +3,8 @@ FILE=$1
 VERSION_FILE=$2
 ITERS=1000
 #Resnet-50
-bash ./$FILE $ITERS  224 224 3   64 7 7 3 3 2 resnet_00 $VERSION_FILE #
-# bash ./$FILE $ITERS  56  56  64  256 1 1 0 0 1 resnet_01 $VERSION_FILE 
+#bash ./$FILE $ITERS  224 224 3   64 7 7 3 3 2 resnet_00 $VERSION_FILE #
+ bash ./$FILE $ITERS  56  56  64  256 1 1 0 0 1 resnet_01 $VERSION_FILE 
 # bash ./$FILE $ITERS  56  56  64  64 1 1 0 0 1 resnet_02 $VERSION_FILE 
 # bash ./$FILE $ITERS  56  56  64  64 3 3 1 1 1 resnet_03 $VERSION_FILE 
 # bash ./$FILE $ITERS  56  56  256  64 1 1 0 0 1 resnet_04 $VERSION_FILE 
