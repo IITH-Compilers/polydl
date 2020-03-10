@@ -19,7 +19,7 @@ using namespace std;
 
 
 #define IGNORE_WS_SIZE_ONE 1
-#define DEBUG 0
+#define DEBUG 1
 
 #define min(X, Y) (((X) < (Y)) ? (X) : (Y))
 #define max(X, Y) (((X) > (Y)) ? (X) : (Y))
@@ -208,6 +208,7 @@ long ComputeNumberOfItersInParallelLoop(isl_basic_set* bset, int pos,
 isl_basic_set* SimplifyBasicSet(isl_basic_set* bset,
 	unordered_map<string, int>* paramValues);
 isl_union_pw_qpolynomial* ComputeTotalDataSetSize(pet_scop *scop);
+void PrintWorkingSetSize(WorkingSetSize* wss);
 /* Function header declarations end */
 
 int main(int argc, char **argv) {
@@ -1335,6 +1336,16 @@ void SimplifyWorkingSetSizes(vector<WorkingSetSize*>* workingSetSizes,
 			MinMaxTuple* minMaxTuple = AddToVectorIfUniqueDependence(
 				minMaxTupleVector, min, max, isParallelLoopEncountered);
 
+			if (DEBUG) {
+				/*TODO: isParallelLoopEncountered is valid? Do we assume some ordering on the working set sizes*/
+				if (minMaxTuple) {
+					cout << "working_set: " << endl;
+					PrintWorkingSetSize(workingSetSizes->at(i));
+					cout << "min = " << min << " max = " << max
+						<< " isParallelLoopEncountered = " << isParallelLoopEncountered << endl;
+				}
+			}
+
 			if (doesParallelLoopExist && minMaxTuple) {
 				minMaxTuple->dataSetUnionCardInt = dataSetUnionCardInt;
 				minMaxTuple->dataSetCommonCardInt = dataSetCommonCardInt;
@@ -1383,7 +1394,7 @@ void SimplifyWorkingSetSizes(vector<WorkingSetSize*>* workingSetSizes,
 
 MinMaxTuple* AddToVectorIfUniqueDependence(vector<MinMaxTuple*> *minMaxTupleVector,
 	long min, long max, bool isParallelLoopEncountered) {
-	if (min != -1 && max != -1) {
+	if (min != -1 && max != -1 && min != 0 && max != 0) {
 		for (int i = 0; i < minMaxTupleVector->size(); i++) {
 			if (minMaxTupleVector->at(i)->min == min &&
 				minMaxTupleVector->at(i)->max == max) {
@@ -1981,29 +1992,33 @@ int findInParamsMap(unordered_map<string, int>* map, string key) {
 	}
 }
 
+void PrintWorkingSetSize(WorkingSetSize* wss) {
+	cout << "dependence: " << endl;
+	PrintBasicMap(wss->dependence);
+
+	cout << "source: " << endl;
+	PrintSet(wss->source);
+
+	cout << "target: " << endl;
+	PrintSet(wss->target);
+
+	cout << "MinSize: " << endl;
+	PrintUnionPwQpolynomial(wss->minSize);
+
+	cout << "MaxSize: " << endl;
+	PrintUnionPwQpolynomial(wss->maxSize);
+
+	cout << "parallelLoop: " << wss->parallelLoop << endl;
+	cout << "size: " << wss->size << endl;
+}
+
 void PrintWorkingSetSizes(vector<WorkingSetSize*>* workingSetSizes) {
 	cout << "Number of working set sizes: " << workingSetSizes->size()
 		<< endl;
 	for (int i = 0; i < workingSetSizes->size(); i++) {
 		cout << "*********************************************" << endl;
 		cout << "*********************************************" << endl;
-		cout << "dependence: " << endl;
-		PrintBasicMap(workingSetSizes->at(i)->dependence);
-
-		cout << "source: " << endl;
-		PrintSet(workingSetSizes->at(i)->source);
-
-		cout << "target: " << endl;
-		PrintSet(workingSetSizes->at(i)->target);
-
-		cout << "MinSize: " << endl;
-		PrintUnionPwQpolynomial(workingSetSizes->at(i)->minSize);
-
-		cout << "MaxSize: " << endl;
-		PrintUnionPwQpolynomial(workingSetSizes->at(i)->maxSize);
-
-		cout << "parallelLoop: " << workingSetSizes->at(i)->parallelLoop << endl;
-		cout << "size: " << workingSetSizes->at(i)->size << endl;
+		PrintWorkingSetSize(workingSetSizes->at(i));
 		cout << "*********************************************" << endl;
 		cout << "*********************************************" << endl;
 		cout << endl;
