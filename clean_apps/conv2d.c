@@ -7,10 +7,15 @@
 #define USE_LIBXSMM
 
 #if defined(USE_LIBXSMM)
+#ifndef LIBXSMM_H
 #include <libxsmm.h>
 /* function-pointer to LIBXSMM kernel */
 libxsmm_smmfunction fwd_gemm;
+#define LIBXSMM_H
 #endif
+#endif
+
+
 
 #define min(X, Y) (((X) < (Y)) ? (X) : (Y))
 #define max(X, Y) (((X) > (Y)) ? (X) : (Y))
@@ -97,11 +102,10 @@ double padded_conv_fp(
 		//gagan code added here
 		l_start = libxsmm_timer_tick();
 		for (i = 0; i < iters; i++) {
-			padded_conv_fp_libxsmm_core2_fn(nImg, nIfm, nOfm, ifhp, ifwp, ofhp, ofwp, ifh, ifw,
+			padded_conv_fp_high_perfomrance(nImg, nIfm, nOfm, ifhp, ifwp, ofhp, ofwp, ifh, ifw,
 				ofh, ofw, pad_h, pad_w, pad_h_in, pad_w_in, pad_h_out,
 				pad_w_out, kh, kw, stride_h, stride_w, pad_gemm_input, output, filter, iters);
-				
-printf("I reached here");
+
 		}
 
 		l_end = libxsmm_timer_tick();
@@ -115,6 +119,9 @@ printf("I reached here");
 	l_total = libxsmm_timer_duration(l_start, l_end);
 	return l_total;
 }
+
+
+
 
 
 void copy_GEMM_to_PADDED_GEMM(int N, int H, int W, int C, int pad_h, int pad_w,
@@ -370,18 +377,18 @@ int main(int argc, char **argv) {
 		return -1;
 	}
 
-	if (version == 0 || version == 1 || version == 20 || version == 21 || version == 28) {
-		// LIBXSMM tiled
-		if (ofwp % T_oi != 0 || T_oi > ofwp) {
-			printf("The tiling factor %d for oi loop should divide ofwp = %d\n. Exiting\n", T_oi, ofwp);
-			return -1;
-		}
+	// if (version == 0 || version == 1 || version == 20 || version == 21 || version == 28) {
+	// 	// LIBXSMM tiled
+	// 	if (ofwp % T_oi != 0 || T_oi > ofwp) {
+	// 		printf("The tiling factor %d for oi loop should divide ofwp = %d\n. Exiting\n", T_oi, ofwp);
+	// 		return -1;
+	// 	}
 
 		fwd_gemm = libxsmm_smmdispatch(GEMM_BLOCK, T_oi, GEMM_BLOCK, NULL, ldx_ptr, NULL, NULL, NULL, NULL, NULL);
-	}
-	else {
-		fwd_gemm = libxsmm_smmdispatch(GEMM_BLOCK, ofwp, GEMM_BLOCK, NULL, ldx_ptr, NULL, NULL, NULL, NULL, NULL);
-	}
+	// }
+	// else {
+	// 	fwd_gemm = libxsmm_smmdispatch(GEMM_BLOCK, ofwp, GEMM_BLOCK, NULL, ldx_ptr, NULL, NULL, NULL, NULL, NULL);
+	// }
 
 
 #endif

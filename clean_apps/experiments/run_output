@@ -1,0 +1,51 @@
+version = 0
+PolyScientist config: 112 112 16 64 7 7 3 3 28 224 224 112 112 2 2
+
+
+
+##########################################
+#                Setting Up              #
+##########################################
+PARAMS: W:224  H:224  N:28  C:16  K:64  R:7  S:7  P:112  Q:112  STRIDE:2
+PARAMS: ITERS:1 InImg 224x224 Padded (224x224)
+OutImg 112x112 Padded (112x112)
+SIZE Input  (MB):      85.75 MiB
+SIZE Output (MB):      85.75 MiB
+SIZE Input   (1):       3.06 MiB
+SIZE Output  (1):       3.06 MiB
+SIZE Weight     :       0.19 MiB
+Allocating data
+Initializing data
+##########################################
+#   Correctness - FWD (custom-Storage)   #
+##########################################
+Calling padded_conv_fp
+Calling copy_GEMM_to_NCHW
+Printing input values
+0.045837 0.032098 0.034218
+0.045837 0.032098 0.034218
+Printing weight values
+-0.020002 -0.005691 -0.029220
+-0.020002 -0.016429 -0.029220
+Printing output values
+0.000000 0.000000 0.000000
+Printing check_output values
+-0.024498 0.000000 0.000000
+Printing gemm_output values
+-0.024498 0.000000 0.000000
+             1-norm of reference: 0.000000
+             1-norm of GEMM-code: 31.577450
+      L2-error-norm of GEMM-code: 38.145573
+    inf-norm of comp. rel. error: inf
+    inf-norm of comp. abs. error: 0.142254
+##########################################
+#   Performance - FWD (custom-Storage)   #
+##########################################
+Calling copy_GEMM_to_NCHW
+Calling copy_GEMM_to_NCHW
+Calling copy_GEMM_to_NCHW
+Elapsed time of padded_conv_fp = 0.012010 seconds
+GFLOP  = 35.247
+fp time = 0.01201
+Real_GFLOPS =2934.8
+Naive_GFLOPS =1094.3
