@@ -20,15 +20,15 @@
 #endif // !K1
 
 #ifndef M1_Tile
-#define M1_Tile 64
+#define M1_Tile M1
 #endif // !M1_Tile
 
 #ifndef N1_Tile
-#define N1_Tile 64
+#define N1_Tile N1
 #endif // !N1_Tile
 
 #ifndef K1_Tile
-#define K1_Tile 64
+#define K1_Tile K1
 #endif // !K1_Tile
 
 

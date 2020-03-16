@@ -15,7 +15,7 @@
 #include <libxsmm.h>
 extern libxsmm_smmfunction fwd_gemm;
 
-void matmul_high_performance(float A[N1][N1], float B[N1][N1], float C[N1][N1])
+void matmul_high_performance(float A[M1][K1], float B[K1][N1], float C[M1][N1])
 {
 	fwd_gemm(&B[0][0], &A[0][0], &C[0][0]);
 }
