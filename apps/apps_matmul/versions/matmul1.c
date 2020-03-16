@@ -1,0 +1,23 @@
+#ifndef M1
+#define M1 32
+#endif // !M1
+
+#ifndef N1
+#define N1 32
+#endif // !N1
+
+#ifndef K1
+#define K1 32
+#endif // !K1
+
+
+#ifdef USE_LIBXSMM
+#include <libxsmm.h>
+extern libxsmm_smmfunction fwd_gemm;
+
+void matmul_high_performance(float A[N1][N1], float B[N1][N1], float C[N1][N1])
+{
+	fwd_gemm(&B[0][0], &A[0][0], &C[0][0]);
+}
+
+#endif
