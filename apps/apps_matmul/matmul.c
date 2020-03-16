@@ -62,13 +62,13 @@ void init_array(float A[M1][K1], float B[K1][N1], float C[M1][N1], float C_ref[M
 
 	for (i = 0; i < M1; i++) {
 		for (j = 0; j < K1; j++) {
-			A[i][j] = (i + j);
+			A[i][j] = (i + j) / (float)(M1 + K1);
 		}
 	}
 
 	for (i = 0; i < K1; i++) {
 		for (j = 0; j < N1; j++) {
-			B[i][j] = (float)(i * j);
+			B[i][j] = (float)(i * j) / (float)(K1 + N1);
 		}
 	}
 
@@ -136,7 +136,20 @@ int main() {
 	float(*C)[M1] = (float*)libxsmm_aligned_malloc(M1*N1 * sizeof(float), 2097152);
 	float(*C_ref)[M1] = (float*)libxsmm_aligned_malloc(M1*N1 * sizeof(float), 2097152);
 
-	fwd_gemm = libxsmm_smmdispatch(N1, M1, K1, NULL, NULL, NULL, NULL, NULL, NULL, NULL);
+	int N1_val = N1;
+	int M1_val = M1;
+	int K1_val = K1;
+
+	printf("M1_Tile = %d, N1_Tile = %d, K1_Tile = %d\n", M1_Tile, N1_Tile, K1_Tile);
+
+	/*
+	fwd_gemm = libxsmm_smmdispatch(N1_Tile, M1_Tile, K1_Tile,
+		&N1_val, &M1_val, &K1_val, NULL, NULL, NULL, NULL);
+		*/
+
+	fwd_gemm = libxsmm_smmdispatch(N1_Tile, M1_Tile, K1_Tile,
+		NULL, NULL, NULL, NULL, NULL, NULL, NULL);
+
 	init_array(A, B, C, C_ref);
 	matmul_ref(A, B, C);
 	matmul_high_performance(A, B, C_ref);
