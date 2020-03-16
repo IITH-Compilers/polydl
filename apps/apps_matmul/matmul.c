@@ -19,6 +19,19 @@
 #define K1 32
 #endif // !K1
 
+#ifndef M1_Tile
+#define M1_Tile 64
+#endif // !M1_Tile
+
+#ifndef N1_Tile
+#define N1_Tile 64
+#endif // !N1_Tile
+
+#ifndef K1_Tile
+#define K1_Tile 64
+#endif // !K1_Tile
+
+
 #ifndef alpha
 #define alpha 1
 #endif // !alpha
@@ -44,13 +57,23 @@
 /* function-pointer to LIBXSMM kernel */
 libxsmm_smmfunction fwd_gemm;
 
-void init_array(float A[N1][N1], float B[N1][N1], float C[N1][N1], float C_ref[N1][N1]) {
+void init_array(float A[M1][K1], float B[K1][N1], float C[M1][N1], float C_ref[M1][N1]) {
 	int i, j;
 
-	for (i = 0; i < N1; i++) {
-		for (j = 0; j < N1; j++) {
+	for (i = 0; i < M1; i++) {
+		for (j = 0; j < K1; j++) {
 			A[i][j] = (i + j);
+		}
+	}
+
+	for (i = 0; i < K1; i++) {
+		for (j = 0; j < N1; j++) {
 			B[i][j] = (float)(i * j);
+		}
+	}
+
+	for (i = 0; i < M1; i++) {
+		for (j = 0; j < N1; j++) {
 			C[i][j] = 0.0;
 			C_ref[i][j] = 0.0;
 		}
@@ -58,7 +81,7 @@ void init_array(float A[N1][N1], float B[N1][N1], float C[N1][N1], float C_ref[N
 }
 
 
-void matmul_ref(float A[N1][N1], float B[N1][N1], float C[N1][N1]) {
+void matmul_ref(float A[M1][K1], float B[K1][N1], float C[M1][N1]) {
 	int i, j, k;
 	for (i = 0; i < M1; i++)
 		for (j = 0; j < N1; j++)
@@ -107,12 +130,13 @@ double t_start, t_end;
 int main() {
 	int i, j, k, t;
 
-	float(*A)[K1] = (float*)libxsmm_aligned_malloc(M1*K1 * sizeof(float), 2097152);
-	float(*B)[N1] = (float*)libxsmm_aligned_malloc(K1*N1 * sizeof(float), 2097152);
-	float(*C)[N1] = (float*)libxsmm_aligned_malloc(M1*N1 * sizeof(float), 2097152);
-	float(*C_ref)[N1] = (float*)libxsmm_aligned_malloc(M1*N1 * sizeof(float), 2097152);
+	// C[M][N] = A[M][K] * B[K][N];
+	float(*A)[M1] = (float*)libxsmm_aligned_malloc(M1*K1 * sizeof(float), 2097152);
+	float(*B)[K1] = (float*)libxsmm_aligned_malloc(K1*N1 * sizeof(float), 2097152);
+	float(*C)[M1] = (float*)libxsmm_aligned_malloc(M1*N1 * sizeof(float), 2097152);
+	float(*C_ref)[M1] = (float*)libxsmm_aligned_malloc(M1*N1 * sizeof(float), 2097152);
 
-	fwd_gemm = libxsmm_smmdispatch(M1, N1, K1, NULL, NULL, NULL, NULL, NULL, NULL, NULL);
+	fwd_gemm = libxsmm_smmdispatch(N1, M1, K1, NULL, NULL, NULL, NULL, NULL, NULL, NULL);
 	init_array(A, B, C, C_ref);
 	matmul_ref(A, B, C);
 	matmul_high_performance(A, B, C_ref);
