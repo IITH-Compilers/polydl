@@ -80,6 +80,7 @@ void matmul_high_performance(float A[M1][K1], float B[K1][N1], float C[M1][N1])
 {
 	int it2, jt2, kt2, it1, jt1, kt1, i, j, k;
 
+#pragma omp parallel for private(jt2, kt2, it1, jt1, kt1, i, j, k)
 	for (it2 = 0; it2 < M1; it2 += M2_Tile) {
 		for (jt2 = 0; jt2 < N1; jt2 += N2_Tile) {
 			for (kt2 = 0; kt2 < K1; kt2 += K2_Tile) {

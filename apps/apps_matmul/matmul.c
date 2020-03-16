@@ -140,6 +140,7 @@ int main() {
 	int M1_val = M1;
 	int K1_val = K1;
 
+	printf("M1 = %d, N1 = %d, K1 = %d\n", M1, N1, K1);
 	printf("M1_Tile = %d, N1_Tile = %d, K1_Tile = %d\n", M1_Tile, N1_Tile, K1_Tile);
 
 	/*
