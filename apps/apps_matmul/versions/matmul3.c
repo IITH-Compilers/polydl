@@ -110,6 +110,8 @@ double matmul_high_performance(float A[M1][K1], float B[K1][N1], float C[M1][N1]
 	double l_total = 0.0;
 	int i;
 	printf("In matmul3.c\n");
+	printf("M1_Tile = %d, N1_Tile = %d, K1_Tile = %d\n", M1_Tile, N1_Tile, K1_Tile);
+	printf("M2_Tile = %d, N2_Tile = %d, K2_Tile = %d\n", M2_Tile, N2_Tile, K2_Tile);
 
 	float(*A_Tiled)[K1 / K1_Tile][M1_Tile][K1_Tile] =
 		(float*)libxsmm_aligned_malloc(M1*K1 * sizeof(float), 2097152);

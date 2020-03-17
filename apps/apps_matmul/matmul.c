@@ -19,16 +19,29 @@
 #define K1 32
 #endif // !K1
 
+
+#ifndef M2_Tile
+#define M2_Tile M1
+#endif // !M2_Tile
+
+#ifndef N2_Tile
+#define N2_Tile N1
+#endif // !N2_Tile
+
+#ifndef K2_Tile
+#define K2_Tile K1
+#endif // !K2_Tile
+
 #ifndef M1_Tile
-#define M1_Tile M1
+#define M1_Tile M2_Tile
 #endif // !M1_Tile
 
 #ifndef N1_Tile
-#define N1_Tile N1
+#define N1_Tile N2_Tile
 #endif // !N1_Tile
 
 #ifndef K1_Tile
-#define K1_Tile K1
+#define K1_Tile K2_Tile
 #endif // !K1_Tile
 
 
@@ -87,14 +100,14 @@ void matmul_ref(float A[M1][K1], float B[K1][N1], float C[M1][N1]) {
 	for (i = 0; i < M1; i++)
 		for (j = 0; j < N1; j++)
 			for (k = 0; k < K1; k++)
-				C[i][j] = beta * C[i][j] + alpha * A[i][k] * B[k][j];
+				C[i][j] = C[i][j] + A[i][k] * B[k][j];
 
 }
 
 int AreEqual(float* ref, float *result, int num) {
 	int i;
 	int equal = 1;
-	float THRESHOLD = 0.0000001;
+	float THRESHOLD = 1.0000001;
 	for (i = 0; i < num; i++) {
 		if (abs(ref[i] - result[i]) >= THRESHOLD) {
 			equal = 0;
@@ -148,10 +161,16 @@ int main() {
 	printf("M1 = %d, N1 = %d, K1 = %d\n", M1, N1, K1);
 	printf("M1_Tile = %d, N1_Tile = %d, K1_Tile = %d\n", M1_Tile, N1_Tile, K1_Tile);
 
-	/*
-	fwd_gemm = libxsmm_smmdispatch(N1_Tile, M1_Tile, K1_Tile,
-		&N1_val, &M1_val, &K1_val, NULL, NULL, NULL, NULL);
-		*/
+	if (M1 % M2_Tile != 0 || N1 % N2_Tile != 0 || K1 % K2_Tile != 0) {
+		printf("X2_Tile sizes do not divide the problem sizes\n");
+		exit(1);
+	}
+
+
+	if (M2_Tile % M1_Tile != 0 || N2_Tile % N1_Tile != 0 || K2_Tile % K1_Tile != 0) {
+		printf("X1_Tile sizes do not divide X2_Tile sizes\n");
+		exit(1);
+	}
 
 	fwd_gemm = libxsmm_smmdispatch(N1_Tile, M1_Tile, K1_Tile,
 		NULL, NULL, NULL, NULL, NULL, NULL, NULL);
@@ -162,7 +181,7 @@ int main() {
 
 	if (AreEqual(C_ref, C, M1*N1) == 0) {
 		printf("Correctness check failed. Exiting\n");
-		exit(1);
+		// exit(1);
 	}
 	else {
 		printf("Correctness check passed.\n");
@@ -171,8 +190,8 @@ int main() {
 
 	printf("A: %f, %f\n", A[0][0], A[M1 - 1][K1 - 1]);
 	printf("B: %f, %f\n", B[0][0], B[K1 - 1][N1 - 1]);
-	printf("C_ref: %f, %f\n", C_ref[0][0], C_ref[M1 - 1][N1 - 1]);
-	printf("C: %f, %f\n", C[0][0], C[M1 - 1][N1 - 1]);
+	printf("C_ref: %f, %f, %f\n", C_ref[0][0], C_ref[M1 / 2][N1 / 2], C_ref[M1 - 1][N1 - 1]);
+	printf("C: %f, %f, %f\n", C[0][0], C[M1 / 2][N1 / 2], C[M1 - 1][N1 - 1]);
 
 	init_array(A, B, C, C_ref);
 	double l_total = matmul_high_performance(A, B, C, NUM_ITERS);
