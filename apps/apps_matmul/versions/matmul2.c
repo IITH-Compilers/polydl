@@ -39,7 +39,7 @@
 #define min(X, Y) (((X) < (Y)) ? (X) : (Y))
 #define max(X, Y) (((X) > (Y)) ? (X) : (Y))
 
-void matmul_high_performance_scop(float A[M1][K1], float B[K1][N1], float C[M1][N1])
+double matmul_high_performance_scop(float A[M1][K1], float B[K1][N1], float C[M1][N1], int iters)
 {
 	int it2, jt2, kt2, it1, jt1, kt1, i, j, k;
 	// printf("In matmul2\n");
@@ -70,13 +70,30 @@ void matmul_high_performance_scop(float A[M1][K1], float B[K1][N1], float C[M1][
 	}
 #pragma endscop
 
+	return 1;
 }
 
 #ifdef USE_LIBXSMM
 #include <libxsmm.h>
 extern libxsmm_smmfunction fwd_gemm;
 
-void matmul_high_performance(float A[M1][K1], float B[K1][N1], float C[M1][N1])
+double matmul_high_performance(float A[M1][K1], float B[K1][N1], float C[M1][N1], int iters) {
+	unsigned long long l_start, l_end;
+	double l_total = 0.0;
+	int i;
+	printf("In matmul2.c\n");
+	l_start = libxsmm_timer_tick();
+
+	for (i = 0; i < iters; i++) {
+		matmul_high_performance_core(A, B, C);
+	}
+
+	l_end = libxsmm_timer_tick();
+	l_total = libxsmm_timer_duration(l_start, l_end);
+	return l_total;
+}
+
+void matmul_high_performance_core(float A[M1][K1], float B[K1][N1], float C[M1][N1])
 {
 	int it2, jt2, kt2, it1, jt1, kt1, i, j, k;
 

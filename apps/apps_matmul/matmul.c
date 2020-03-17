@@ -56,19 +56,20 @@
 
 /* function-pointer to LIBXSMM kernel */
 libxsmm_smmfunction fwd_gemm;
+extern double matmul_high_performance(float A[M1][K1], float B[K1][N1], float C[M1][N1], int iters);
 
 void init_array(float A[M1][K1], float B[K1][N1], float C[M1][N1], float C_ref[M1][N1]) {
 	int i, j;
 
 	for (i = 0; i < M1; i++) {
 		for (j = 0; j < K1; j++) {
-			A[i][j] = (i + j) / (float)(M1 + K1);
+			A[i][j] = ((float)i + (float)j) / (float)(M1 + K1);
 		}
 	}
 
 	for (i = 0; i < K1; i++) {
 		for (j = 0; j < N1; j++) {
-			B[i][j] = (float)(i * j) / (float)(K1 + N1);
+			B[i][j] = ((float)i * (float)j) / (float)(K1 + N1);
 		}
 	}
 
@@ -90,14 +91,18 @@ void matmul_ref(float A[M1][K1], float B[K1][N1], float C[M1][N1]) {
 
 }
 
-void compare(float* ref, float *result, int num) {
+int AreEqual(float* ref, float *result, int num) {
 	int i;
-	float THRESHOLD = 0.0001;
+	int equal = 1;
+	float THRESHOLD = 0.0000001;
 	for (i = 0; i < num; i++) {
 		if (abs(ref[i] - result[i]) >= THRESHOLD) {
+			equal = 0;
 			printf("ref[%d] = %f, result[%d] = %f\n", i, ref[i], i, result[i]);
 		}
 	}
+
+	return equal;
 }
 
 
@@ -131,10 +136,10 @@ int main() {
 	int i, j, k, t;
 
 	// C[M][N] = A[M][K] * B[K][N];
-	float(*A)[M1] = (float*)libxsmm_aligned_malloc(M1*K1 * sizeof(float), 2097152);
-	float(*B)[K1] = (float*)libxsmm_aligned_malloc(K1*N1 * sizeof(float), 2097152);
-	float(*C)[M1] = (float*)libxsmm_aligned_malloc(M1*N1 * sizeof(float), 2097152);
-	float(*C_ref)[M1] = (float*)libxsmm_aligned_malloc(M1*N1 * sizeof(float), 2097152);
+	float(*A)[K1] = (float*)libxsmm_aligned_malloc(M1*K1 * sizeof(float), 2097152);
+	float(*B)[N1] = (float*)libxsmm_aligned_malloc(K1*N1 * sizeof(float), 2097152);
+	float(*C)[N1] = (float*)libxsmm_aligned_malloc(M1*N1 * sizeof(float), 2097152);
+	float(*C_ref)[N1] = (float*)libxsmm_aligned_malloc(M1*N1 * sizeof(float), 2097152);
 
 	int N1_val = N1;
 	int M1_val = M1;
@@ -153,26 +158,29 @@ int main() {
 
 	init_array(A, B, C, C_ref);
 	matmul_ref(A, B, C);
-	matmul_high_performance(A, B, C_ref);
-	compare(C_ref, C, M1*N1);
-	printf("Comparison DONE\n");
+	matmul_high_performance(A, B, C_ref, 1);
 
-	init_array(A, B, C, C_ref);
-
-	IF_TIME(t_start = rtclock());
-
-	for (t = 0; t < NUM_ITERS; t++) {
-#pragma scop
-		matmul_high_performance(A, B, C);
-#pragma endscop
+	if (AreEqual(C_ref, C, M1*N1) == 0) {
+		printf("Correctness check failed. Exiting\n");
+		exit(1);
+	}
+	else {
+		printf("Correctness check passed.\n");
 	}
 
-	IF_TIME(t_end = rtclock());
-	IF_TIME(fprintf(stdout, "%0.6lfs\n", t_end - t_start));
-	IF_TIME(fprintf(stdout, "%0.2lf GFLOPS\n",
-		NUM_ITERS * 2.0 * M1 * N1 * K1 / (t_end - t_start) / 1E9));
 
-	fprintf(stdout, "%0.6f, %0.6f\n", C[0][0], C[M1 - 1][N1 - 1]);
+	printf("A: %f, %f\n", A[0][0], A[M1 - 1][K1 - 1]);
+	printf("B: %f, %f\n", B[0][0], B[K1 - 1][N1 - 1]);
+	printf("C_ref: %f, %f\n", C_ref[0][0], C_ref[M1 - 1][N1 - 1]);
+	printf("C: %f, %f\n", C[0][0], C[M1 - 1][N1 - 1]);
+
+	init_array(A, B, C, C_ref);
+	double l_total = matmul_high_performance(A, B, C, NUM_ITERS);
+	printf("Total time in nano seconds: %f\n", l_total);
+
+	double flops = NUM_ITERS * 2.0 * M1 * N1 * K1;
+	printf("%0.2lf GFLOPS\n",
+		(flops*1e-9) / l_total);
 
 	libxsmm_free(A);
 	libxsmm_free(B);
