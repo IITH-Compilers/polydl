@@ -97,6 +97,7 @@ void init_array(float A[M1][K1], float B[K1][N1], float C[M1][N1], float C_ref[M
 
 void matmul_ref(float A[M1][K1], float B[K1][N1], float C[M1][N1]) {
 	int i, j, k;
+#pragma omp parallel for private(j, k)
 	for (i = 0; i < M1; i++)
 		for (j = 0; j < N1; j++)
 			for (k = 0; k < K1; k++)
@@ -143,10 +144,57 @@ double rtclock() {
 }
 double t_start, t_end;
 
+typedef struct {
+	double max_rel_err;
+	double max_abs_err;
+	double l2_rel_err;
+	double one_norm_ref;
+	double one_norm_test;
+} correctness_t;
 
+void compare_buf(float* ref, float* test, long size, correctness_t* norms)
+{
+	int i;
+	double diff, rel_err;
+
+	norms->max_rel_err = 0.;
+	norms->max_abs_err = 0.;
+	norms->l2_rel_err = 0.;
+	norms->one_norm_ref = 0.;
+	norms->one_norm_test = 0.;
+
+	for (i = 0; i < size; ++i) {
+		norms->one_norm_ref += (double)ref[i];
+		norms->one_norm_test += (double)test[i];
+		diff = fabs((double)ref[i] - (double)test[i]);
+		norms->l2_rel_err += (diff*diff);
+		rel_err = 0.0;
+		if (diff > 0.0) {
+			rel_err = diff / fabs((double)ref[i]);
+		}
+		if (rel_err > norms->max_rel_err) {
+			norms->max_rel_err = rel_err;
+#if 0
+			printf("MISMATCH@ %3d: A=%12.8g  B=%12.8g (E:%12.4e) (R:%12.4e)\n", i, ref[i], test[i], diff, rel_err);
+#endif
+		}
+		if (diff > norms->max_abs_err) {
+			norms->max_abs_err = diff;
+		}
+#if 0
+		if (diff > 1.0) {
+			printf("MISMATCH@ %3d: A=%12.8g  B=%12.8g (E:%12.4e)\n", i, ref[i], test[i], diff);
+		}
+#endif
+
+	}
+	norms->l2_rel_err = sqrt(norms->l2_rel_err);
+}
 
 int main() {
 	int i, j, k, t;
+
+	correctness_t norms_fwd;
 
 	// C[M][N] = A[M][K] * B[K][N];
 	float(*A)[K1] = (float*)libxsmm_aligned_malloc(M1*K1 * sizeof(float), 2097152);
@@ -160,6 +208,9 @@ int main() {
 
 	printf("M1 = %d, N1 = %d, K1 = %d\n", M1, N1, K1);
 	printf("M1_Tile = %d, N1_Tile = %d, K1_Tile = %d\n", M1_Tile, N1_Tile, K1_Tile);
+	printf("SIZE A  (MB): %10.2f MB\n", (double)(M1*K1 * sizeof(float)) / (1024.0*1024.0));
+	printf("SIZE B  (MB): %10.2f MB\n", (double)(K1*N1 * sizeof(float)) / (1024.0*1024.0));
+	printf("SIZE C  (MB): %10.2f MB\n", (double)(M1*N1 * sizeof(float)) / (1024.0*1024.0));
 
 	if (M1 % M2_Tile != 0 || N1 % N2_Tile != 0 || K1 % K2_Tile != 0) {
 		printf("X2_Tile sizes do not divide the problem sizes\n");
@@ -179,6 +230,15 @@ int main() {
 	matmul_ref(A, B, C);
 	matmul_high_performance(A, B, C_ref, 1);
 
+	/* compare */
+	compare_buf(C_ref, C, M1*N1, &norms_fwd);
+	printf("             1-norm of reference: %f\n", norms_fwd.one_norm_ref);
+	printf("             1-norm of GEMM-code: %f\n", norms_fwd.one_norm_test);
+	printf("      L2-error-norm of GEMM-code: %f\n", norms_fwd.l2_rel_err);
+	printf("    inf-norm of comp. rel. error: %f\n", norms_fwd.max_rel_err);
+	printf("    inf-norm of comp. abs. error: %f\n", norms_fwd.max_abs_err);
+
+	/*
 	if (AreEqual(C_ref, C, M1*N1) == 0) {
 		printf("Correctness check failed. Exiting\n");
 		// exit(1);
@@ -186,6 +246,7 @@ int main() {
 	else {
 		printf("Correctness check passed.\n");
 	}
+	*/
 
 
 	printf("A: %f, %f\n", A[0][0], A[M1 - 1][K1 - 1]);
@@ -195,7 +256,7 @@ int main() {
 
 	init_array(A, B, C, C_ref);
 	double l_total = matmul_high_performance(A, B, C, NUM_ITERS);
-	printf("Total time in nano seconds: %f\n", l_total);
+	printf("Total time in seconds: %f\n", l_total);
 
 	double flops = NUM_ITERS * 2.0 * M1 * N1 * K1;
 	printf("%0.2lf GFLOPS\n",

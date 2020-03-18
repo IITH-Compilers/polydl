@@ -51,7 +51,7 @@ double matmul_high_performance_scop(float A[M1][K1], float B[K1][N1], float C[M1
 
 				// Second level of tiling
 				for (it1 = it2; it1 < min(M1, it2 + M2_Tile); it1 += M1_Tile) {
-					for (jt1 = jt2; jt1 < min(N1, jt2 + M2_Tile); jt1 += N1_Tile) {
+					for (jt1 = jt2; jt1 < min(N1, jt2 + N2_Tile); jt1 += N1_Tile) {
 						for (kt1 = kt2; kt1 < min(K1, kt2 + K2_Tile); kt1 += K1_Tile) {
 
 							// Inner most intra-tile loops
@@ -150,12 +150,15 @@ void matmul_high_performance_core(
 
 #pragma omp parallel for private(jt2, kt2, it1, jt1, kt1, i, j, k)
 	for (it2 = 0; it2 < M1; it2 += M2_Tile) {
+		// #pragma omp parallel for private(kt2, it1, jt1, kt1, i, j, k)
 		for (jt2 = 0; jt2 < N1; jt2 += N2_Tile) {
 			for (kt2 = 0; kt2 < K1; kt2 += K2_Tile) {
 
 				// Second level of tiling
+// #pragma omp parallel for private(jt1, kt1, i, j, k)
 				for (it1 = it2; it1 < min(M1, it2 + M2_Tile); it1 += M1_Tile) {
-					for (jt1 = jt2; jt1 < min(N1, jt2 + M2_Tile); jt1 += N1_Tile) {
+					// #pragma omp parallel for private(kt1, i, j, k)
+					for (jt1 = jt2; jt1 < min(N1, jt2 + N2_Tile); jt1 += N1_Tile) {
 						for (kt1 = kt2; kt1 < min(K1, kt2 + K2_Tile); kt1 += K1_Tile) {
 							fwd_gemm(&B[kt1 / K1_Tile][jt1 / N1_Tile][0][0],
 								&A[it1 / M1_Tile][kt1 / K1_Tile][0][0],
