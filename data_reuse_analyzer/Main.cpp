@@ -1337,7 +1337,6 @@ void SimplifyWorkingSetSizes(vector<WorkingSetSize*>* workingSetSizes,
 				minMaxTupleVector, min, max, isParallelLoopEncountered);
 
 			if (DEBUG) {
-				/*TODO: isParallelLoopEncountered is valid? Do we assume some ordering on the working set sizes*/
 				if (minMaxTuple) {
 					cout << "working_set: " << endl;
 					PrintWorkingSetSize(workingSetSizes->at(i));
@@ -1354,7 +1353,14 @@ void SimplifyWorkingSetSizes(vector<WorkingSetSize*>* workingSetSizes,
 
 		sort(minMaxTupleVector->begin(), minMaxTupleVector->end(),
 			compareByMinMaxSize);
+
+		bool isParallelLoopEncountered = false;
 		for (int i = 0; i < minMaxTupleVector->size(); i++) {
+
+			if (isParallelLoopEncountered == false) {
+				isParallelLoopEncountered = minMaxTupleVector->at(i)->isParallelLoopEncountered;
+			}
+
 			UpdateProgramCharacteristics(minMaxTupleVector->at(i)->min,
 				config->systemConfig, programChar);
 			if (minMaxTupleVector->at(i)->max != minMaxTupleVector->at(i)->min) {
@@ -1364,7 +1370,7 @@ void SimplifyWorkingSetSizes(vector<WorkingSetSize*>* workingSetSizes,
 
 			UpdatePessimisticProgramCharacteristics(minMaxTupleVector->at(i)->min,
 				minMaxTupleVector->at(i)->max,
-				minMaxTupleVector->at(i)->isParallelLoopEncountered,
+				isParallelLoopEncountered,
 				doesParallelLoopExist,
 				config->systemConfig,
 				programChar, userInput->numProcs, totalDataSetSize,
