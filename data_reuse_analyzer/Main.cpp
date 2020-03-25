@@ -19,7 +19,7 @@ using namespace std;
 
 
 #define IGNORE_WS_SIZE_ONE 1
-#define DEBUG 0
+#define DEBUG 1
 
 #define min(X, Y) (((X) < (Y)) ? (X) : (Y))
 #define max(X, Y) (((X) > (Y)) ? (X) : (Y))
@@ -197,7 +197,7 @@ int FindThePositionOfTheLoopVariable(isl_basic_set *bset,
 	vector<string> *parallelLoops);
 isl_basic_set* ProjectBSetToLexExtreme(isl_basic_set* sourceDomain,
 	isl_set* sourceDomainLexExtreme, int pos);
-void ComputeWorkingSetSize(isl_basic_set*  min, isl_basic_set* max,
+void ComputeWorkingSetSize(isl_set*  min, isl_set* max,
 	isl_union_map* may_reads,
 	isl_union_map* may_writes, Config* config, isl_basic_set* domain, int pos,
 	WorkingSetSize* workingSetSize);
@@ -843,20 +843,33 @@ isl_stat ComputeWorkingSetSizesForDependenceBasicMap(isl_basic_map* dep,
 		}
 
 		isl_set* sourceDomainLexmin = isl_basic_set_lexmin(isl_basic_set_copy(sourceDomain));
-		isl_basic_set* sourceDomainProjectedMin = ProjectBSetToLexExtreme(sourceDomain,
-			sourceDomainLexmin, pos);
+		isl_basic_set* sourceDomainProjectedOuterLoopsProjected = ProjectBSetToLexExtreme(
+			sourceDomain,
+			sourceDomainLexmin, pos - 1);
 
-		isl_set* sourceDomainLexmax = isl_basic_set_lexmax(isl_basic_set_copy(sourceDomain));
-		isl_basic_set* sourceDomainProjectedMax = ProjectBSetToLexExtreme(sourceDomain,
-			sourceDomainLexmax, pos);
+		isl_set* sourceDomainProjectedLexMin = isl_basic_set_lexmin(
+			isl_basic_set_copy(sourceDomainProjectedOuterLoopsProjected));
+
+		isl_set* sourceDomainProjectedLexMax = isl_basic_set_lexmax(
+			isl_basic_set_copy(sourceDomainProjectedOuterLoopsProjected));
+
+		isl_set* sourceDomainProjectedMin = isl_set_from_basic_set(
+			ProjectBSetToLexExtreme(
+				sourceDomain,
+				sourceDomainProjectedLexMin, pos));
+		isl_set* sourceDomainProjectedMax = isl_set_from_basic_set(
+			ProjectBSetToLexExtreme(
+				sourceDomain,
+				sourceDomainProjectedLexMax, pos));
 
 		ComputeWorkingSetSize(sourceDomainProjectedMin, sourceDomainProjectedMax,
-			may_reads, may_writes, config, sourceDomain, pos, workingSetSize);
+			may_reads, may_writes, config, sourceDomainProjectedOuterLoopsProjected,
+			pos, workingSetSize);
 
 		isl_basic_set_free(sourceDomain);
-		isl_basic_set_free(sourceDomainProjectedMin);
-		isl_set_free(sourceDomainLexmax);
-		isl_basic_set_free(sourceDomainProjectedMax);
+		isl_set_free(sourceDomainProjectedMin);
+		isl_set_free(sourceDomainProjectedMax);
+		isl_basic_set_free(sourceDomainProjectedOuterLoopsProjected);
 
 		workingSetSize->source = sourceDomainLexmin;
 		workingSetSize->target = NULL;
@@ -961,10 +974,11 @@ long ComputeNumberOfItersInParallelLoop(isl_basic_set* bset, int pos,
 	return numIters;
 }
 
-void ComputeWorkingSetSize(isl_basic_set*  min, isl_basic_set* max,
+void ComputeWorkingSetSize(isl_set*  min, isl_set* max,
 	isl_union_map* may_reads,
 	isl_union_map* may_writes, Config* config, isl_basic_set* domain, int pos,
 	WorkingSetSize* workingSetSize) {
+
 
 	if (config == NULL || config->programParameterVector == NULL ||
 		config->programParameterVector->size() != 1) {
@@ -973,11 +987,11 @@ void ComputeWorkingSetSize(isl_basic_set*  min, isl_basic_set* max,
 	}
 
 	isl_union_set* writeSetMin =
-		isl_union_set_apply(isl_union_set_from_basic_set(isl_basic_set_copy(min)),
+		isl_union_set_apply(isl_union_set_from_set(isl_set_copy(min)),
 			isl_union_map_copy(may_writes));
 
 	isl_union_set* readSetMin =
-		isl_union_set_apply(isl_union_set_from_basic_set(isl_basic_set_copy(min)),
+		isl_union_set_apply(isl_union_set_from_set(isl_set_copy(min)),
 			isl_union_map_copy(may_reads));
 
 	isl_union_set* dataSetMinOrig = isl_union_set_union(writeSetMin, readSetMin);
@@ -985,11 +999,11 @@ void ComputeWorkingSetSize(isl_basic_set*  min, isl_basic_set* max,
 	isl_union_pw_qpolynomial *dataSetMinCard = isl_union_set_card(isl_union_set_copy(dataSetMin));
 
 	isl_union_set* writeSetMax =
-		isl_union_set_apply(isl_union_set_from_basic_set(isl_basic_set_copy(max)),
+		isl_union_set_apply(isl_union_set_from_set(isl_set_copy(max)),
 			isl_union_map_copy(may_writes));
 
 	isl_union_set* readSetMax =
-		isl_union_set_apply(isl_union_set_from_basic_set(isl_basic_set_copy(max)),
+		isl_union_set_apply(isl_union_set_from_set(isl_set_copy(max)),
 			isl_union_map_copy(may_reads));
 
 	isl_union_set* dataSetMaxOrig = isl_union_set_union(writeSetMax, readSetMax);
@@ -1033,6 +1047,12 @@ void ComputeWorkingSetSize(isl_basic_set*  min, isl_basic_set* max,
 	workingSetSize->dataSetCommonCardInt = dataSetCommonCardInt;
 
 	if (DEBUG) {
+		cout << "minIterationSet: " << endl;
+		PrintSet(min);
+
+		cout << "maxIterationSet: " << endl;
+		PrintSet(max);
+
 		cout << "dataSetMin: " << endl;
 		PrintUnionSet(dataSetMin);
 		cout << "dataSetMinCard: " << endl;
@@ -1074,6 +1094,7 @@ void ComputeWorkingSetSize(isl_basic_set*  min, isl_basic_set* max,
 	isl_union_pw_qpolynomial_free(dataSetCommonCard);
 	isl_union_pw_qpolynomial_free(dataSetUnionCard);
 }
+
 
 isl_basic_set* ProjectBSetToLexExtreme(isl_basic_set* sourceDomain,
 	isl_set* sourceDomainLexExtreme, int pos)
@@ -1368,6 +1389,14 @@ void SimplifyWorkingSetSizes(vector<WorkingSetSize*>* workingSetSizes,
 					config->systemConfig, programChar);
 			}
 
+			if (DEBUG) {
+				cout << "sorted:" << endl;
+				cout << "doesParallelLoopExist: " << doesParallelLoopExist
+					<< " isParallelLoopEncountered: " << isParallelLoopEncountered << endl;
+				cout << "Min: " << minMaxTupleVector->at(i)->min << endl;
+				cout << "Max: " << minMaxTupleVector->at(i)->min << endl;
+			}
+
 			UpdatePessimisticProgramCharacteristics(minMaxTupleVector->at(i)->min,
 				minMaxTupleVector->at(i)->max,
 				isParallelLoopEncountered,
@@ -1634,7 +1663,7 @@ void UpdateProgramCharacteristics(long size,
 	SystemConfig* systemConfig,
 	ProgramCharacteristics* programChar) {
 	size = size * programChar->datatypeSize;
-	if (size != -1) {
+	if (size > 0) {
 		if (size <= systemConfig->L1) {
 			programChar->L1Fit += 1;
 			programChar->L1DataSetSize += size;
