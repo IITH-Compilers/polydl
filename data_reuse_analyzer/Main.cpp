@@ -19,7 +19,7 @@ using namespace std;
 
 
 #define IGNORE_WS_SIZE_ONE 1
-#define DEBUG 1
+#define DEBUG 0
 
 #define min(X, Y) (((X) < (Y)) ? (X) : (Y))
 #define max(X, Y) (((X) > (Y)) ? (X) : (Y))
@@ -1394,7 +1394,7 @@ void SimplifyWorkingSetSizes(vector<WorkingSetSize*>* workingSetSizes,
 				cout << "doesParallelLoopExist: " << doesParallelLoopExist
 					<< " isParallelLoopEncountered: " << isParallelLoopEncountered << endl;
 				cout << "Min: " << minMaxTupleVector->at(i)->min << endl;
-				cout << "Max: " << minMaxTupleVector->at(i)->min << endl;
+				cout << "Max: " << minMaxTupleVector->at(i)->max << endl;
 			}
 
 			UpdatePessimisticProgramCharacteristics(minMaxTupleVector->at(i)->min,
@@ -1702,7 +1702,7 @@ void UpdatePessimisticProgramCharacteristics(long minSize, long maxSize,
 	}
 
 
-	if (minSize != -1 && maxSize != -1) {
+	if (minSize > 0 && maxSize > 0) {
 		if (!maxSizeSatisfied && ((maxSize + programChar->PessiL1DataSetSize) <= systemConfig->L1)) {
 			programChar->PessiL1DataSetSize += maxSize;
 			minSizeSatisfied = true;
@@ -1731,13 +1731,6 @@ void UpdatePessimisticProgramCharacteristics(long minSize, long maxSize,
 			if (doesParallelLoopExist && !isParallelLoopEncountered
 				&& systemConfig->L3Shared) {
 
-				if (DEBUG) {
-					cout << "L3, max:" << endl;
-					cout << "dataSetUnionCardInt: " << dataSetUnionCardInt << endl;
-					cout << "dataSetCommonCardInt: " << dataSetCommonCardInt << endl;
-					cout << "effectiveMaxSize: " << effectiveMaxSize << endl;
-				}
-
 				// We halve dataSetUnionCardInt because dataSetUnionCardInt is the union of 
 				// the datasets of two iterations. And therefore, halving it will give us the
 				// working set of one iteration.
@@ -1756,10 +1749,18 @@ void UpdatePessimisticProgramCharacteristics(long minSize, long maxSize,
 				}
 			}
 
+
 			if ((effectiveMaxSize + programChar->PessiL3DataSetSize) <= systemConfig->L3) {
 				programChar->PessiL3DataSetSize += effectiveMaxSize;
 				minSizeSatisfied = true;
 				maxSizeSatisfied = true;
+
+				if (DEBUG) {
+					cout << "L3, max:" << endl;
+					cout << "dataSetUnionCardInt: " << dataSetUnionCardInt << endl;
+					cout << "dataSetCommonCardInt: " << dataSetCommonCardInt << endl;
+					cout << "effectiveMaxSize: " << effectiveMaxSize << endl;
+				}
 			}
 		}
 
@@ -1768,13 +1769,6 @@ void UpdatePessimisticProgramCharacteristics(long minSize, long maxSize,
 
 			if (doesParallelLoopExist && !isParallelLoopEncountered
 				&& systemConfig->L3Shared) {
-				if (DEBUG) {
-					cout << "L3, min:" << endl;
-					cout << "dataSetUnionCardInt: " << dataSetUnionCardInt << endl;
-					cout << "dataSetCommonCardInt: " << dataSetCommonCardInt << endl;
-					cout << "effectiveMinSize: " << effectiveMinSize << endl;
-				}
-
 				if (effectiveMinSize >= 0.5 * dataSetUnionCardInt) {
 					effectiveMinSize = (effectiveMinSize - dataSetCommonCardInt) * numProcs
 						+ dataSetCommonCardInt;
@@ -1787,6 +1781,13 @@ void UpdatePessimisticProgramCharacteristics(long minSize, long maxSize,
 			if ((effectiveMinSize + programChar->PessiL3DataSetSize) <= systemConfig->L3) {
 				programChar->PessiL3DataSetSize += effectiveMinSize;
 				minSizeSatisfied = true;
+
+				if (DEBUG) {
+					cout << "L3, min:" << endl;
+					cout << "dataSetUnionCardInt: " << dataSetUnionCardInt << endl;
+					cout << "dataSetCommonCardInt: " << dataSetCommonCardInt << endl;
+					cout << "effectiveMinSize: " << effectiveMinSize << endl;
+				}
 			}
 		}
 
@@ -1794,14 +1795,6 @@ void UpdatePessimisticProgramCharacteristics(long minSize, long maxSize,
 			long effectiveMaxSize = maxSize;
 
 			if (doesParallelLoopExist && !isParallelLoopEncountered) {
-
-				if (DEBUG) {
-					cout << "PessiMemDataSetSize: " << endl;
-					cout << "dataSetUnionCardInt: " << dataSetUnionCardInt << endl;
-					cout << "dataSetCommonCardInt: " << dataSetCommonCardInt << endl;
-					cout << "effectiveMaxSize: " << effectiveMaxSize << endl;
-				}
-
 				if (effectiveMaxSize >= 0.5 * dataSetUnionCardInt) {
 					effectiveMaxSize = (effectiveMaxSize - dataSetCommonCardInt) * numProcs
 						+ dataSetCommonCardInt;
@@ -1809,11 +1802,22 @@ void UpdatePessimisticProgramCharacteristics(long minSize, long maxSize,
 				else {
 					effectiveMaxSize = effectiveMaxSize * numProcs;
 				}
+
+				if (DEBUG) {
+					cout << "Mem adjustment made:" << endl;
+				}
 			}
 
 			programChar->PessiMemDataSetSize += effectiveMaxSize;
 			minSizeSatisfied = true;
 			maxSizeSatisfied = true;
+
+			if (DEBUG) {
+				cout << "PessiMemDataSetSize: " << endl;
+				cout << "dataSetUnionCardInt: " << dataSetUnionCardInt << endl;
+				cout << "dataSetCommonCardInt: " << dataSetCommonCardInt << endl;
+				cout << "effectiveMaxSize: " << effectiveMaxSize << endl;
+			}
 		}
 
 		totalDataSetSize = -1;
