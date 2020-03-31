@@ -19,7 +19,7 @@ using namespace std;
 
 
 #define IGNORE_WS_SIZE_ONE 1
-#define DEBUG 0
+#define DEBUG 1
 
 #define min(X, Y) (((X) < (Y)) ? (X) : (Y))
 #define max(X, Y) (((X) > (Y)) ? (X) : (Y))
@@ -1745,7 +1745,14 @@ void UpdatePessimisticProgramCharacteristics(long minSize, long maxSize,
 						+ dataSetCommonCardInt;
 				}
 				else {
-					effectiveMaxSize = effectiveMaxSize * numProcs;
+					double commonFraction = ((double)dataSetCommonCardInt) / ((double)dataSetUnionCardInt);
+
+					if (DEBUG) {
+						cout << "commonFraction: " << commonFraction << endl;
+					}
+
+					effectiveMaxSize = (1.0 - commonFraction) * effectiveMaxSize * numProcs
+						+ commonFraction * effectiveMaxSize;
 				}
 			}
 
@@ -1774,7 +1781,14 @@ void UpdatePessimisticProgramCharacteristics(long minSize, long maxSize,
 						+ dataSetCommonCardInt;
 				}
 				else {
-					effectiveMinSize = effectiveMinSize * numProcs;
+					double commonFraction = ((double)dataSetCommonCardInt) / ((double)dataSetUnionCardInt);
+
+					if (DEBUG) {
+						cout << "commonFraction: " << commonFraction << endl;
+					}
+
+					effectiveMinSize = (1.0 - commonFraction) * effectiveMinSize * numProcs
+						+ commonFraction * effectiveMinSize;
 				}
 			}
 
@@ -1800,7 +1814,14 @@ void UpdatePessimisticProgramCharacteristics(long minSize, long maxSize,
 						+ dataSetCommonCardInt;
 				}
 				else {
-					effectiveMaxSize = effectiveMaxSize * numProcs;
+					double commonFraction = ((double)dataSetCommonCardInt) / ((double)dataSetUnionCardInt);
+
+					if (DEBUG) {
+						cout << "commonFraction: " << commonFraction << endl;
+					}
+
+					effectiveMaxSize = (1.0 - commonFraction) * effectiveMaxSize * numProcs
+						+ commonFraction * effectiveMaxSize;
 				}
 
 				if (DEBUG) {
