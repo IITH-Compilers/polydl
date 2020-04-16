@@ -38,3 +38,5 @@ File Description -
 9. packed_conv_test.py --> This contains the modified code without packing/unpacking computation time.
 
 10. buildTVM.sh --> Script builds TVM on the machine.
+
+11. packed_conv_test_Generic.py --> This file recieves the value from terminal in (iters=$1        ifw=$2        ifh=$3        orig_nIfm=$4        orig_nOfm=$5        kw=$6        kh=$7        pad_w=$8        pad_h=$9        stride=${10}        config_num=${11}) order.
