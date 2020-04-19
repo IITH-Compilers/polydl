@@ -40,3 +40,5 @@ File Description -
 10. buildTVM.sh --> Script builds TVM on the machine.
 
 11. packed_conv_test_Generic.py --> This file recieves the value from terminal in (iters=$1        ifw=$2        ifh=$3        orig_nIfm=$4        orig_nOfm=$5        kw=$6        kh=$7        pad_w=$8        pad_h=$9        stride=${10}        config_num=${11}) order.
+
+12. tune_relay_x86_custom.py --> This file creates workload for custom input of conv2d.
