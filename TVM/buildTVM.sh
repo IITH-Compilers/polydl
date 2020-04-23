@@ -1,6 +1,7 @@
 git clone --recursive https://github.com/apache/incubator-tvm tvm
 cd tvm
-git checkout v0.6.0
+git checkout dbd0114011906fe713ddda599bcba33a33b1fb73
+#git checkout v0.6.0
 git submodule init
 git submodule update
 mkdir build

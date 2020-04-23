@@ -78,7 +78,7 @@ def get_network(name, batch_size, iters, ifw, ifh, orig_nIfm, orig_nOfm, kw, kh,
 # "llvm -mcpu=core-avx2".
 target = "llvm"
 
-batch_size = 1
+batch_size = 28
 dtype = "float32"
 model_name = "custom"
 log_file = "%s.log" % model_name
@@ -90,7 +90,7 @@ input_name = "data"
 
 # Set number of threads used for tuning based on the number of
 # physical CPU cores on your machine.
-num_threads = 10
+num_threads = batch_size
 os.environ["TVM_NUM_THREADS"] = str(num_threads)
 
 
