@@ -248,7 +248,6 @@ int main() {
 	}
 	*/
 
-
 	printf("A: %f, %f\n", A[0][0], A[M1 - 1][K1 - 1]);
 	printf("B: %f, %f\n", B[0][0], B[K1 - 1][N1 - 1]);
 	printf("C_ref: %f, %f, %f\n", C_ref[0][0], C_ref[M1 / 2][N1 / 2], C_ref[M1 - 1][N1 - 1]);
@@ -259,7 +258,7 @@ int main() {
 	printf("Total time in seconds: %f\n", l_total);
 
 	double flops = NUM_ITERS * 2.0 * M1 * N1 * K1;
-	printf("%0.2lf GFLOPS\n",
+	printf("Real_GFLOPS =%0.2lf",
 		(flops*1e-9) / l_total);
 
 	libxsmm_free(A);
