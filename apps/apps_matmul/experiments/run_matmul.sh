@@ -36,7 +36,26 @@ META_CONFIG_OUT=${PERF_DIR}/meta_${file}_${OUT}
 
 export OMP_NUM_THREADS=28
 
-(cd .. && make clean && make version_file=versions/$file MACROFLAGS="-DM1=$M1 -DN1=$N1 -DK1=$K1 -DNUM_ITERS=$iters -DM2_Tile=${M2_Tile} -DN2_Tile=${N2_Tile} -DK2_Tile=${K2_Tile} -DM1_Tile=${M1_Tile} -DN1_Tile=${N1_Tile} -DK1_Tile=${K1_Tile}")
+WORKFILE=$TEMP/temp.c
+echo WORKFILE: $WORKFILE
+rm $WORKFILE
+
+echo "#define M1 $M1" >> $WORKFILE
+echo "#define N1 $N1" >> $WORKFILE
+echo "#define K1 $K1" >> $WORKFILE
+
+echo "#define M2_Tile ${M2_Tile}" >> $WORKFILE
+echo "#define N2_Tile ${N2_Tile}" >> $WORKFILE
+echo "#define K2_Tile ${K2_Tile}" >> $WORKFILE
+
+echo "#define M1_Tile ${M1_Tile}" >> $WORKFILE
+echo "#define N1_Tile ${N1_Tile}" >> $WORKFILE
+echo "#define K1_Tile ${K1_Tile}" >> $WORKFILE
+
+cat ../versions/$file >> $WORKFILE
+
+EXPERIMENTS_DIR=$PWD
+(cd .. && make clean && make version_file=$EXPERIMENTS_DIR/$WORKFILE MACROFLAGS="-DM1=$M1 -DN1=$N1 -DK1=$K1 -DNUM_ITERS=$iters -DM2_Tile=${M2_Tile} -DN2_Tile=${N2_Tile} -DK2_Tile=${K2_Tile} -DM1_Tile=${M1_Tile} -DN1_Tile=${N1_Tile} -DK1_Tile=${K1_Tile}")
 
 ../matmul &> run_output
 GFLOPS=`cat run_output |  grep Real_GFLOPS |  cut -d= -f2`
