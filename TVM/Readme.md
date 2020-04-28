@@ -44,3 +44,8 @@ File Description -
 12. tune_relay_x86_custom.py --> This file creates workload for custom input of conv2d.
 
 13. tune_relay_x86_custom_generic.py --> this file tunes conv2d on x86 with custom inputs to conv2d.
+
+14. simplified_runx86.sh --> bash script to run simplified tune relay x86 taking parameters from terminal.
+(./simplified_runx86.sh 1 128 128 16 16 3 3 1 1 1 resnet_01)
+
+15. simplified_tune_relay_x86_custom_generic.py --> final x86 conv2d autotvm tuner.
