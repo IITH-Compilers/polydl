@@ -60,7 +60,7 @@ echo "#define K1_Tile ${K1_Tile}" >> $WORKFILE
 cat ../versions/$file >> $WORKFILE
 
 EXPERIMENTS_DIR=$PWD
-(cd .. && make clean && make version_file=$EXPERIMENTS_DIR/$WORKFILE MACROFLAGS="-DM1=$M1 -DN1=$N1 -DK1=$K1 -DNUM_ITERS=$iters -DM2_Tile=${M2_Tile} -DN2_Tile=${N2_Tile} -DK2_Tile=${K2_Tile} -DM1_Tile=${M1_Tile} -DN1_Tile=${N1_Tile} -DK1_Tile=${K1_Tile}")
+(cd .. && make clean && make version_file=$EXPERIMENTS_DIR/$WORKFILE MACROFLAGS="-DM1=$M1 -DN1=$N1 -DK1=$K1 -DNUM_ITERS=$iters -DM2_Tile=${M2_Tile} -DN2_Tile=${N2_Tile} -DK2_Tile=${K2_Tile} -DM1_Tile=${M1_Tile} -DN1_Tile=${N1_Tile} -DK1_Tile=${K1_Tile} -DPARALLEL_${PARALLEL_LOOP}")
 
 ../matmul &> run_output
 GFLOPS=`cat run_output |  grep Real_GFLOPS |  cut -d= -f2`

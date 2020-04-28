@@ -114,6 +114,22 @@ double matmul_high_performance(float A[M1][K1], float B[K1][N1], float C[M1][N1]
 	printf("M1_Tile = %d, N1_Tile = %d, K1_Tile = %d\n", M1_Tile, N1_Tile, K1_Tile);
 	printf("M2_Tile = %d, N2_Tile = %d, K2_Tile = %d\n", M2_Tile, N2_Tile, K2_Tile);
 
+#ifdef PARALLEL_it2
+	printf("it2 loop is parallel\n");
+#endif
+
+#ifdef PARALLEL_jt2
+	printf("jt2 loop is parallel\n");
+#endif
+
+#ifdef PARALLEL_it1
+	printf("it1 loop is parallel\n");
+#endif
+
+#ifdef PARALLEL_jt1
+	printf("jt1 loop is parallel\n");
+#endif
+
 	float(*A_Tiled)[K1 / K1_Tile][M1_Tile][K1_Tile] =
 		(float*)libxsmm_aligned_malloc(M1*K1 * sizeof(float), 2097152);
 	float(*B_Tiled)[N1 / N1_Tile][K1_Tile][N1_Tile] =
@@ -149,16 +165,24 @@ void matmul_high_performance_core(
 {
 	int it2, jt2, kt2, it1, jt1, kt1, i, j, k;
 
+#ifdef PARALLEL_it2
 #pragma omp parallel for private(jt2, kt2, it1, jt1, kt1, i, j, k)
+#endif
 	for (it2 = 0; it2 < M1; it2 += M2_Tile) {
-		// #pragma omp parallel for private(kt2, it1, jt1, kt1, i, j, k)
+#ifdef PARALLEL_jt2
+#pragma omp parallel for private(kt2, it1, jt1, kt1, i, j, k)
+#endif
 		for (jt2 = 0; jt2 < N1; jt2 += N2_Tile) {
 			for (kt2 = 0; kt2 < K1; kt2 += K2_Tile) {
 
 				// Second level of tiling
-// #pragma omp parallel for private(jt1, kt1, i, j, k)
+#ifdef PARALLEL_it1
+#pragma omp parallel for private(jt1, kt1, i, j, k)
+#endif
 				for (it1 = it2; it1 < min(M1, it2 + M2_Tile); it1 += M1_Tile) {
-					// #pragma omp parallel for private(kt1, i, j, k)
+#ifdef PARALLEL_jt1
+#pragma omp parallel for private(kt1, i, j, k)
+#endif
 					for (jt1 = jt2; jt1 < min(N1, jt2 + N2_Tile); jt1 += N1_Tile) {
 						for (kt1 = kt2; kt1 < min(K1, kt2 + K2_Tile); kt1 += K1_Tile) {
 							fwd_gemm(&B[kt1 / K1_Tile][jt1 / N1_Tile][0][0],
