@@ -19,10 +19,10 @@ using namespace std;
 #define TOTALDATASETSIZETHRESHOLD 0.5
 #define MEMDATASETSIZETHRESHOLD 0.05
 /*Latency related*/
-#define L1Cost 4
-#define L2Cost 14 // 26
-#define L3Cost 60
-#define MemCost 84
+#define L1Cost 4.0
+#define L2Cost 14.0 // 26
+#define L3Cost 60.0
+#define MemCost 84.0
 
 
 /*Bandwidth related:
@@ -80,6 +80,7 @@ struct UserOptions {
 	bool pessinormalizedatadecisiontree;
 	bool infogaindecisiontree;
 	bool bwlat;
+	bool selfnormalize;
 };
 
 typedef struct UserOptions UserOptions;
@@ -162,6 +163,7 @@ UserOptions* ProcessInputArguments(int argc, char **argv) {
 		= "--pessinormalizedatadecisiontree";
 	string INFO_GAIN_DECISION_TREE = "--infogaindecisiontree";
 	string BWLAT = "--bwlat";
+	string SELFNORMALIZE = "--selfnormalize";
 
 	UserOptions* userOptions = new UserOptions;
 	userOptions->headers = true;
@@ -173,6 +175,7 @@ UserOptions* ProcessInputArguments(int argc, char **argv) {
 	userOptions->pessinormalizedatadecisiontree = false;
 	userOptions->infogaindecisiontree = false;
 	userOptions->bwlat = false;
+	userOptions->selfnormalize = false;
 
 	for (int i = 2; i < argc; i++) {
 		arg = argv[i];
@@ -212,6 +215,11 @@ UserOptions* ProcessInputArguments(int argc, char **argv) {
 		if (argv[i] == BWLAT) {
 			userOptions->bwlat = true;
 		}
+
+		if (argv[i] == SELFNORMALIZE) {
+			userOptions->selfnormalize = true;
+		}
+
 	}
 
 	return userOptions;
@@ -478,6 +486,25 @@ The cardinality can be the weight of the reuse*/
 					(programVariants->at(i)->PessiMemDataSetSize) * MemCost * SecondaryMemCost;
 
 				programVariants->at(i)->secondaryCost = 0;
+			}
+			else if (userOptions->selfnormalize == true) {
+				programVariants->at(i)->userDefinedCost =
+					((programVariants->at(i)->PessiL1DataSetSize) * L1Cost +
+					(programVariants->at(i)->PessiL2DataSetSize) * L2Cost +
+						(programVariants->at(i)->PessiL3DataSetSize) * L3Cost +
+						(programVariants->at(i)->PessiMemDataSetSize) * MemCost) /
+						((double)(programVariants->at(i)->PessiTotalDataSetSize));
+
+				cout << programVariants->at(i)->userDefinedCost << endl;
+				programVariants->at(i)->secondaryCost =
+					(programVariants->at(i)->PessiL1DataSetSize)
+					* SecondaryL1Cost +
+					(programVariants->at(i)->PessiL2DataSetSize)
+					* SecondaryL2Cost +
+					(programVariants->at(i)->PessiL3DataSetSize)
+					* SecondaryL3Cost +
+					(programVariants->at(i)->PessiMemDataSetSize)
+					* SecondaryMemCost;
 			}
 			else {
 				programVariants->at(i)->userDefinedCost =
@@ -1019,6 +1046,50 @@ int FindWinnerUsingInfoGainDecisionTree(ProgramVariant *a,
 }
 
 int FindWinnerOnNormalizedData(ProgramVariant *a, ProgramVariant* b,
+	UserOptions* userOptions) {
+	int winner = -1;
+
+	double combinedSize = a->PessiTotalDataSetSize + b->PessiTotalDataSetSize;
+
+	double aUserDefinedCost =
+		((a->PessiL1DataSetSize) * L1Cost +
+		(a->PessiL2DataSetSize) * L2Cost +
+			(a->PessiL3DataSetSize) * L3Cost +
+			(a->PessiMemDataSetSize) * MemCost) / combinedSize;
+
+	double bUserDefinedCost =
+		((b->PessiL1DataSetSize) * L1Cost +
+		(b->PessiL2DataSetSize) * L2Cost +
+			(b->PessiL3DataSetSize) * L3Cost +
+			(b->PessiMemDataSetSize) * MemCost) / combinedSize;
+
+	if (aUserDefinedCost < bUserDefinedCost) {
+		if (DEBUG) {
+			cout << "aUserDefinedCost: " << aUserDefinedCost << " bUserDefinedCost: "
+				<< bUserDefinedCost << endl;
+		}
+
+		winner = 0;
+	}
+	else if (bUserDefinedCost < aUserDefinedCost) {
+		if (DEBUG) {
+			cout << "bUserDefinedCost: " << bUserDefinedCost << " aUserDefinedCost: "
+				<< aUserDefinedCost << endl;
+		}
+
+		winner = 1;
+	}
+	else {
+		if (DEBUG) {
+			cout << "EQUAL - aUserDefinedCost: " << aUserDefinedCost << " bUserDefinedCost: "
+				<< bUserDefinedCost << endl;
+		}
+	}
+
+	return winner;
+}
+
+int FindWinnerOnNormalizedDataOriginal(ProgramVariant *a, ProgramVariant* b,
 	UserOptions* userOptions) {
 	int winner = -1;
 
