@@ -1,5 +1,5 @@
 
-#set -x
+set -x
 export KMP_AFFINITY=granularity=fine,compact,1,28
 export LD_LIBRARY_PATH=/nfs_home/stavarag/work/software/barvinok/barvinok-0.41.2_install/lib:/nfs_home/stavarag/work/software/barvinok/isl_install/lib:$LD_LIBRARY_PATH
 
@@ -39,7 +39,7 @@ META_CONFIG_OUT=${PERF_DIR}/meta_${file}_${OUT}
 #rm ${CONFIG_OUT}
 #rm ${META_CONFIG_OUT}
 
-export OMP_NUM_THREADS=28
+export OMP_NUM_THREADS=28 #FIXME
 
 WORKFILE=$TEMP/temp.c
 echo WORKFILE: $WORKFILE
@@ -76,7 +76,7 @@ output_file=${EXPERIMENTS_DIR}/${WORKFILE}_ws_stats.csv
 
 #../../../data_reuse_analyzer/polyscientist --input $EXPERIMENTS_DIR/$WORKFILE --parameters 'dummy : 50 ' --cachesizes "${CACHE_CONFIG}" --datatypesize $DATATYPESIZE --minout
 
-../../../data_reuse_analyzer/polyscientist --input $EXPERIMENTS_DIR/$WORKFILE --parameters 'dummy : 50 ' --cachesizes "${CACHE_CONFIG}" --datatypesize $DATATYPESIZE --minout --parallel_loops ${PARALLEL_LOOP} --numprocs ${NUM_PROCS} --sharedcaches L3 
+time ../../../data_reuse_analyzer/polyscientist --input $EXPERIMENTS_DIR/$WORKFILE --parameters 'dummy : 50 ' --cachesizes "${CACHE_CONFIG}" --datatypesize $DATATYPESIZE --minout --parallel_loops ${PARALLEL_LOOP} --numprocs ${NUM_PROCS} --sharedcaches L3 
 
 { echo -n "${config},${GFLOPS}," ;  cat ${output_file} ; }  >> ${CONFIG_OUT}
 echo  "${config},${ERROR}" >> ${META_CONFIG_OUT}

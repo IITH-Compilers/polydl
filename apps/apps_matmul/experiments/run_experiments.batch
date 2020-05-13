@@ -7,4 +7,5 @@
 #SBATCH --nodes=1
 #SBATCH --partition=clx
 cd $PWD  #FIXME -- path
-sh run_it_jt_kt_all.sh 1792 39424 1024
+#sh run_it_jt_kt_all.sh 1792 3584 7168
+sh run_it_jt_kt_all_parallel.sh 1792 39424 1024

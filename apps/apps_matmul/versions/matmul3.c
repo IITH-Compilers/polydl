@@ -163,38 +163,70 @@ void matmul_high_performance_core(
 	float B[K1 / K1_Tile][N1 / N1_Tile][K1_Tile][N1_Tile],
 	float C[M1 / M1_Tile][N1 / N1_Tile][M1_Tile][N1_Tile])
 {
-	int it2, jt2, kt2, it1, jt1, kt1, i, j, k;
+
+#pragma omp parallel 
+	{
+		int it2, jt2, kt2, it1, jt1, kt1, i, j, k;
+		int tid = omp_get_thread_num();
+		int num_threads = omp_get_num_threads();
+		int it2_start = 0;
+		int it2_end = M1;
+		int jt2_start = 0;
+		int jt2_end = N1;
 
 #ifdef PARALLEL_it2
-#pragma omp parallel for private(jt2, kt2, it1, jt1, kt1, i, j, k)
+		int chunk = (it2_end - it2_start) / num_threads;
+		it2_start = it2_start + tid * chunk;
+		it2_end = it2_start + chunk;
+		//printf("tid = %d, num_threads = %d, it2_start = %d, it2_end = %d\n",
+			// tid, num_threads, it2_start, it2_end);
 #endif
-	for (it2 = 0; it2 < M1; it2 += M2_Tile) {
-#ifdef PARALLEL_jt2
-#pragma omp parallel for private(kt2, it1, jt1, kt1, i, j, k)
-#endif
-		for (jt2 = 0; jt2 < N1; jt2 += N2_Tile) {
-			for (kt2 = 0; kt2 < K1; kt2 += K2_Tile) {
 
-				// Second level of tiling
+#ifdef PARALLEL_jt2
+		int chunk = (jt2_end - jt2_start) / num_threads;
+		jt2_start = jt2_start + tid * chunk;
+		jt2_end = jt2_start + chunk;
+#endif
+
+
+		for (it2 = it2_start; it2 < it2_end; it2 += M2_Tile) {
+			for (jt2 = jt2_start; jt2 < jt2_end; jt2 += N2_Tile) {
+
+				int it1_start = it2;
+				int it1_end = min(M1, it2 + M2_Tile);
+				int jt1_start = jt2;
+				int jt1_end = min(N1, jt2 + N2_Tile);
+
 #ifdef PARALLEL_it1
-#pragma omp parallel for private(jt1, kt1, i, j, k)
+				int chunk = (it1_end - it1_start) / num_threads;
+				it1_start = it1_start + tid * chunk;
+				it1_end = it1_start + chunk;
 #endif
-				for (it1 = it2; it1 < min(M1, it2 + M2_Tile); it1 += M1_Tile) {
+
 #ifdef PARALLEL_jt1
-#pragma omp parallel for private(kt1, i, j, k)
+				int chunk = (jt1_end - jt1_start) / num_threads;
+				jt1_start = jt1_start + tid * chunk;
+				jt1_end = jt1_start + chunk;
 #endif
-					for (jt1 = jt2; jt1 < min(N1, jt2 + N2_Tile); jt1 += N1_Tile) {
-						for (kt1 = kt2; kt1 < min(K1, kt2 + K2_Tile); kt1 += K1_Tile) {
-							fwd_gemm(&B[kt1 / K1_Tile][jt1 / N1_Tile][0][0],
-								&A[it1 / M1_Tile][kt1 / K1_Tile][0][0],
-								&C[it1 / M1_Tile][jt1 / N1_Tile][0][0]);
+
+				for (kt2 = 0; kt2 < K1; kt2 += K2_Tile) {
+
+					// Second level of tiling
+					for (it1 = it1_start; it1 < it1_end; it1 += M1_Tile) {
+						for (jt1 = jt1_start; jt1 < jt1_end; jt1 += N1_Tile) {
+							for (kt1 = kt2; kt1 < min(K1, kt2 + K2_Tile); kt1 += K1_Tile) {
+
+								fwd_gemm(&B[kt1 / K1_Tile][jt1 / N1_Tile][0][0],
+									&A[it1 / M1_Tile][kt1 / K1_Tile][0][0],
+									&C[it1 / M1_Tile][jt1 / N1_Tile][0][0]);
+							}
 						}
 					}
 				}
 			}
 		}
-	}
 
+	}
 
 }
 
