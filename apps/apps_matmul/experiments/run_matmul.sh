@@ -34,8 +34,8 @@ echo iters=$iters M1=$M1 N1=$N1 K1=$K1 M2_Tile=$M2_Tile N2_Tile=$N2_Tile K2_Tile
 config=${iters}_${M1}_${N1}_${K1}__${M2_Tile}_${N2_Tile}_${K2_Tile}_${M1_Tile}_${N1_Tile}_${K1_Tile}_${PARALLEL_LOOP}
 echo config: $config
 
-CONFIG_OUT=${PERF_DIR}/${file}_${OUT}
-META_CONFIG_OUT=${PERF_DIR}/meta_${file}_${OUT}
+CONFIG_OUT=${PERF_DIR}/${file}_${M1}_${N1}_${K1}_${OUT}
+META_CONFIG_OUT=${PERF_DIR}/meta_${file}_${M1}_${N1}_${K1}_${OUT}
 #rm ${CONFIG_OUT}
 #rm ${META_CONFIG_OUT}
 

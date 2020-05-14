@@ -20,6 +20,7 @@ using namespace std;
 
 #define IGNORE_WS_SIZE_ONE 1
 #define DEBUG 0
+#define SCALEDATASETSIZEATL3 0
 
 #define min(X, Y) (((X) < (Y)) ? (X) : (Y))
 #define max(X, Y) (((X) > (Y)) ? (X) : (Y))
@@ -1728,7 +1729,7 @@ void UpdatePessimisticProgramCharacteristics(long minSize, long maxSize,
 		if (!maxSizeSatisfied) {
 			long effectiveMaxSize = maxSize;
 
-			if (doesParallelLoopExist && !isParallelLoopEncountered
+			if (SCALEDATASETSIZEATL3 && doesParallelLoopExist && !isParallelLoopEncountered
 				&& systemConfig->L3Shared) {
 
 				// We halve dataSetUnionCardInt because dataSetUnionCardInt is the union of 
@@ -1774,7 +1775,7 @@ void UpdatePessimisticProgramCharacteristics(long minSize, long maxSize,
 		if (!minSizeSatisfied) {
 			long effectiveMinSize = minSize;
 
-			if (doesParallelLoopExist && !isParallelLoopEncountered
+			if (SCALEDATASETSIZEATL3 && doesParallelLoopExist && !isParallelLoopEncountered
 				&& systemConfig->L3Shared) {
 				if (effectiveMinSize >= 0.5 * dataSetUnionCardInt) {
 					effectiveMinSize = (effectiveMinSize - dataSetCommonCardInt) * numProcs
@@ -1808,7 +1809,7 @@ void UpdatePessimisticProgramCharacteristics(long minSize, long maxSize,
 		if (!maxSizeSatisfied) {
 			long effectiveMaxSize = maxSize;
 
-			if (doesParallelLoopExist && !isParallelLoopEncountered) {
+			if (SCALEDATASETSIZEATL3 && doesParallelLoopExist && !isParallelLoopEncountered) {
 				if (effectiveMaxSize >= 0.5 * dataSetUnionCardInt) {
 					effectiveMaxSize = (effectiveMaxSize - dataSetCommonCardInt) * numProcs
 						+ dataSetCommonCardInt;
