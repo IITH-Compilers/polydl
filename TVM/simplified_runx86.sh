@@ -1,3 +1,5 @@
+TVM_OUTPUT_DIR=tvm_output
+mkdir ${TVM_OUTPUT_DIR}
 OUT=TVM_perf.csv
 #rm ${OUT}
 SCRIPT=/nfs_home/stavarag/work/test/polyscientist/TVM/simplified_tune_relay_x86_custom_generic.py #FIXME
@@ -5,7 +7,6 @@ SCRIPT=/nfs_home/stavarag/work/test/polyscientist/TVM/simplified_tune_relay_x86_
 set -x
 source /nfs_home/stavarag/work/software/Python-3.7.1_install/venv/bin/activate
 
-RUN_OUTPUT=output.txt
 
 #Default values.
 iters=1
@@ -34,6 +35,7 @@ config_num=${11}
 
 config="${iters} ${ifw} ${ifh} ${nIfm} ${nOfm} ${kw} ${kh} ${pad_w} ${pad_h} ${stride}"
 
+RUN_OUTPUT=${TVM_OUTPUT_DIR}/${config_num}_output.txt
 python3 $SCRIPT $config &> ${RUN_OUTPUT}
 
 GFLOPS=`cat ${RUN_OUTPUT} | grep "GFLOPS" |rev| cut -d "|" -f3|rev | cut -d " " -f10 | cut -d "/" -f2`
