@@ -107,6 +107,18 @@ void GEMMRecognizer::runOnFunction() {
 
 	FuncOp f = getFunction();
 
+
+	f.walk([&](AffineForOp forOp) {
+		if (isAGEMMLoopNest(forOp)) {
+			LLVM_DEBUG(dbgs() << "GEMM pattern has been FOUND\n");
+		}
+		else {
+			LLVM_DEBUG(dbgs() << "NOT a GEMM pattern \n");
+		}
+	});
+
+
+	/*
 	for (auto &block : f) {
 		for (auto &op : block) {
 			if (auto forOp = dyn_cast<AffineForOp>(op)) {
@@ -119,4 +131,5 @@ void GEMMRecognizer::runOnFunction() {
 			}
 		}
 	}
+	*/
 }
