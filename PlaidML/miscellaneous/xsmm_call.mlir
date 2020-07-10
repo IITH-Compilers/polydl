@@ -19,6 +19,8 @@ func @print_memref_f32(memref<*xf32>)
 func @plaidml_rt_xsmm_gemm_invoke_f32(memref<*xf32>, memref<*xf32>, memref<*xf32>, i64)
 func @plaidml_rt_xsmm_gemm_dispatch_f32(i32, i32, i32, i32, i32, i32) -> i64
 func @plaidml_rt_xsmm_brgemm_invoke_f32(memref<*xf32>, memref<*xf32>, memref<*xf32>, i64)
+func @plaidml_rt_xsmm_brgemm_unroll4_invoke_f32(memref<*xf32>, memref<*xf32>, memref<*xf32>, memref<*xf32>,
+    memref<*xf32>, memref<*xf32>, memref<*xf32>, memref<*xf32>, memref<*xf32>, i64)
 func @plaidml_rt_xsmm_brgemm_dispatch_f32(i32, i32, i32, i32, i32, i32) -> i64
 
 func @baseline() {
@@ -54,6 +56,14 @@ func @xsmm_brgemm_call() {
   
   return
 }
+
+func @xsmm_brgemm_unroll4_call() {
+  %dot = constant @dot_xsmm_brgemm_call_unroll4 : (memref<?x?xf32>, memref<?x?xf32>, memref<?x?xf32>) -> ()
+  call @test_dot(%dot) : ((memref<?x?xf32>, memref<?x?xf32>, memref<?x?xf32>) -> ()) -> ()
+  
+  return
+}
+
 
 func @xsmm_call() {
   %dot = constant @dot_xsmm_call : (memref<?x?xf32>, memref<?x?xf32>, memref<?x?xf32>) -> ()
@@ -253,6 +263,67 @@ func @dot_xsmm_brgemm_call(%A: memref<?x?xf32>, %B: memref<?x?xf32>, %C: memref<
   }
   return
 }
+
+func @dot_xsmm_brgemm_call_unroll4(%A: memref<?x?xf32>, %B: memref<?x?xf32>, %C: memref<?x?xf32>) {
+  %c0 = constant 0 : index
+  %c1 = constant 1 : index
+  %c2 = constant 2 : index
+  %c3 = constant 3 : index
+  %tile_m = constant 2 : i32
+  %tile_n = constant 2 : i32
+  %tile_k = constant 2 : i32
+  %lda = constant 8 : i32
+  %ldb = constant 8 : i32
+  %ldc = constant 8 : i32
+  %M = dim %C, %c0 : memref<?x?xf32>
+  %N = dim %C, %c1 : memref<?x?xf32>
+  %K = dim %A, %c1 : memref<?x?xf32>
+  %ptr = call @plaidml_rt_xsmm_brgemm_dispatch_f32(%lda, %ldb, %ldc, %tile_m, %tile_n, %tile_k)
+    : (i32, i32, i32, i32, i32, i32) -> i64
+  affine.parallel (%i, %j, %k) = (0, 0, 0) to (%M, %N, %K) step (2, 2, 8) {
+    %k_plus_1 = addi %k, %c1 : index
+    %k_plus_2 = addi %k, %c2 : index
+    %k_plus_3 = addi %k, %c3 : index
+
+    %a_view1 = subview %A[%i, %k][2, 2][1, 1] :
+      memref<?x?xf32> to memref<2x2xf32, offset: ?, strides: [?, 1]>
+    %b_view1 = subview %B[%k, %j][2, 2][1, 1] :
+      memref<?x?xf32> to memref<2x2xf32, offset: ?, strides: [?, 1]>
+    %a_ref1 = memref_cast %a_view1 : memref<2x2xf32, offset: ?, strides: [?, 1]> to memref<*xf32>
+    %b_ref1 = memref_cast %b_view1 : memref<2x2xf32, offset: ?, strides: [?, 1]> to memref<*xf32>
+
+    %a_view2 = subview %A[%i, %k_plus_1][2, 2][1, 1] :
+      memref<?x?xf32> to memref<2x2xf32, offset: ?, strides: [?, 1]>
+    %b_view2 = subview %B[%k_plus_1, %j][2, 2][1, 1] :
+      memref<?x?xf32> to memref<2x2xf32, offset: ?, strides: [?, 1]>
+    %a_ref2 = memref_cast %a_view2 : memref<2x2xf32, offset: ?, strides: [?, 1]> to memref<*xf32>
+    %b_ref2 = memref_cast %b_view2 : memref<2x2xf32, offset: ?, strides: [?, 1]> to memref<*xf32>
+
+    %a_view3 = subview %A[%i, %k_plus_2][2, 2][1, 1] :
+      memref<?x?xf32> to memref<2x2xf32, offset: ?, strides: [?, 1]>
+    %b_view3 = subview %B[%k_plus_2, %j][2, 2][1, 1] :
+      memref<?x?xf32> to memref<2x2xf32, offset: ?, strides: [?, 1]>
+    %a_ref3 = memref_cast %a_view3 : memref<2x2xf32, offset: ?, strides: [?, 1]> to memref<*xf32>
+    %b_ref3 = memref_cast %b_view3 : memref<2x2xf32, offset: ?, strides: [?, 1]> to memref<*xf32>
+
+    %a_view4 = subview %A[%i, %k_plus_3][2, 2][1, 1] :
+      memref<?x?xf32> to memref<2x2xf32, offset: ?, strides: [?, 1]>
+    %b_view4 = subview %B[%k_plus_3, %j][2, 2][1, 1] :
+      memref<?x?xf32> to memref<2x2xf32, offset: ?, strides: [?, 1]>
+    %a_ref4 = memref_cast %a_view4 : memref<2x2xf32, offset: ?, strides: [?, 1]> to memref<*xf32>
+    %b_ref4 = memref_cast %b_view4 : memref<2x2xf32, offset: ?, strides: [?, 1]> to memref<*xf32>
+
+    %c_view = subview %C[%i, %j][2, 2][1, 1] :
+      memref<?x?xf32> to memref<2x2xf32, offset: ?, strides: [?, 1]>
+    %c_ref = memref_cast %c_view : memref<2x2xf32, offset: ?, strides: [?, 1]> to memref<*xf32>
+    call @plaidml_rt_xsmm_brgemm_unroll4_invoke_f32(%a_ref1, %a_ref2, %a_ref3, %a_ref4,
+            %b_ref1, %b_ref2, %b_ref3, %b_ref4, %c_ref, %ptr)
+      : (memref<*xf32>, memref<*xf32>, memref<*xf32>, memref<*xf32>,
+    memref<*xf32>, memref<*xf32>, memref<*xf32>, memref<*xf32>, memref<*xf32>, i64) -> ()
+  }
+  return
+}
+
 func @test_conv2(%impl : (!I_memref, !K_memref, !O_memref) -> ()) {
   %false = constant 0 : i1
   %true = constant 1 : i1

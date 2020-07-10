@@ -6,6 +6,7 @@ local exports = [
   'plaidml_rt_xsmm_gemm_invoke_f32',
   'plaidml_rt_xsmm_brgemm_dispatch_f32',
   'plaidml_rt_xsmm_brgemm_invoke_f32',
+  'plaidml_rt_xsmm_brgemm_unroll4_invoke_f32',
   'print_memref_f32',
 
   // core/ffi.h
