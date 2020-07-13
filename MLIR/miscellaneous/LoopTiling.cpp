@@ -25,12 +25,10 @@
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Debug.h"
 using namespace mlir;
-
 using llvm::dbgs;
 #define DEBUG_TYPE "affine-loop-tile"
 
 namespace {
-
 
 /// A pass to perform loop tiling on all suitable loop nests of a Function.
 struct LoopTiling : public AffineLoopTilingBase<LoopTiling> {
@@ -57,7 +55,6 @@ struct LoopTiling : public AffineLoopTilingBase<LoopTiling> {
 /// Function.
 std::unique_ptr<OperationPass<FuncOp>>
 mlir::createLoopTilingPass(uint64_t cacheSizeBytes) {
-  LLVM_DEBUG(dbgs() << "cacheSizeBytes: " << cacheSizeBytes);
   return std::make_unique<LoopTiling>(cacheSizeBytes);
 }
 std::unique_ptr<OperationPass<FuncOp>> mlir::createLoopTilingPass() {
@@ -178,10 +175,9 @@ void computeWorkingSetSizes(ArrayRef<AffineForOp> band) {
 }
 
 
-
 /// Tiles the specified band of perfectly nested loops creating tile-space loops
 /// and intra-tile loops. A band is a contiguous set of loops.
-//  TODO(bondhugula): handle non hyper-rectangular spaces.
+//  TODO: handle non hyper-rectangular spaces.
 LogicalResult
 mlir::tilePerfectlyNested(MutableArrayRef<AffineForOp> input,
                           ArrayRef<unsigned> tileSizes,
@@ -259,6 +255,7 @@ mlir::tilePerfectlyNested(MutableArrayRef<AffineForOp> input,
     *tiledNest = std::move(tiledLoops);
 
   computeWorkingSetSizes(*tiledNest);
+
   return success();
 }
 
@@ -301,33 +298,25 @@ static void adjustToDivisorsOfTripCounts(ArrayRef<AffineForOp> band,
   }
 }
 
-
-
 // Returns tile sizes to use. Checks CL options; if none are specified, sets it
 // based on a simple model that looks at the memory footprint and determines
 // tile sizes assuming identity accesses / 1:1 tile size proportional footprint
 // along each of the dimensions being tiled.
-// TODO(mlir-team): evolve this model. Tile size determination is a large area
+// TODO: evolve this model. Tile size determination is a large area
 // to play with in general.
 void LoopTiling::getTileSizes(ArrayRef<AffineForOp> band,
                               SmallVectorImpl<unsigned> *tileSizes) {
-
-  LLVM_DEBUG(dbgs() << "In getTileSizes(). cacheSizeInKB: " << cacheSizeInKiB);
-  if (band.empty()) {
-    LLVM_DEBUG(dbgs() << "band.empty()");
+  if (band.empty())
     return;
-  }
 
   // Use command-line tileSize for all loops if specified.
   if (tileSize) {
-    LLVM_DEBUG(dbgs() << "Using command line tile sizes.");
     tileSizes->assign(band.size(), tileSize);
     return;
   }
 
   // Use tileSizes and fill them with default tile size if it's short.
   if (!this->tileSizes.empty()) {
-    LLVM_DEBUG(dbgs() << "Filling it with default tile sizes ");
     tileSizes->assign(this->tileSizes.begin(), this->tileSizes.end());
     tileSizes->resize(band.size(), kDefaultTileSize);
     return;
@@ -343,13 +332,6 @@ void LoopTiling::getTileSizes(ArrayRef<AffineForOp> band,
   // footprint increases with the tile size linearly in that dimension (i.e.,
   // assumes one-to-one access function).
   auto fp = getMemoryFootprintBytes(band[0], 0);
-
-  if (fp) {
-    LLVM_DEBUG(dbgs() << "getMemoryFootprintBytes: " << fp.getValue());
-  } else {
-    LLVM_DEBUG(dbgs() << "getMemoryFootprintBytes returned NULL ");
-  }
-
   if (!fp) {
     // Fill with default tile sizes if footprint is unknown.
     std::fill(tileSizes->begin(), tileSizes->end(),
@@ -364,8 +346,6 @@ void LoopTiling::getTileSizes(ArrayRef<AffineForOp> band,
 
   // Check how many times larger the cache size is when compared to footprint.
   uint64_t cacheSizeBytes = cacheSizeInKiB * 1024;
-
-  LLVM_DEBUG(dbgs() << "cacheSizeBytes: " << cacheSizeBytes);
   uint64_t excessFactor = llvm::divideCeil(fp.getValue(), cacheSizeBytes);
   if (excessFactor <= 1) {
     // No need of any tiling - set tile size to 1.
@@ -374,7 +354,7 @@ void LoopTiling::getTileSizes(ArrayRef<AffineForOp> band,
   }
 
   // Divide all loops equally in an attempt to reduce footprint.
-  // TODO(bondhugula): this is approximate. Ideally, obtain reuse factor /
+  // TODO: this is approximate. Ideally, obtain reuse factor /
   // profitability along each dimension and weight tile sizes based on that as
   // one possible approach. Or compute a polynomial in tile sizes and solve for
   // it.
@@ -398,20 +378,15 @@ void LoopTiling::getTileSizes(ArrayRef<AffineForOp> band,
 }
 
 void LoopTiling::runOnFunction() {
-
-  LLVM_DEBUG(dbgs() << "Fresh tiling. Today is June 15, 2020");
   // Bands of loops to tile.
   std::vector<SmallVector<AffineForOp, 6>> bands;
   getTileableBands(getFunction(), &bands);
 
   // Tile each band.
   for (auto &band : bands) {
-
-    // computeWorkingSetSizes(band);
     // Set up tile sizes; fill missing tile sizes at the end with default tile
     // size or tileSize if one was provided.
     SmallVector<unsigned, 6> tileSizes;
-    LLVM_DEBUG(dbgs() << "Invoking getTileSizes()");
     getTileSizes(band, &tileSizes);
     if (llvm::DebugFlag) {
       auto diag = band[0].emitRemark("using tile sizes [");
@@ -429,7 +404,6 @@ void LoopTiling::runOnFunction() {
           MutableArrayRef<AffineForOp>(tiledNest).drop_front(band.size());
       separateFullTiles(intraTileLoops);
     }
-
   }
 }
 

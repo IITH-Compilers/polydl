@@ -1,4 +1,3 @@
-// mlir/include/mlir/Dialect/Affine/Passes.td
 //===-- Passes.td - Affine pass definition file ------------*- tablegen -*-===//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
@@ -66,11 +65,13 @@ def AffineLoopTiling : FunctionPass<"affine-loop-tile"> {
   ];
 }
 
+
 def GEMMRecognizer
     : FunctionPass<"affine-gemm-recognizer"> {
   let summary = "Recognize GEneral Matrix Multiplication (GEMM) operations";
   let constructor = "mlir::createGEMMRecognizerPass()";
 }
+
 
 def AffineLoopUnroll : FunctionPass<"affine-loop-unroll"> {
   let summary = "Unroll affine loops";
@@ -117,6 +118,11 @@ def AffineVectorize : FunctionPass<"affine-super-vectorize"> {
                "a description and examples. This is used for testing purposes",
                "llvm::cl::ZeroOrMore, llvm::cl::MiscFlags::CommaSeparated">
   ];
+}
+
+def AffineParallelize : FunctionPass<"affine-parallelize"> {
+  let summary = "Convert affine.for ops into 1-D affine.parallel";
+  let constructor = "mlir::createAffineParallelizePass()";
 }
 
 def SimplifyAffineStructures : FunctionPass<"simplify-affine-structures"> {

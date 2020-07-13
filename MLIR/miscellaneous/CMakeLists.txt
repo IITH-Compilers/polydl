@@ -1,6 +1,7 @@
 add_mlir_dialect_library(MLIRAffineTransforms
   AffineDataCopyGeneration.cpp
   AffineLoopInvariantCodeMotion.cpp
+  AffineParallelize.cpp
   LoopTiling.cpp
   GEMMRecognizer.cpp
   LoopUnroll.cpp
@@ -18,6 +19,7 @@ add_mlir_dialect_library(MLIRAffineTransforms
 
   LINK_LIBS PUBLIC
   MLIRAffineOps
+  MLIRAffineUtils
   MLIREDSC
   MLIRIR
   MLIRPass
