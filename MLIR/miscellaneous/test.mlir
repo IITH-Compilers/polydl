@@ -44,6 +44,7 @@ func @main() {
   %num_flops_f = sitofp %num_flops_i : i64 to f64
   %flops = divf %num_flops_f, %t : f64
   call @print_flops(%flops) : (f64) -> ()
+  call @print_open_gagan(%flops) : (f64) -> ()
 
   return
 }
@@ -72,5 +73,5 @@ func @print_memref_f32_polydl(memref<*xf32>)
 func @print_memref_f32(memref<*xf32>)
 func @print_open()
 func @print_close() 
-func @print_open_gagan(f32)
+func @print_open_gagan(f64)
 
