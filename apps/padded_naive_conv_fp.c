@@ -2,7 +2,7 @@ void padded_naive_conv_fp_fn(
 	int nImg, int nIfm, int nOfm, int ifhp, int ifwp, int ofhp, int ofwp, int ifh, int ifw,
 	int ofh, int ofw, int pad_h, int pad_w, int pad_h_in, int pad_w_in, int pad_h_out,
 	int pad_w_out, int kh, int kw, int stride_h, int stride_w,
-	const float input[nImg][nIfm][ifhp][ifwp], float output[nImg][nOfm][ofhp][ofwp], const float filter[nOfm][nIfm][kh][kw])
+	const float input[nImg][nIfm][ifhp+2*pad_h][ifwp+2*pad_w], float output[nImg][nOfm][ofhp][ofwp], const float filter[nOfm][nIfm][kh][kw])
 {
 	/* loop counters */
 	int img, ofm, ifm, oj, oi, ij, ii, kj, ki;
