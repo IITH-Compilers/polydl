@@ -1,3 +1,5 @@
+// ../llvm-project/build/bin/mlir-opt  -convert-linalg-to-loops -lower-affine -convert-scf-to-std -convert-std-to-llvm  print_array.mlir | ../llvm-project/build/bin/mlir-cpu-runner -O3 -e main -entry-point-result=void -shared-libs=../llvm-project/build/lib/libmlir_runner_utils.so,../llvm-project/build/lib/libmlir_c_runner_utils.so
+
 func @main() {
   %c1 = constant 10 : index
   %c2 = constant 20 : index
