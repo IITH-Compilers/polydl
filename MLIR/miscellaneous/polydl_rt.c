@@ -5,6 +5,8 @@ void print_f32_polydl(
 	long long int stride1, long long int stride2,
 	void *base) {
 	int i, j;
+	printf("rank = %ld, offset = %ld, size1 = %ld, size2 = %ld, stride1 = %ld, stride2 = %ld",
+		rank, offset, size1, size2, stride1, stride2);
 	float *ptr = (float*)base;
 	for (i = 0; i < size1; i++) {
 		for (j = 0; j < size2; j++) {
@@ -12,4 +14,26 @@ void print_f32_polydl(
 		}
 	}
 
+}
+
+void polydl_lib_matmul_f32(float* A,
+	long long int M1, long long int K1,
+	long long int A_stride1, long long int A_stride2,
+	float* B,
+	long long int K2, long long int N1,
+	long long int B_stride1, long long int B_stride2,
+	float* C,
+	long long int M2, long long int N2,
+	long long int C_stride1, long long int C_stride2) {
+
+	printf("In polydl_lib_matmul_f32\n");
+	int i, j, k;
+	for (i = 0; i < M1; i++) {
+		for (j = 0; j < N1; j++) {
+			for (k = 0; k < K1; k++) {
+				C[i*C_stride1 + j * C_stride2] +=
+					A[i*A_stride1 + k * A_stride2] * B[k*B_stride1 + j * B_stride2];
+			}
+		}
+	}
 }

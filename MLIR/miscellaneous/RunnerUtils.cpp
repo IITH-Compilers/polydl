@@ -38,6 +38,7 @@ extern "C" void print_f32_polydl(
 	long long int stride1, long long int stride2,
 	void *base);
 
+
 extern "C" void _mlir_ciface_print_memref_f32_polydl(UnrankedMemRefType<float> *M) {
 	std::cout << "Hello from polydl_print_memref_f32()" << std::endl;
 
@@ -77,6 +78,44 @@ extern "C" void _mlir_ciface_print_memref_f32_polydl(UnrankedMemRefType<float> *
 		reinterpret_cast<void *>(V.data));
 }
 
+extern "C" void polydl_lib_matmul_f32(float* A,
+	long long int A_size1, long long int A_size2,
+	long long int A_stride1, long long int A_stride2,
+	float* B,
+	long long int B_size1, long long int B_size2,
+	long long int B_stride1, long long int B_stride2,
+	float* C,
+	long long int C_size1, long long int C_size2,
+	long long int C_stride1, long long int C_stride2);
+
+extern "C" void polydl_matmul_f32(int64_t A_rank, void *A_ptr,
+	int64_t B_rank, void *B_ptr,
+	int64_t C_rank, void *C_ptr) {
+	UnrankedMemRefType<float> A_descriptor = { A_rank, A_ptr };
+	UnrankedMemRefType<float> B_descriptor = { B_rank, B_ptr };
+	UnrankedMemRefType<float> C_descriptor = { C_rank, C_ptr };
+
+	DynamicMemRefType<float> A = DynamicMemRefType<float>(A_descriptor);
+	DynamicMemRefType<float> B = DynamicMemRefType<float>(B_descriptor);
+	DynamicMemRefType<float> C = DynamicMemRefType<float>(C_descriptor);
+
+	if (A.rank != 2 || B.rank != 2 || C.rank != 2) {
+		fprintf(stderr, "The three matrices for matrix multiplication are not 2-dimensional.\n");
+		return;
+	}
+
+	if (A.sizes[0] == C.sizes[0] && A.sizes[1] == B.sizes[0] && B.sizes[1] && C.sizes[1]) {
+		polydl_lib_matmul_f32(&A.data[A.offset], A.sizes[0], A.sizes[1], A.strides[0], A.strides[1],
+			&B.data[B.offset], B.sizes[0], B.sizes[1], B.strides[0], B.strides[1],
+			&C.data[C.offset], C.sizes[0], C.sizes[1], C.strides[0], C.strides[1]);
+	}
+	else {
+		fprintf(stderr, "The matrix sizes are not compatible for multiplication.\n");
+		return;
+	}
+}
+
+
 extern "C" void _mlir_ciface_print_memref_f32(UnrankedMemRefType<float> *M) {
 	impl::printMemRef(*M);
 }
@@ -95,8 +134,6 @@ extern "C" void print_memref_f32_polydl(int64_t rank, void *ptr) {
 	UnrankedMemRefType<float> descriptor = { rank, ptr };
 	_mlir_ciface_print_memref_f32_polydl(&descriptor);
 }
-
-extern "C" void print_open_gagan(double flops);
 
 
 extern "C" void
