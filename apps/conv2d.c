@@ -51,6 +51,7 @@ libxsmm_smmfunction fwd_gemm;
 #include "padded_conv_fp_tiled_loop_order_0.c"
 #include "padded_conv_fp_tiled_loop_order_1.c"
 #include "padded_conv_fp_libxsmm_core5.c"
+#include "padded_conv_fp_libxsmm_core501.c"
 #include "padded_conv_fp_libxsmm_core6.c"
 #include "padded_conv_fp_libxsmm_core7.c"
 #include "padded_conv_fp_libxsmm_core8.c"
@@ -254,6 +255,28 @@ double padded_conv_fp(
 		l_end = libxsmm_timer_tick();
 		libxsmm_free(pad_naive_input);
 	}
+	else if (version == 501) {
+		copyGEMMOutputToNCHWformat = 0;
+		float(*pad_naive_input)[nIfm][ifhp + 2 * pad_h][ifwp + 2 * pad_w]
+			= (float*)libxsmm_aligned_malloc(nImg*nIfm*(ifhp + 2 * pad_h)*(ifwp + 2 * pad_w) * sizeof(float), 2097152);
+
+		zero_buf(&pad_naive_input[0][0][0][0],
+			nImg*nIfm*(ifhp + 2 * pad_h)*(ifwp + 2 * pad_w));
+
+		copy_NCHW_to_PADDED_NCHW(nImg, nIfm, ifhp, ifwp, pad_h, pad_w,
+			naive_input, pad_naive_input);
+
+		l_start = libxsmm_timer_tick();
+		for (i = 0; i < iters; i++) {
+			padded_conv_fp_libxsmm_core501_gemm(nImg, nIfm, nOfm, ifhp, ifwp, ofhp, ofwp, ifh, ifw,
+				ofh, ofw, pad_h, pad_w, pad_h_in, pad_w_in, pad_h_out,
+				pad_w_out, kh, kw, stride_h, stride_w,
+				pad_naive_input, check_output, naive_filter);
+		}
+
+		l_end = libxsmm_timer_tick();
+		libxsmm_free(pad_naive_input);
+	}
 	else {
 		printf("Incorrect version\n");
 		libxsmm_free(pad_gemm_input);
@@ -424,7 +447,7 @@ void set_zeropad_nchw(int N, int C, int H, int W, int pad_h, int pad_w, float in
 int main(int argc, char **argv) {
 	int ifhp, ifwp, ofhp, ofwp, ofh, ofw;
 	int stride_h, stride_w, pad_h, pad_w, pad_h_in, pad_w_in, pad_h_out, pad_w_out;
-	int version = 5;
+	int version = 501;
 	int check_correctness = 1;
 
 	correctness_t norms_fwd;
