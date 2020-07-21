@@ -35,26 +35,27 @@ void padded_conv_fp_libxsmm_core501_gemm(int nImg, int nIfm, int nOfm, int ifhp,
 	*/
 
 
-	printf("lets see if i work?");
-								float(*C)[T_ofm] = malloc(sizeof (T_ofm * ofw) * sizeof(float));
-								float(*B)[T_ifm] = malloc (sizeof (T_ifm * ofw) * sizeof(float));
-								float(*A)[T_ofm] = malloc (sizeof (T_ofm * T_ifm) * sizeof(float));
-								// float C[T_ofm][ofw];
-								// float B[T_ifm][ofw];
-								// float A[T_ofm][T_ifm];
-// #pragma omp parallel for private(ofm, ifm, oj, ij, oi, ii, kj, ki)
-// int c = min(26,3+12);
-// printf("\n %d print min function \n",c);
+	// printf("lets see if i work?");
+	// float(*C)[T_ofm] = malloc(sizeof (T_ofm * ofw) * sizeof(float));
+	// float(*B)[T_ifm] = malloc (sizeof (T_ifm * ofw) * sizeof(float));
+	// float(*A)[T_ofm] = malloc (sizeof (T_ofm * T_ifm) * sizeof(float));
+#pragma omp parallel for private(ofm, ifm,t_ofm, t_ifm,oj, ij, oi, ii, kj, ki)
+
 	for (img = 0; img < nImg; ++img) {
+								float C[T_ofm][ofw];
+								float B[T_ifm][ofw];
+								float A[T_ofm][T_ifm];
 		for (t_ofm = 0; t_ofm < nOfm; t_ofm+=T_ofm) {
 			for (t_ifm = 0; t_ifm < nIfm; t_ifm+=T_ifm) {
+				
+							
 				for (oj = 0; oj < ofh; ++oj) {
 					ij = oj * stride_h;
 						for (kj = 0; kj < kh; ++kj) {
 							for (ki = 0; ki < kw; ++ki) {
 
-								//Pack 
-									//Packing code for C
+								// Pack 
+								// Packing code for C
 									for (oi = 0; oi < ofw; ++oi) /*j loop */ {
 										ii = oi * stride_w;
 									for (ofm = t_ofm; ofm < min(nOfm, t_ofm + T_ofm); ofm++) /*i loop */ {
@@ -62,9 +63,8 @@ void padded_conv_fp_libxsmm_core501_gemm(int nImg, int nIfm, int nOfm, int ifhp,
 										// C[0][0], C[0][1] ... = output[img][ofm][oj][oi], output[img][ofm+1][oj][oi+1]
 										}
 									} 
-									
-								
-									//Packing code for B
+
+								// 	//Packing code for B
 									for (oi = 0; oi < ofw; ++oi) /*j loop */ {
 										ii = oi * stride_w;
 									for (ifm = t_ifm; ifm < min(nIfm, t_ifm + T_ifm); ifm++) /*i loop */ {
@@ -73,7 +73,7 @@ void padded_conv_fp_libxsmm_core501_gemm(int nImg, int nIfm, int nOfm, int ifhp,
 										}
 									} 
 								
-									//Packing code for A
+								// 	//Packing code for A
 									for (ofm = t_ofm; ofm < min(nOfm, t_ofm + T_ofm); ofm++) /*j loop */ {
 
 									for (ifm = t_ifm; ifm < min(nIfm, t_ifm + T_ifm); ifm++) /*i loop */ {
@@ -83,20 +83,23 @@ void padded_conv_fp_libxsmm_core501_gemm(int nImg, int nIfm, int nOfm, int ifhp,
 
 									} 
 
-								//Gemm 
+								// //Gemm 
 								for (oi = 0; oi < ofw; ++oi) /*j loop */ {
 									ii = oi * stride_w;
 									for (ofm = t_ofm; ofm < min(nOfm, t_ofm + T_ofm); ofm++) /*i loop */ {
 										for (ifm = t_ifm; ifm < min(nIfm, t_ifm + T_ifm); ifm++) /* k loop */ {
 											// output[img][ofm][oj][oi] +=
 											// filter[ofm][ifm][kj][ki] /* filter - A */ * input[img][ifm][ij + kj][ii + ki] /*input - B */;
-											C[ofm][oi] += A[ofm][ifm]*B[ifm][oi] ;
+											C[ofm - t_ofm][oi] += A[ofm - t_ofm][ifm - t_ifm]*B[ifm - t_ifm][oi] ;
 											
 										}
 									}
 								}
+								// fwd_gemm(&B[kt1 / K1_Tile][jt1 / N1_Tile][0][0],
+								// &A[it1 / M1_Tile][kt1 / K1_Tile][0][0],
+								// &C[it1 / M1_Tile][jt1 / N1_Tile][0][0]);
 
-								//Unpack
+								// //Unpack
 								for (oi = 0; oi < ofw; ++oi) /*j loop */ {
 									ii = oi * stride_w;
 								for (ofm = t_ofm; ofm < min(nOfm, t_ofm + T_ofm); ofm++) /*i loop */ {
@@ -105,57 +108,11 @@ void padded_conv_fp_libxsmm_core501_gemm(int nImg, int nIfm, int nOfm, int ifhp,
 									}
 
 								} 
-// free(A);
-// free(B); 
-// free(C); 
 
 						}
 					}
 				}
-			}
+			}					
 		}
 	}
-
-
-// #pragma omp parallel for private(ofm, ifm, oj, ij, oi, ii, kj, ki)
-// 	for (img = 0; img < nImg; ++img) {
-// 		for (ofm = 0; ofm < nOfm; ++ofm) {
-// 			for (ifm = 0; ifm < nIfm; ++ifm) {
-// 				for (oj = 0; oj < ofh; ++oj) {
-// 					ij = oj * stride_h - pad_h;
-// 					for (oi = 0; oi < ofw; ++oi) {
-// 						ii = oi * stride_w - pad_w;
-// 						for (kj = 0; kj < kh; ++kj) {
-// 							if (ij + kj < 0 || ij + kj >= ifh) continue;
-// 							for (ki = 0; ki < kw; ++ki) {
-// 								if (ii + ki < 0 || ii + ki >= ifw) continue;
-// 								output[img][ofm][oj][oi] += input[img][ifm][ij + kj][ii + ki]
-// 									* filter[ofm][ifm][kj][ki];
-// 							}
-// 						}
-// 					}
-// 				}
-// 			}
-// 		}
-// 	}
-
-	// for (img = 0; img < nImg; ++img) {
-	// 	for (ofm = 0; ofm < nOfm; ++ofm) {
-	// 		for (ifm = 0; ifm < nIfm; ++ifm) {
-	// 			for (oj = 0; oj < ofh; ++oj) {
-	// 				ij = oj * stride_h;
-	// 				for (oi = 0; oi < ofw; ++oi) {
-	// 					ii = oi * stride_w;
-	// 					for (kj = 0; kj < kh; ++kj) {
-	// 						for (ki = 0; ki < kw; ++ki) {
-	// 							output[img][ofm][oj][oi] += input[img][ifm][ij + kj][ii + ki]
-	// 								* filter[ofm][ifm][kj][ki];
-	// 						}
-	// 					}
-	// 				}
-	// 			}
-	// 		}
-	// 	}
-	// }
-
 }
