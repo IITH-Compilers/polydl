@@ -173,8 +173,8 @@ void padded_conv_fp_libxsmm_core502_gemm(int nImg, int nIfm, int nOfm, int ifhp,
 							}
 
 							// 	//Packing code for A
-							for (ofm = t_ofm; ofm < min(nOfm, t_ofm + T_ofm); ofm++) /*j loop */ {
-								for (ifm = t_ifm; ifm < min(nIfm, t_ifm + T_ifm); ifm++) /*i loop */ {
+							for (ifm = t_ifm; ifm < min(nIfm, t_ifm + T_ifm); ifm++) /*i loop */ {
+								for (ofm = t_ofm; ofm < min(nOfm, t_ofm + T_ofm); ofm++) /*j loop */ {
 									A[ifm - t_ifm][ofm - t_ofm] = filter[ofm][ifm][kj][ki];
 									// C[0][0], C[0][1] ... = output[img][ofm][oj][oi], output[img][ofm+1][oj][oi+1]
 								}
