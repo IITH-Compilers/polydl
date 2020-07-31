@@ -78,19 +78,17 @@ extern "C" void _mlir_ciface_print_memref_f32_polydl(UnrankedMemRefType<float> *
 		reinterpret_cast<void *>(V.data));
 }
 
-extern "C" void polydl_lib_matmul_f32(float* A,
-	long long int A_size1, long long int A_size2,
-	long long int A_stride1, long long int A_stride2,
-	float* B,
-	long long int B_size1, long long int B_size2,
-	long long int B_stride1, long long int B_stride2,
-	float* C,
-	long long int C_size1, long long int C_size2,
-	long long int C_stride1, long long int C_stride2);
+extern "C" void polydl_lib_matmul_f32(
+	long long int M, long long int N, long long int K,
+	long long int A_stride, long long int B_stride, long long int C_stride,
+	float *A, float *B, float *C);
 
-extern "C" void polydl_matmul_f32(int64_t A_rank, void *A_ptr,
+extern "C" void polydl_matmul_f32(
+	int64_t A_rank, void *A_ptr,
 	int64_t B_rank, void *B_ptr,
-	int64_t C_rank, void *C_ptr) {
+	int64_t C_rank, void *C_ptr,
+	int64_t M, int64_t N, int64_t K) {
+	// A[M][K], B[K][N], C[M][N]
 	UnrankedMemRefType<float> A_descriptor = { A_rank, A_ptr };
 	UnrankedMemRefType<float> B_descriptor = { B_rank, B_ptr };
 	UnrankedMemRefType<float> C_descriptor = { C_rank, C_ptr };
@@ -104,6 +102,10 @@ extern "C" void polydl_matmul_f32(int64_t A_rank, void *A_ptr,
 		return;
 	}
 
+	polydl_lib_matmul_f32(M, N, K, A.strides[0], B.strides[0], C.strides[0],
+		&A.data[A.offset], &B.data[B.offset], &C.data[C.offset]);
+
+	/*
 	if (A.sizes[0] == C.sizes[0] && A.sizes[1] == B.sizes[0] && B.sizes[1] && C.sizes[1]) {
 		polydl_lib_matmul_f32(&A.data[A.offset], A.sizes[0], A.sizes[1], A.strides[0], A.strides[1],
 			&B.data[B.offset], B.sizes[0], B.sizes[1], B.strides[0], B.strides[1],
@@ -113,6 +115,7 @@ extern "C" void polydl_matmul_f32(int64_t A_rank, void *A_ptr,
 		fprintf(stderr, "The matrix sizes are not compatible for multiplication.\n");
 		return;
 	}
+	*/
 }
 
 
