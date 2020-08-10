@@ -2848,13 +2848,26 @@ static LogicalResult verify(AffineVectorStoreOp op) {
 // PolyDLGEMMOp
 //===----------------------------------------------------------------------===//
 
+/*
+void PolyDLGEMMOp::build(OpBuilder &builder, OperationState &result,
+	Value memrefA, Value memrefB, Value memrefC) {
+	result.addOperands(memrefA);
+	result.addOperands(memrefB);
+	result.addOperands(memrefC);
+}
+*/
+
 static ParseResult parsePolyDLGEMMOp(OpAsmParser &parser,
 	OperationState &result) {
+
+	// TODO: Implement a parser
+
 	return success();
 }
 
 static void print(OpAsmPrinter &p, PolyDLGEMMOp op) {
-	p << "polydl_matmul_f32() ";
+	p << "polydl_matmul_f32( " << op.memrefA() << " , "
+		<< op.memrefB() << " , " << op.memrefC() << ")";
 
 }
 

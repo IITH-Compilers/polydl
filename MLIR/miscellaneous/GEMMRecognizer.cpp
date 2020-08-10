@@ -43,7 +43,37 @@ std::unique_ptr<OperationPass<FuncOp>> mlir::createGEMMRecognizerPass() {
 	return std::make_unique<GEMMRecognizer>();
 }
 
-bool isAGEMMLoopNest(AffineForOp forOp1) {
+struct GEMMOperand {
+	bool isGEMM;
+	int64_t K;
+	Value CMemRef;
+
+};
+typedef struct GEMMOperand GEMMOperand;
+
+int64_t extractBound(AffineMapAttr boundMap,
+	Operation::operand_range boundOperands) {
+	AffineMap map = boundMap.getValue();
+
+	if (map.getNumResults() == 1) {
+		AffineExpr expr = map.getResult(0);
+
+		// Print constant bound.
+		if (map.getNumDims() == 0 && map.getNumSymbols() == 0) {
+			if (auto constExpr = expr.dyn_cast<AffineConstantExpr>()) {
+				return constExpr.getValue();;
+			}
+		}
+	}
+	else {
+		return -1;
+	}
+}
+
+GEMMOperand isAGEMMLoopNest(AffineForOp forOp1) {
+	GEMMOperand gemmOperand;
+	gemmOperand.isGEMM = false;
+
 	Block &body1 = forOp1.region().front();
 	if (auto forOp2 = dyn_cast<AffineForOp>(body1.front())) {
 		Block &body2 = forOp2.region().front();
@@ -76,6 +106,11 @@ bool isAGEMMLoopNest(AffineForOp forOp1) {
 							numLoads++;
 						}
 						else if (nameString.contains(".store")) {
+							AffineStoreOp storeOp = dyn_cast<AffineStoreOp>(op);
+							LLVM_DEBUG(storeOp.getMemRef().print(dbgs() << "\ngetMemRef():\n"));
+							LLVM_DEBUG(dbgs() << "MemRef\n: " << storeOp.getMemRef());
+							Value memRef = storeOp.getMemRef();
+							gemmOperand.CMemRef = memRef;
 							numStores++;
 						}
 						else if (nameString.contains(".add")) {
@@ -91,16 +126,27 @@ bool isAGEMMLoopNest(AffineForOp forOp1) {
 
 					if (numLoads == 3 && numStores == 1 && numAdds == 1
 						&& numMuls == 1 && numOthers == 0) {
-						// Matrix multiplication pattern has been found.
-						return true;
+						if (forOp3.hasConstantUpperBound()) {
+							// Matrix multiplication pattern has been found.
+							gemmOperand.isGEMM = true;
+							/*
+							gemmOperand.K = extractBound(forOp3.getUpperBoundMapAttr(), forOp3.getUpperBoundOperands());
+							*/
+							gemmOperand.K = forOp3.getConstantUpperBound();
+							LLVM_DEBUG(dbgs() << "K: gemmOperand.K: " << gemmOperand.K);
+
+							return gemmOperand;
+						}
 					}
 				}
 			}
 		}
 	}
 
-	return false;
+	return gemmOperand;
 }
+
+
 
 void GEMMRecognizer::runOnFunction() {
 	LLVM_DEBUG(dbgs() << "Running the GEMM recognizer pass \n");
@@ -109,8 +155,22 @@ void GEMMRecognizer::runOnFunction() {
 
 
 	f.walk([&](AffineForOp forOp) {
-		if (isAGEMMLoopNest(forOp)) {
+		GEMMOperand gemmOperand = isAGEMMLoopNest(forOp);
+		if (gemmOperand.isGEMM) {
 			LLVM_DEBUG(dbgs() << "GEMM pattern has been FOUND\n");
+			// Now we want to call a matrix multiplication routine here.
+			OpBuilder b(forOp);
+			SmallVector<Value, 6> ops;
+			ops.push_back(gemmOperand.CMemRef);
+			ops.push_back(gemmOperand.CMemRef);
+			ops.push_back(gemmOperand.CMemRef);
+
+			auto op = b.create<PolyDLGEMMOp>(forOp.getLoc(),
+				gemmOperand.CMemRef,
+				gemmOperand.CMemRef,
+				gemmOperand.CMemRef);
+			LLVM_DEBUG(dbgs() << "CallOp: " << op);
+			forOp.erase();
 		}
 		else {
 			LLVM_DEBUG(dbgs() << "NOT a GEMM pattern \n");

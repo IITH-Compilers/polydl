@@ -944,6 +944,12 @@ def PolyDLGEMMOp : Affine_Op<"polydl_matmul_f32"> {
   let description = [{
     matrix multiplication.
   }];
+
+  let arguments = (ins
+      AnyMemRef:$memrefA,
+	  AnyMemRef:$memrefB,
+	  AnyMemRef:$memrefC);
+
 }
 
 
