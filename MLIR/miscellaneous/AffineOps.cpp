@@ -2857,6 +2857,14 @@ void PolyDLGEMMOp::build(OpBuilder &builder, OperationState &result,
 }
 */
 
+void PolyDLGEMMOp::build(OpBuilder &b, OperationState &state,
+	Value A, Value B, Value C,
+	int64_t M, int64_t N, int64_t K) {
+
+	// Call into the auto-generated build method.
+	build(b, state, A, B, C, b.getI64IntegerAttr(M), b.getI64IntegerAttr(M), b.getI64IntegerAttr(M));
+}
+
 static ParseResult parsePolyDLGEMMOp(OpAsmParser &parser,
 	OperationState &result) {
 
@@ -2866,8 +2874,9 @@ static ParseResult parsePolyDLGEMMOp(OpAsmParser &parser,
 }
 
 static void print(OpAsmPrinter &p, PolyDLGEMMOp op) {
-	p << "polydl_matmul_f32( " << op.memrefA() << " , "
-		<< op.memrefB() << " , " << op.memrefC() << ")";
+	p << "polydl_matmul_f32( "
+		<< op.M() << "," << op.N() << "," << op.K() << ","
+		<< op.memrefA() << " , " << op.memrefB() << " , " << op.memrefC() << ")";
 
 }
 

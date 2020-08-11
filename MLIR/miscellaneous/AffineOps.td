@@ -948,7 +948,14 @@ def PolyDLGEMMOp : Affine_Op<"polydl_matmul_f32"> {
   let arguments = (ins
       AnyMemRef:$memrefA,
 	  AnyMemRef:$memrefB,
-	  AnyMemRef:$memrefC);
+	  AnyMemRef:$memrefC,
+	  I64Attr: $M,
+	  I64Attr: $N,
+	  I64Attr: $K);
+
+  let builders = [
+    OpBuilder<"OpBuilder &b, OperationState &state, Value A, Value B, Value C, int64_t M, int64_t N, int64_t K">
+  ];
 
 }
 

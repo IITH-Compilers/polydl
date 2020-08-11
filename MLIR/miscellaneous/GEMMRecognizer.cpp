@@ -168,7 +168,11 @@ void GEMMRecognizer::runOnFunction() {
 			auto op = b.create<PolyDLGEMMOp>(forOp.getLoc(),
 				gemmOperand.CMemRef,
 				gemmOperand.CMemRef,
-				gemmOperand.CMemRef);
+				gemmOperand.CMemRef,
+				gemmOperand.K,
+				gemmOperand.K,
+				gemmOperand.K);
+
 			LLVM_DEBUG(dbgs() << "CallOp: " << op);
 			forOp.erase();
 		}
