@@ -2875,8 +2875,9 @@ static ParseResult parsePolyDLGEMMOp(OpAsmParser &parser,
 
 static void print(OpAsmPrinter &p, PolyDLGEMMOp op) {
 	p << "polydl_matmul_f32( "
-		<< op.M() << "," << op.N() << "," << op.K() << ","
-		<< op.memrefA() << " , " << op.memrefB() << " , " << op.memrefC() << ")";
+		<< op.memrefA() << " , " << op.memrefB() << " , " << op.memrefC()
+		<< "," << op.M() << "," << op.N() << "," << op.K()
+		<< ")";
 
 }
 
