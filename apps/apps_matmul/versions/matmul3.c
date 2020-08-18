@@ -166,7 +166,7 @@ void matmul_high_performance_core(
 
 #pragma omp parallel 
 	{
-		int it2, jt2, kt2, it1, jt1, kt1, i, j, k;
+		int it2, jt2, kt2, it1, jt1, kt1, i, j, k, i_max, j_max, k_max;
 		int tid = omp_get_thread_num();
 		int num_threads = omp_get_num_threads();
 		int it2_start = 0;
@@ -175,17 +175,19 @@ void matmul_high_performance_core(
 		int jt2_end = N1;
 
 #ifdef PARALLEL_it2
-		int chunk = (it2_end - it2_start) / num_threads;
+		int chunk = ceil((it2_end - it2_start) / (num_threads * 1.0));
 		it2_start = it2_start + tid * chunk;
-		it2_end = it2_start + chunk;
+		it2_end = min(it2_start + chunk, M1);
 		//printf("tid = %d, num_threads = %d, it2_start = %d, it2_end = %d\n",
 			// tid, num_threads, it2_start, it2_end);
 #endif
 
 #ifdef PARALLEL_jt2
-		int chunk = (jt2_end - jt2_start) / num_threads;
+		int chunk = ceil((jt2_end - jt2_start) / (num_threads * 1.0));
 		jt2_start = jt2_start + tid * chunk;
-		jt2_end = jt2_start + chunk;
+		jt2_end = min(jt2_start + chunk, N1);
+		// printf("tid = %d, num_threads = %d, jt2_start = %d, jt2_end = %d\n",
+		// tid, num_threads, jt2_start, jt2_end);
 #endif
 
 
@@ -198,15 +200,15 @@ void matmul_high_performance_core(
 				int jt1_end = min(N1, jt2 + N2_Tile);
 
 #ifdef PARALLEL_it1
-				int chunk = (it1_end - it1_start) / num_threads;
+				int chunk = ceil((it1_end - it1_start) / (num_threads * 1.0));
 				it1_start = it1_start + tid * chunk;
-				it1_end = it1_start + chunk;
+				it1_end = min(it1_start + chunk, min(M1, it2 + M2_Tile));
 #endif
 
 #ifdef PARALLEL_jt1
-				int chunk = (jt1_end - jt1_start) / num_threads;
+				int chunk = ceil((jt1_end - jt1_start) / (num_threads * 1.0));
 				jt1_start = jt1_start + tid * chunk;
-				jt1_end = jt1_start + chunk;
+				jt1_end = min(jt1_start + chunk, min(N1, jt2 + N2_Tile));
 #endif
 
 				for (kt2 = 0; kt2 < K1; kt2 += K2_Tile) {
@@ -215,10 +217,10 @@ void matmul_high_performance_core(
 					for (it1 = it1_start; it1 < it1_end; it1 += M1_Tile) {
 						for (jt1 = jt1_start; jt1 < jt1_end; jt1 += N1_Tile) {
 							for (kt1 = kt2; kt1 < min(K1, kt2 + K2_Tile); kt1 += K1_Tile) {
-
 								fwd_gemm(&B[kt1 / K1_Tile][jt1 / N1_Tile][0][0],
 									&A[it1 / M1_Tile][kt1 / K1_Tile][0][0],
 									&C[it1 / M1_Tile][jt1 / N1_Tile][0][0]);
+
 							}
 						}
 					}
