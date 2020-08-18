@@ -1,5 +1,5 @@
 
-set -x
+set +x
 export KMP_AFFINITY=granularity=fine,compact,1,28
 export LD_LIBRARY_PATH=/nfs_home/stavarag/work/software/barvinok/barvinok-0.41.2_install/lib:/nfs_home/stavarag/work/software/barvinok/isl_install/lib:$LD_LIBRARY_PATH
 
@@ -28,10 +28,11 @@ N1_Tile=$9
 K1_Tile=${10}
 file=${11}
 PARALLEL_LOOP=${12}
+NUM_THREADS=${13}
 
 echo iters=$iters M1=$M1 N1=$N1 K1=$K1 M2_Tile=$M2_Tile N2_Tile=$N2_Tile K2_Tile=$K2_Tile M1_Tile=$M1_Tile N1_Tile=$N1_Tile K1_Tile=$K1_Tile file=$file
 
-config=${iters}_${M1}_${N1}_${K1}__${M2_Tile}_${N2_Tile}_${K2_Tile}_${M1_Tile}_${N1_Tile}_${K1_Tile}_${PARALLEL_LOOP}
+config=${iters}_${M1}_${N1}_${K1}__${M2_Tile}_${N2_Tile}_${K2_Tile}_${M1_Tile}_${N1_Tile}_${K1_Tile}_${PARALLEL_LOOP}_${NUM_THREADS}
 echo config: $config
 
 CONFIG_OUT=${PERF_DIR}/${file}_${M1}_${N1}_${K1}_${OUT}
@@ -39,7 +40,7 @@ META_CONFIG_OUT=${PERF_DIR}/meta_${file}_${M1}_${N1}_${K1}_${OUT}
 #rm ${CONFIG_OUT}
 #rm ${META_CONFIG_OUT}
 
-export OMP_NUM_THREADS=28 #FIXME
+export OMP_NUM_THREADS=${NUM_THREADS} #FIXME
 
 WORKFILE=$TEMP/temp.c
 echo WORKFILE: $WORKFILE
@@ -71,7 +72,7 @@ echo ERROR: $ERROR
 
 CACHE_CONFIG='L1 32768 L2 1048576 L3 40370176'
 DATATYPESIZE=4
-NUM_PROCS=28
+NUM_PROCS=${NUM_THREADS}$
 output_file=${EXPERIMENTS_DIR}/${WORKFILE}_ws_stats.csv
 
 #../../../data_reuse_analyzer/polyscientist --input $EXPERIMENTS_DIR/$WORKFILE --parameters 'dummy : 50 ' --cachesizes "${CACHE_CONFIG}" --datatypesize $DATATYPESIZE --minout

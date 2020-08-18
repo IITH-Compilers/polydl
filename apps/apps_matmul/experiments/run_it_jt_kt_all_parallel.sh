@@ -1,15 +1,14 @@
 #!/bin/bash
-
 FILE=matmul3.c
-ITERS=5
+ITERS=100
 M=$1
 N=$2
 K=$3
-
-echo M: $M N: $N K: $K
-
+INPUT_NUM_THREADS=$4
+let NUM_THREADS="( ${INPUT_NUM_THREADS} ) "
+echo M: $M N: $N K: $K NUM_THREADS: ${NUM_THREADS}
 for (( M2_Tile=64; M2_Tile<=$M; M2_Tile=M2_Tile+64 ))
-do  
+do 
    if [ `expr $M % ${M2_Tile}` -eq 0 ]
    then
 
@@ -22,35 +21,63 @@ do
         	do
           	 if [ `expr $K % ${K2_Tile}` -eq 0 ]
          	 then
-			#echo $M $N $K ${M2_Tile} ${N2_Tile} ${K2_Tile} 64 64 64
-			let n="( $M / ${M2_Tile} ) % 28"
-			if [ $n -eq 0 ]
-			then
-				echo $M $N $K ${M2_Tile} ${N2_Tile} ${K2_Tile} 64 64 64 it2
-				sh ./run_matmul.sh $ITERS $M $N $K ${M2_Tile} ${N2_Tile} ${K2_Tile} 64 64 64 $FILE it2
-			fi
 
-                        let n="( $N / ${N2_Tile} ) % 28"
+				for (( M1_Tile=16; M1_Tile<=64; M1_Tile=M1_Tile*2 ))
+				do  
+				 if [ `expr ${M2_Tile} % ${M1_Tile}` -eq 0 ]
+				then
+
+				for (( N1_Tile=16; N1_Tile<=64; N1_Tile=N1_Tile*2 ))
+				do  
+				 if [ `expr ${N2_Tile} % ${N1_Tile}` -eq 0 ]
+				then
+
+				for (( K1_Tile=16; K1_Tile<=64; K1_Tile=K1_Tile*2 ))
+				do 
+				 if [ `expr ${K2_Tile} % ${K1_Tile}` -eq 0 ]
+				then
+
+                                 if(( $M1_Tile == $N1_Tile && $N1_Tile == $K1_Tile ))
+				 then
+			       # echo $M $N $K ${M2_Tile} ${N2_Tile} ${K2_Tile} ${M1_Tile} ${N1_Tile} ${K1_Tile}
+					let n="( $M / ${M2_Tile} ) % $NUM_THREADS "
+					if [ $n -eq 0 ]
+					then
+						echo $M $N $K ${M2_Tile} ${N2_Tile} ${K2_Tile} ${M1_Tile} ${N1_Tile} ${K1_Tile} it2
+						 sh ./run_matmul.sh $ITERS $M $N $K ${M2_Tile} ${N2_Tile} ${K2_Tile} ${M1_Tile} ${N1_Tile} ${K1_Tile} $FILE it2 ${NUM_THREADS}
+					fi
+
+                        let n="( $N / ${N2_Tile} ) % $NUM_THREADS "
                         if [ $n -eq 0 ]
                         then
-                                echo $M $N $K ${M2_Tile} ${N2_Tile} ${K2_Tile} 64 64 64 jt2
-                                sh ./run_matmul.sh $ITERS $M $N $K ${M2_Tile} ${N2_Tile} ${K2_Tile} 64 64 64 $FILE jt2
+                                echo $M $N $K ${M2_Tile} ${N2_Tile} ${K2_Tile} ${M1_Tile} ${N1_Tile} ${K1_Tile} jt2
+                                sh ./run_matmul.sh $ITERS $M $N $K ${M2_Tile} ${N2_Tile} ${K2_Tile} ${M1_Tile} ${N1_Tile} ${K1_Tile} $FILE jt2 ${NUM_THREADS}
                         fi
 
-                        let n="( ${M2_Tile} / 64 ) % 28"
+                        let n="( ${M2_Tile} / ${M1_Tile} ) % $NUM_THREADS "
                         if [ $n -eq 0 ]
                         then
-                                echo $M $N $K ${M2_Tile} ${N2_Tile} ${K2_Tile} 64 64 64 it1
-                                sh ./run_matmul.sh $ITERS $M $N $K ${M2_Tile} ${N2_Tile} ${K2_Tile} 64 64 64 $FILE it1
+                                echo $M $N $K ${M2_Tile} ${N2_Tile} ${K2_Tile} ${M1_Tile} ${N1_Tile} ${K1_Tile} it1
+                                sh ./run_matmul.sh $ITERS $M $N $K ${M2_Tile} ${N2_Tile} ${K2_Tile} ${M1_Tile} ${N1_Tile} ${K1_Tile} $FILE it1 ${NUM_THREADS}
                         fi
 
 
-                        let n="( ${N2_Tile} / 64 ) % 28"
+                        let n="( ${N2_Tile} / ${M1_Tile} ) % $NUM_THREADS "
                         if [ $n -eq 0 ]
                         then
-                                echo $M $N $K ${M2_Tile} ${N2_Tile} ${K2_Tile} 64 64 64 jt1
-                                sh ./run_matmul.sh $ITERS $M $N $K ${M2_Tile} ${N2_Tile} ${K2_Tile} 64 64 64 $FILE jt1
+                                echo $M $N $K ${M2_Tile} ${N2_Tile} ${K2_Tile} ${M1_Tile} ${N1_Tile} ${K1_Tile} jt1
+                                sh ./run_matmul.sh $ITERS $M $N $K ${M2_Tile} ${N2_Tile} ${K2_Tile} ${M1_Tile} ${N1_Tile} ${K1_Tile} $FILE jt1 ${NUM_THREADS}
                         fi
+
+				fi
+					fi
+					done
+
+					fi
+					done
+
+					fi
+					done
 
           	 fi
         	done
