@@ -7,6 +7,7 @@
 #include <immintrin.h>
 #include <libxsmm.h>
 
+
 #ifndef M1
 #define M1 32
 #endif // !M1
@@ -195,6 +196,7 @@ int main() {
 	int i, j, k, t;
 
 	correctness_t norms_fwd;
+	double l_total;
 
 	// C[M][N] = A[M][K] * B[K][N];
 	float(*A)[K1] = (float*)libxsmm_aligned_malloc(M1*K1 * sizeof(float), 2097152);
@@ -227,6 +229,8 @@ int main() {
 		NULL, NULL, NULL, NULL, NULL, NULL, NULL);
 
 	init_array(A, B, C, C_ref);
+
+#ifndef BASELINE
 	matmul_ref(A, B, C);
 	matmul_high_performance(A, B, C_ref, 1);
 
@@ -254,8 +258,20 @@ int main() {
 	printf("C: %f, %f, %f\n", C[0][0], C[M1 / 2][N1 / 2], C[M1 - 1][N1 - 1]);
 
 	init_array(A, B, C, C_ref);
-	double l_total = matmul_high_performance(A, B, C, NUM_ITERS);
+	l_total = matmul_high_performance(A, B, C, NUM_ITERS);
 	printf("Total time in seconds: %f\n", l_total);
+#endif
+
+#ifdef BASELINE
+	unsigned long long l_start, l_end;
+	l_start = libxsmm_timer_tick();
+	for (int iter = 0; iter < NUM_ITERS; iter++) {
+		matmul_ref(A, B, C);
+	}
+
+	l_end = libxsmm_timer_tick();
+	l_total = libxsmm_timer_duration(l_start, l_end);
+#endif
 
 	double flops = NUM_ITERS * 2.0 * M1 * N1 * K1;
 	printf("Real_GFLOPS =%0.2lf",

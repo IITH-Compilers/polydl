@@ -55,22 +55,7 @@ do
                                 sh ./run_matmul.sh $ITERS $M $N $K ${M2_Tile} ${N2_Tile} ${K2_Tile} ${M1_Tile} ${N1_Tile} ${K1_Tile} $FILE jt2 ${NUM_THREADS}
                         fi
 
-                        let n="( ${M2_Tile} / ${M1_Tile} ) % $NUM_THREADS "
-                        if [ $n -eq 0 ]
-                        then
-                                echo $M $N $K ${M2_Tile} ${N2_Tile} ${K2_Tile} ${M1_Tile} ${N1_Tile} ${K1_Tile} it1
-                                sh ./run_matmul.sh $ITERS $M $N $K ${M2_Tile} ${N2_Tile} ${K2_Tile} ${M1_Tile} ${N1_Tile} ${K1_Tile} $FILE it1 ${NUM_THREADS}
-                        fi
-
-
-                        let n="( ${N2_Tile} / ${M1_Tile} ) % $NUM_THREADS "
-                        if [ $n -eq 0 ]
-                        then
-                                echo $M $N $K ${M2_Tile} ${N2_Tile} ${K2_Tile} ${M1_Tile} ${N1_Tile} ${K1_Tile} jt1
-                                sh ./run_matmul.sh $ITERS $M $N $K ${M2_Tile} ${N2_Tile} ${K2_Tile} ${M1_Tile} ${N1_Tile} ${K1_Tile} $FILE jt1 ${NUM_THREADS}
-                        fi
-
-				fi
+			fi
 					fi
 					done
 

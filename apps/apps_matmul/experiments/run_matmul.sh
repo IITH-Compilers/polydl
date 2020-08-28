@@ -1,5 +1,5 @@
 
-set +x
+set -x
 export KMP_AFFINITY=granularity=fine,compact,1,28
 export LD_LIBRARY_PATH=/nfs_home/stavarag/work/software/barvinok/barvinok-0.41.2_install/lib:/nfs_home/stavarag/work/software/barvinok/isl_install/lib:$LD_LIBRARY_PATH
 
