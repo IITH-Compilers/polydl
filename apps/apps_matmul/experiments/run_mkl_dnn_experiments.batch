@@ -12,9 +12,9 @@
 #sh /nfs_home/stavarag/work/polyscientist/mkl_build/run_matmul.sh 1024 16 500000 32
 #sh /nfs_home/stavarag/work/polyscientist/mkl_build/run_matmul.sh 256 256 2048 32
 
-#sh /nfs_home/stavarag/work/polyscientist/mkl_build/run_matmul.sh 320 3072 4096 32
+sh /nfs_home/stavarag/work/polyscientist/mkl_build/run_matmul.sh 320 3072 4096 32
 
-sh /nfs_home/stavarag/work/polyscientist/mkl_build/run_matmul.sh 4096 4096 4096 32
-sh /nfs_home/stavarag/work/polyscientist/mkl_build/run_matmul.sh 1024 32768 1024 32
-sh /nfs_home/stavarag/work/polyscientist/mkl_build/run_matmul.sh 32768 1024 1024 32
-sh /nfs_home/stavarag/work/polyscientist/mkl_build/run_matmul.sh 1024 1024 32768 32
+#sh /nfs_home/stavarag/work/polyscientist/mkl_build/run_matmul.sh 4096 4096 4096 32
+#sh /nfs_home/stavarag/work/polyscientist/mkl_build/run_matmul.sh 1024 32768 1024 32
+#sh /nfs_home/stavarag/work/polyscientist/mkl_build/run_matmul.sh 32768 1024 1024 32
+#sh /nfs_home/stavarag/work/polyscientist/mkl_build/run_matmul.sh 1024 1024 32768 32
