@@ -1,7 +1,7 @@
 set -x
 export KMP_AFFINITY=granularity=fine,compact,1,0
 OUT=AutoTVM_GEMM_perf.csv
-rm ${OUT}
+#rm ${OUT}
 
 while IFS=, read -r bf1 bf2 factor M N K; do
 
