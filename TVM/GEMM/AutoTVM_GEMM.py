@@ -12,7 +12,7 @@ dtype = "float32"
 # using Intel AVX2(Advanced Vector Extensions) ISA for SIMD
 # To get the best performance, please change the following line
 # to llvm -mcpu=cascadelake, or specific type of CPU you use
-target = 'llvm'
+target = 'llvm  -mcpu=cascadelake'
 ctx = tvm.context(target, 0)
 
 num_threads = 32
