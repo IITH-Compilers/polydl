@@ -1,4 +1,5 @@
 set -x
+source /nfs_home/stavarag/work/software/Python-3.7.1_install/venv/bin/activate
 export KMP_AFFINITY=granularity=fine,compact,1,0
 OUT=AutoTVM_GEMM_perf.csv
 #rm ${OUT}
