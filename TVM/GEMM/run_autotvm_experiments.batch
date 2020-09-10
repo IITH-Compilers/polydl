@@ -8,5 +8,5 @@
 #SBATCH --partition=clx
 cd $PWD  #FIXME -- path
 
-sh run_AutoTVM_GEMM.sh
+sh run_AutoTVM_GEMM.sh 320 3072 4096 
 
