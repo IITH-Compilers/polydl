@@ -629,7 +629,7 @@ void ReadProgramVariants(string line, vector<ProgramVariant*> *programVariants, 
 		cout << "config: " << config << endl;
 	}
 
-	string version, gflops; 
+	string version, gflops;
 	string PessiL1DataSetSize, PessiL2DataSetSize, PessiL3DataSetSize, PessiMemDataSetSize;
 	while (getline(iss, version, ',') &&
 		getline(iss, gflops, ',') &&
@@ -1029,16 +1029,16 @@ int FindWinnerOnNormalizedData(ProgramVariant *a, ProgramVariant* b,
 	double combinedSize = a->PessiTotalDataSetSize + b->PessiTotalDataSetSize;
 
 	double aUserDefinedCost =
-		((a->PessiL1DataSetSize) * L1Cost +
-		(a->PessiL2DataSetSize) * L2Cost +
-			(a->PessiL3DataSetSize) * L3Cost +
-			(a->PessiMemDataSetSize) * MemCost) / combinedSize;
+		(a->PessiL1DataSetSize / combinedSize) * L1Cost +
+		(a->PessiL2DataSetSize / combinedSize) * L2Cost +
+		(a->PessiL3DataSetSize / combinedSize) * L3Cost +
+		(a->PessiMemDataSetSize / combinedSize) * MemCost;
 
 	double bUserDefinedCost =
-		((b->PessiL1DataSetSize) * L1Cost +
-		(b->PessiL2DataSetSize) * L2Cost +
-			(b->PessiL3DataSetSize) * L3Cost +
-			(b->PessiMemDataSetSize) * MemCost) / combinedSize;
+		(b->PessiL1DataSetSize / combinedSize) * L1Cost +
+		(b->PessiL2DataSetSize / combinedSize) * L2Cost +
+		(b->PessiL3DataSetSize / combinedSize) * L3Cost +
+		(b->PessiMemDataSetSize / combinedSize) * MemCost;
 
 	if (aUserDefinedCost < bUserDefinedCost) {
 		if (DEBUG) {
