@@ -274,7 +274,7 @@ int main() {
 #endif
 
 	double flops = NUM_ITERS * 2.0 * M1 * N1 * K1;
-	printf("Real_GFLOPS =%0.2lf",
+	printf("Real_GFLOPS =%0.2lf\n",
 		(flops*1e-9) / l_total);
 
 	libxsmm_free(A);
