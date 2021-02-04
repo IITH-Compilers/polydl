@@ -1,5 +1,6 @@
 OUT=mkl_perf.csv
 #rm ${OUT}
+#set -x
 BENCHDNN=/nfs_home/stavarag/work/polyscientist/mkl_build/mkl-dnn/build/tests/benchdnn/benchdnn
 
 #Default values.
@@ -41,7 +42,7 @@ export OMP_NUM_THREADS=$mb
 config="g1mb${mb}ic${nIfm}ih${ifh}iw${ifw}oc${nOfm}oh${56}ow${56}kh${kh}kw${kw}sh${stride}sw${stride}ph${pad_h}pw${pad_w}n"
 
 #echo -n $config, >> ${OUT}
-GFLOPS=`$BENCHDNN --conv --mode=p --dir=FWD_D --cfg=f32 $config"resnet_50:conv1" | grep "nresnet_50:conv1"| cut -d"," -f10`
+GFLOPS=`$BENCHDNN --conv --mode=p --dir=FWD_D --cfg=f32 $config"resnet_50:conv1" | grep "nresnet_50:conv1"| cut -d"," -f9`
 echo -n ${config_num},$GFLOPS >> ${mb}_${OUT}
 echo "" >> ${mb}_${OUT}
 
