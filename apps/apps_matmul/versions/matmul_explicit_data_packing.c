@@ -110,7 +110,7 @@ double matmul_high_performance(float A[M1][K1], float B[K1][N1], float C[M1][N1]
 	unsigned long long l_start, l_end;
 	double l_total = 0.0;
 	int i;
-	printf("In matmul3.c\n");
+	printf("In matmul_explicit_data_copying.c\n");
 	printf("M1_Tile = %d, N1_Tile = %d, K1_Tile = %d\n", M1_Tile, N1_Tile, K1_Tile);
 	printf("M2_Tile = %d, N2_Tile = %d, K2_Tile = %d\n", M2_Tile, N2_Tile, K2_Tile);
 
