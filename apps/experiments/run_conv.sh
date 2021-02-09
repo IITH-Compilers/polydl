@@ -1,4 +1,4 @@
-
+set -x
 compute_padding()
 {
 
@@ -92,8 +92,13 @@ echo orig_nOfm: $orig_nOfm  nOfm: $nOfm
 
 GEMM_BLOCK=$(compute_GEMM_BLOCK $nIfm $nOfm)
 echo GEMM_BLOCK: $GEMM_BLOCK
+let t_ofm_tile_max="$nOfm/$GEMM_BLOCK"
+let t_ifm_tile_max="$nIfm/$GEMM_BLOCK"
 
-	for images in 1 28
+echo t_ofm_tile_max: $t_ofm_tile_max
+echo t_ifm_tile_max: $t_ifm_tile_max
+
+	for images in 28 #1 28
 	do
 	        CONFIG_OUT=${PERF_DIR}/${config_num}_${images}_${OUT}
 		META_CONFIG_OUT=${PERF_DIR}/meta_${config_num}_${images}_${OUT}
@@ -120,7 +125,7 @@ echo GEMM_BLOCK: $GEMM_BLOCK
 				if [ `expr $nIfm % $GEMM_BLOCK` -eq 0 -a `expr $nOfm % $GEMM_BLOCK` -eq 0 ]
                                 then
 
-				for (( T_oi=${ofw}; T_oi<= ${ofw}; T_oi=T_oi*4 ))
+				for (( T_oi=${ofw}; T_oi >= 1; T_oi=T_oi/2 ))
 				do
 				if [ `expr $ofw % $T_oi` -eq 0 ] 
 				then
@@ -128,11 +133,11 @@ echo GEMM_BLOCK: $GEMM_BLOCK
 				do
 				if [ `expr $ofh % $T_oj` -eq 0 ] 
 				then
-				for (( T_ifm_tile=${nIfm}; T_ifm_tile<= ${nIfm}; T_ifm_tile=T_ifm_tile*2 ))
+				for (( T_ifm_tile=1; T_ifm_tile<= $t_ifm_tile_max; T_ifm_tile=T_ifm_tile*2 ))
                                 do
 				if [ `expr $nIfm % $T_ifm_tile` -eq 0 ]
 				then
-                                for (( T_ofm_tile=${nOfm}; T_ofm_tile<= ${nOfm}; T_ofm_tile=T_ofm_tile*2 ))
+                                for (( T_ofm_tile=1; T_ofm_tile<= $t_ofm_tile_max; T_ofm_tile=T_ofm_tile*2 ))
                                 do
                                 if [ `expr $nOfm % $T_ofm_tile` -eq 0 ]
                                 then
