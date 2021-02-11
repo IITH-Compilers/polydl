@@ -1,5 +1,7 @@
 OUTPUT=baseline_perf.csv
 
+export KMP_AFFINITY=granularity=fine,compact,1,28
+
 iters=100
 M1=$1
 N1=$2
