@@ -19,7 +19,7 @@ k=$3
 NUM_THREADS=$4
 config_num=${m}_${n}_${k}_${NUM_THREADS}
 
-#export KMP_AFFINITY=granularity=fine,compact,1,28
+export KMP_AFFINITY=granularity=fine,compact,1,28
 export OMP_NUM_THREADS=${NUM_THREADS}
 
 config="m${m}n${n}k${k}"
