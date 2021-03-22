@@ -1409,13 +1409,7 @@ void SimplifyWorkingSetSizes(vector<WorkingSetSize*>* workingSetSizes,
 
 		FreeMinMaxTupleVector(minMaxTupleVector);
 
-		file << programChar->L1Fit << "," << programChar->L2Fit << ","
-			<< programChar->L3Fit << "," << programChar->MemFit << ","
-			<< programChar->L1DataSetSize << ","
-			<< programChar->L2DataSetSize << ","
-			<< programChar->L3DataSetSize << ","
-			<< programChar->MemDataSetSize << ","
-			<< programChar->PessiL1DataSetSize << ","
+			file << programChar->PessiL1DataSetSize << ","
 			<< programChar->PessiL2DataSetSize << ","
 			<< programChar->PessiL3DataSetSize << ","
 			<< programChar->PessiMemDataSetSize
