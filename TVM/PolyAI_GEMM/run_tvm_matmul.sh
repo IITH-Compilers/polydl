@@ -3,7 +3,7 @@ TVM_OUTPUT_DIR=tvm_output
 mkdir ${TVM_OUTPUT_DIR}
 OUT=TVM_perf.csv
 #rm ${OUT}
-SCRIPT=/home/gagandeep/Desktop/work/tvm/gagan/autotvmMatmul.py
+SCRIPT=$PWD/autotvmMatmul.py
 
 set -x
 
