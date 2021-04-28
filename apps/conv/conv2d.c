@@ -39,6 +39,7 @@ libxsmm_smmfunction fwd_gemm;
 
 #include "naive_conv_fp.c"
 #include "padded_conv_fp_libxsmm_core2.c"
+#include "padded_conv_fp_tiled_loop_order_0.c"
 
 typedef struct {
 	double max_rel_err;
@@ -95,7 +96,18 @@ double padded_conv_fp(
 	copy_GEMM_to_PADDED_GEMM(nImg, ifhp, ifwp, nIfm, pad_h, pad_w, input, pad_gemm_input);
 
 
-	if (version == 3) {
+	if (version == 0) {
+		// printf("padded_conv_fp_stride_1_core\n");
+		l_start = libxsmm_timer_tick();
+		for (i = 0; i < iters; i++) {
+			padded_conv_fp_tiled_loop_order_0_gemm(nImg, nIfm, nOfm, ifhp, ifwp, ofhp, ofwp, ifh, ifw,
+				ofh, ofw, pad_h, pad_w, pad_h_in, pad_w_in, pad_h_out,
+				pad_w_out, kh, kw, stride_h, stride_w, pad_gemm_input, output, filter, iters);
+		}
+
+		l_end = libxsmm_timer_tick();
+	}
+	else if (version == 3) {
 		// printf("padded_conv_fp_stride_1_libxsmm_core\n");
 		l_start = libxsmm_timer_tick();
 		for (i = 0; i < iters; i++) {
@@ -282,7 +294,7 @@ void set_zeropad_nchw(int N, int C, int H, int W, int pad_h, int pad_w, float in
 int main(int argc, char **argv) {
 	int ifhp, ifwp, ofhp, ofwp, ofh, ofw;
 	int stride_h, stride_w, pad_h, pad_w, pad_h_in, pad_w_in, pad_h_out, pad_w_out;
-	int version = 3;
+	int version = 0;
 	int check_correctness = 1;
 
 	correctness_t norms_fwd;
