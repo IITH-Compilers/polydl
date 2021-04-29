@@ -93,12 +93,12 @@ echo t_ofm_tile_max: $t_ofm_tile_max
 echo t_ifm_tile_max: $t_ifm_tile_max
 
 
-Step_M=16
+Step_M=4
 Step_N=32
-Step_K=16
+Step_K=4
 
 
-for images in 1 #1 28
+for images in 28 #1 28
 	do
 
 		export OMP_NUM_THREADS=${images}
