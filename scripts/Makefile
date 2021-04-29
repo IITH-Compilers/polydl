@@ -4,8 +4,8 @@ LDFLAGS=
 
 default: polyrank
 
-polyrank: PolyRank_pessi.cpp 
-	$(CC) $(CFLAGS) PolyRank_pessi.cpp $(LDFLAGS) -o polyrank
+polyrank: PolyRank.cpp 
+	$(CC) $(CFLAGS) PolyRank.cpp $(LDFLAGS) -o polyrank
 
 clean: 
 	rm -rf polyrank
