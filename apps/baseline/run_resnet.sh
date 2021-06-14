@@ -1,5 +1,8 @@
+ 
+icc -O3 -fopenmp conv2d.c -o conv2d
+#icc -O3 -xCORE-AVX512 -fopenmp conv2d.c -o conv2d
+#icc -O3 -xCORE-AVX512 -qopt-matmul -fopenmp conv2d.c -o conv2d
 
-icc -O3 conv2d.c -o conv2d
 FILE=run_conv.sh
 ITERS=10
 #Resnet-50
