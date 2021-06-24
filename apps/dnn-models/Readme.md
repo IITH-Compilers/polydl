@@ -1,3 +1,17 @@
+### Pre-requisite
+     
+1. Keras 2.2.4/tensorflow 1.14.0
+     
+     * ``Version used in local machine.``
+
+2. mkdir matmul 
+     
+     * `` Create a Directory named "matmul" and store the sample.csv file in it.``
+
+3. mkdir results_matmul 
+     
+     * `` Create a empty Directory named "results_matmul" and python script will generate the "results_sample.csv" and stored in this directory".``
+
 ### File Description
 
 1. PolyDL_DNN_v1.ipynb
